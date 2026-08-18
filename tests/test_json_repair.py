@@ -1,5 +1,5 @@
 """json_repair 三层修复的测试。"""
-from agentkernel.tools import json_repair
+from agentkernel.tools import contracts, json_repair
 
 
 def test_parse_clean_json():
@@ -27,3 +27,39 @@ def test_single_quotes():
 def test_degrade_to_none():
     text = "我无法回答这个问题"
     assert json_repair.parse_json(text) is None
+
+
+def test_allowlist_filters_unregistered_action():
+    text = '{"action": "dangerous", "action_input": {}}'
+    assert json_repair.parse_json(text, allowed_actions={"calculator"}) is None
+    assert json_repair.parse_json(text) is not None  # 不加清单时不拦截
+
+
+def test_allowlist_allows_final_answer():
+    text = '{"action": "final_answer", "action_input": "你好"}'
+    assert json_repair.parse_json(text, allowed_actions={"calculator"}) is not None
+
+
+def test_payload_byte_limit():
+    text = '{"action": "calculator", "action_input": {"expression": "1+2"}}'
+    assert json_repair.parse_json(text, max_payload_bytes=1000) is not None
+    assert json_repair.parse_json(text, max_payload_bytes=5) is None
+
+
+def test_repair_action_classifies_tool_call():
+    action = json_repair.repair_action(
+        '{"action": "calculator", "action_input": {"expression": "1+2"}}',
+        allowed_actions={"calculator"},
+    )
+    assert isinstance(action, contracts.ToolCall)
+    assert action.action == "calculator"
+
+
+def test_repair_action_rejects_non_dict_input():
+    assert (
+        json_repair.repair_action(
+            '{"action": "calculator", "action_input": "1+2"}',
+            allowed_actions={"calculator"},
+        )
+        is None
+    )

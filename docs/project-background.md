@@ -8,6 +8,17 @@
 
 因此，个人项目反过来做：**不用任何框架，从零写一个 Agent 内核**，把「会用」补成「会造」，形成「会用 → 会造」的完整简历主线。
 
+### 1.1 互补关系一览
+
+| 维度 | AI Agent Workbench（实习，会用） | AgentKernel（个人项目，会造） |
+|------|-------------------------------|------------------------------|
+| 核心问题 | 用 Claude Agent SDK 快速交付团队工作台 | 讲清 Agent 主循环 / 工具调用 / 上下文管理底层 |
+| 主循环 | SDK 内置 | 手写 ReAct 循环 |
+| 工具接入 | SDK tool_use + MCP server | 手写注册表 + JSON Schema 校验 + 自实现 MCP client |
+| 失败处理 | 依赖框架 | 坏 JSON 三层修复 + 允许清单 + 工具错误回灌 |
+| 上下文 | 框架管理 | truncate + compact 自己实现 |
+| 演示形态 | Web 平台（配置化 + 审批 + 审计） | CLI 内核（可解释、可走读） |
+
 ## 2. 项目一句话介绍
 
 AgentKernel 是一个用 Python 从零实现的 Agent 内核，不依赖 LangChain / Claude SDK，自带知识库 MCP 工具（server 端用官方 SDK、client 端自实现），通过 CLI 演示多轮对话、工具调用和带来源的知识库问答。

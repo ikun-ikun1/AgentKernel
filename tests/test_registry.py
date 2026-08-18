@@ -1,6 +1,7 @@
 """工具注册与内置工具的测试。"""
 from agentkernel.tools import builtin
-from agentkernel.tools.registry import Registry
+from agentkernel.tools.registry import Registry, Tool, validate_parameters
+from agentkernel.utils.errors import ToolParamError
 
 
 def _make_registry():
@@ -47,3 +48,40 @@ def test_current_time_format():
     r = _make_registry()
     out = r.run("get_current_time", {})
     assert re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", out)
+
+
+def test_validate_type_string():
+    validate_parameters({"type": "string"}, "ok")
+    try:
+        validate_parameters({"type": "string"}, 1)
+        raise AssertionError("应当抛参数错误")
+    except ToolParamError as e:
+        assert "字符串" in str(e)
+
+
+def test_validate_required_and_extra_fields():
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}},
+        "required": ["a"],
+        "additionalProperties": False,
+    }
+    validate_parameters(schema, {"a": 1})
+    try:
+        validate_parameters(schema, {"a": "x"})
+        raise AssertionError("应当抛参数错误")
+    except ToolParamError:
+        pass
+    try:
+        validate_parameters(schema, {"b": 1})
+        raise AssertionError("应当抛参数错误")
+    except ToolParamError:
+        pass
+
+
+def test_describe_includes_parameters():
+    r = _make_registry()
+    desc = r.describe()
+    assert "calculator" in desc
+    assert "expression" in desc
+    assert "必填" in desc

@@ -43,21 +43,22 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 
 | 模块 | 职责 |
 |------|------|
-| `runtime/agent.py` | ReAct 主循环 + 上下文管理（编排核心） |
+| `runtime/agent.py` | ReAct 主循环 + 上下文管理（truncate/compact，编排核心） |
 | `runtime/llm.py` | DeepSeek 调用封装，统一 `chat(messages) -> str` |
-| `tools/contracts.py` | 工具调用协议契约（JSON 结构定义） |
-| `tools/registry.py` | 工具注册、JSON Schema 参数校验、错误处理 |
-| `tools/json_repair.py` | 非法 JSON 三层修复 |
+| `tools/contracts.py` | 工具调用协议契约（结构定义 + 工具名允许清单） |
+| `tools/registry.py` | 工具注册、纯 Python JSON Schema 校验、错误处理 |
+| `tools/json_repair.py` | 非法 JSON 三层修复（提取 → 修复 → 降级 + payload 上限） |
 | `memory/sqlite_store.py` | 会话 + 消息持久化 |
-| `rag/ingest.py` | 文档解析 → 分块 → 向量化入库 |
-| `mcp/server.py` | 知识库 MCP server（官方 SDK，2 个 tool） |
-| `mcp/client.py` | 自实现 MCP client，注册进内核 |
+| `rag/ingest.py` | 文档解析 → 分块 → 向量化入库；ChromaDB 优先 + 纯 Python 降级索引 |
+| `mcp/server.py` | 知识库 MCP server（官方 SDK 可选，2 个 tool） |
+| `mcp/client.py` | 自实现 MCP client（Content-Length 帧 + JSON-RPC 2.0），注册进内核 |
 | `utils/env.py` / `utils/errors.py` | 环境变量 / 统一错误 |
 
 > **借鉴来源**：
 > - 分层（`runtime/` / `tools/` / `memory/` / `utils/` / `tests/`）：借鉴 AI Agent Workbench 的 `backend/` 结构
 > - 工具调用契约（`tools/contracts.py`）：借鉴 OpenClaw tool-call-repair 的 `contracts.ts`
 > - JSON 修复分层（提取 → 修复 → 降级）：借鉴 OpenClaw tool-call-repair 的 grammar/payload/promote/stream-normalizer 分层思想
+> - 工具名允许清单 + payload 字节上限：借鉴 OpenClaw `scanPlainTextToolCall` 的 `matcher` 与 `maxPayloadBytes`
 > - `src/` 布局 + `pyproject.toml` + ruff/mypy/pytest：标准 Python 工程配置
 
 ## 3. 工具调用协议边界
@@ -77,9 +78,11 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 边界规则：
 
 1. 工具必须通过 registry 注册，模型不能调用未注册的工具。
-2. 工具参数必须经 JSON Schema 校验，非法参数返回明确错误。
-3. 模型输出非法 JSON 走三层修复：正则提取 → JSON 修复 → 降级纯文本。
-4. ReAct 循环设 MAX_STEPS 上限，防止死循环。
+2. 模型输出先按协议契约分类；工具调用必须命中**名字允许清单**，未注册工具一律降级为纯文本。
+3. 工具参数必须经 JSON Schema 校验（required / type / properties / enum / items / additionalProperties），非法参数返回明确错误。
+4. 模型输出非法 JSON 走三层修复：正则提取 → JSON 修复 → 降级纯文本；单候选 payload 超过 256KB 直接放弃修复。
+5. ReAct 循环设 MAX_STEPS 上限，防止死循环。
+6. 历史超预算时 truncate 固定首条用户要求；超过 compact 阈值时优先摘要压缩，压缩失败降级截断。
 
 ## 4. 安全边界
 

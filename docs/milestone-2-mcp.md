@@ -1,5 +1,7 @@
 # 里程碑 2：知识库 MCP 打通
 
+> **当前进度**：✅ 已实现。RAG 文档解析/分块/检索（ChromaDB 可选 + 纯 Python 降级索引）、MCP server（官方 SDK 可选）、自实现 MCP client（Content-Length 帧 + JSON-RPC 2.0）已打通；`tests/test_rag.py`、`tests/test_mcp.py` 覆盖核心链路。
+
 ## 周期与验收要求
 
 - 周期：2026-09-09 ~ 2026-09-18（第 2 周）。

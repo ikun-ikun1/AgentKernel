@@ -15,6 +15,16 @@
 
 更完整的背景说明见：[project-background.md](./project-background.md)。
 
+## 当前进度
+
+- M1（ReAct 内核）✅ 已实现
+- M2（知识库 MCP）✅ 已实现
+- M3（交付物）🟡 进行中：`eval.py` 与 README 已就绪，架构图/录屏/简历待补
+
+## 与实习项目 AI Agent Workbench 互补
+
+实习项目用 Claude Agent SDK「会用」框架搭工作台；本项目不套框架「会造」内核。两者合起来构成完整简历主线，详见 [README 互补表](../README.md)。
+
 ## 里程碑时间轴
 
 - 项目开始时间：`2026-08-29`
