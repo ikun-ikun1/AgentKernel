@@ -14,13 +14,13 @@
 
 ## 设计思路
 
-本阶段先不做过早抽象。`agent.py` 只负责「思考 → 行动 → 观察 → 回复」循环，`llm.py` 屏蔽模型调用，`tools/registry.py` 管工具。
+本阶段先不做过早抽象。`runtime/agent.py` 只负责「思考 → 行动 → 观察 → 回复」循环，`runtime/llm.py` 屏蔽模型调用，`tools/registry.py` 管工具。
 
 一次对话的数据流：
 
 ```
-用户输入 → agent.py 组装上下文（system prompt + 工具描述 + 历史 + 输入）
-        → llm.py 调 DeepSeek，返回 {"action": "...", "action_input": {...}}
+用户输入 → runtime/agent.py 组装上下文（system prompt + 工具描述 + 历史 + 输入）
+        → runtime/llm.py 调 DeepSeek，返回 {"action": "...", "action_input": {...}}
         → 解析：工具调用 or final_answer？
            ├─ 工具调用 → registry 执行 → 观察结果写回历史 → 回到循环
            └─ final_answer → 输出给用户 → 结束
@@ -34,35 +34,38 @@
 
 ## 模块与目的
 
-1. `llm.py`  
+1. `runtime/llm.py`  
 目的：封装 DeepSeek 调用（OpenAI 兼容），统一 `chat(messages) -> str`，换模型只改 base_url。
 
-2. `agent.py`  
+2. `runtime/agent.py`  
 目的：ReAct 主循环，编排思考/行动/观察/回复，带上下文管理。
 
-3. `tools/registry.py`  
+3. `tools/contracts.py`  
+目的：定义工具调用协议契约（合法 JSON 结构），registry 校验、json_repair 修复都依赖它。
+
+4. `tools/registry.py`  
 目的：工具注册表，管「名称/描述/参数 schema」，校验参数、执行、捕获异常。
 
-4. `tools/json_repair.py`  
+5. `tools/json_repair.py`  
 目的：非法 JSON 三层修复（正则提取 → JSON 修复 → 降级纯文本）。
 
-5. `memory/sqlite_store.py`  
+6. `memory/sqlite_store.py`  
 目的：会话 + 消息持久化，多轮对话上下文不丢。
 
 ## 交付物
 
 1. 可运行的 CLI Agent（多轮 + 工具 + 抗造）。
-2. `llm.py` / `agent.py` / `tools/registry.py` / `tools/json_repair.py` / `memory/sqlite_store.py`。
+2. `runtime/llm.py` / `runtime/agent.py` / `tools/contracts.py` / `tools/registry.py` / `tools/json_repair.py` / `memory/sqlite_store.py`。
 3. 2 个内置工具：`get_current_time`（当前时间）、`calculator`（计算器）。
 4. `.env.example` 和本地启动说明。
 
 ## 任务拆解
 
-### D1-2：项目骨架 + `llm.py` + 最小 ReAct 循环
+### D1-2：项目骨架 + `runtime/llm.py` + 最小 ReAct 循环
 
 - 建目录结构、`.gitignore`、`.env.example`。
-- `llm.py`：接 DeepSeek，跑通一次 `chat`。
-- `agent.py`：最小 ReAct（只有「思考 → 最终回答」，还没工具）。
+- `runtime/llm.py`：接 DeepSeek，跑通一次 `chat`。
+- `runtime/agent.py`：最小 ReAct（只有「思考 → 最终回答」，还没工具）。
 - CLI 入口：读一行输入，回一行输出。
 
 ### D3-4：工具注册 + 2 个内置工具 + CLI 交互

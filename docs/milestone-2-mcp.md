@@ -17,8 +17,8 @@
 分两半：先把 RAG 跑通（文档 → 向量 → 检索），再用 MCP 包一层暴露给内核。
 
 ```
-Agent → mcp_client.py（自实现 tools/list + tools/call）
-     → mcp_server/kb_server.py（官方 SDK，注册 knowledge_query / knowledge_list）
+Agent → mcp/client.py（自实现 tools/list + tools/call）
+     → mcp/server.py（官方 SDK，注册 knowledge_query / knowledge_list）
      → rag/ingest.py（文档 → 分块 → bge 向量化 → ChromaDB）
      → 检索返回带来源片段
 ```
@@ -34,10 +34,10 @@ Agent → mcp_client.py（自实现 tools/list + tools/call）
 1. `rag/ingest.py`  
 目的：解析 PDF（PyMuPDF）/ MD（markdown-it-py）/ TXT → 分块（带重叠）→ bge-small-zh 向量化 → 存入 ChromaDB。
 
-2. `mcp_server/kb_server.py`  
+2. `mcp/server.py`  
 目的：用官方 `mcp` SDK 暴露 2 个工具——`knowledge_query(query, top_k)` 检索带来源、`knowledge_list()` 列出已入库文档。
 
-3. `mcp_client.py`  
+3. `mcp/client.py`  
 目的：自实现 MCP client（`initialize` → `tools/list` → `tools/call`），把 MCP 工具注册进内核。
 
 ## 交付物
@@ -54,14 +54,14 @@ Agent → mcp_client.py（自实现 tools/list + tools/call）
 - `rag/ingest.py`：解析、分块（带重叠）、向量化、入库。
 - 检索：query 向量化 → top_k 召回。
 
-### D3-4：mcp_server 注册两个 tool
+### D3-4：mcp/server 注册两个 tool
 
-- `mcp_server/kb_server.py`：注册 `knowledge_query` + `knowledge_list`。
+- `mcp/server.py`：注册 `knowledge_query` + `knowledge_list`。
 - 参考实习 M3 的 MCP server 代码。
 
 ### D5：自实现 mcp client + 打通链路
 
-- `mcp_client.py`：`tools/list` + `tools/call`。
+- `mcp/client.py`：`tools/list` + `tools/call`。
 - 把 MCP 工具注册进内核 registry。
 - 打通 Agent → MCP → 知识库。
 

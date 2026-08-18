@@ -19,7 +19,7 @@
 
 ## 2. 系统模块边界
 
-MVP 阶段实现以下 8 个核心模块：
+MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计）：
 
 ```
 ┌──────────────┐
@@ -27,30 +27,38 @@ MVP 阶段实现以下 8 个核心模块：
 └──────┬───────┘
        │ 输入 / 输出
 ┌──────▼─────────────────────────────────────┐
-│                  agent.py                   │  ← ReAct 主循环
+│            runtime/agent.py                 │  ← ReAct 主循环
 │    思考 → 行动 → 观察 → 回复                 │
 │    上下文管理：truncate 截断 + compact 压缩   │
 └──┬────────────┬────────────┬────────────────┘
    │            │            │
-┌──▼────┐  ┌────▼─────┐  ┌───▼────────────┐
-│ llm.py │  │ tools/    │  │ memory/        │
-│DeepSeek│  │ registry  │  │ sqlite_store   │
-└───────┘  └────┬─────┘  └────────────────┘
-                │ 注册工具
-                ├── 内置工具（当前时间 / 计算器）
-                └── mcp_client.py ──▶ mcp_server/kb_server.py ──▶ rag/ingest.py ──▶ ChromaDB
+┌──▼────────┐ ┌──▼────────┐ ┌───▼────────────┐
+│runtime/   │ │ tools/     │ │ memory/        │
+│llm.py     │ │ registry   │ │ sqlite_store   │
+│DeepSeek   │ └────┬──────┘ └────────────────┘
+└───────────┘     │ 注册工具
+                  ├── 内置工具（当前时间 / 计算器）
+                  └── mcp/client.py ──▶ mcp/server.py ──▶ rag/ingest.py ──▶ ChromaDB
 ```
 
 | 模块 | 职责 |
 |------|------|
-| `agent.py` | ReAct 主循环 + 上下文管理（编排核心） |
-| `llm.py` | DeepSeek 调用封装，统一 `chat(messages) -> str` |
+| `runtime/agent.py` | ReAct 主循环 + 上下文管理（编排核心） |
+| `runtime/llm.py` | DeepSeek 调用封装，统一 `chat(messages) -> str` |
+| `tools/contracts.py` | 工具调用协议契约（JSON 结构定义） |
 | `tools/registry.py` | 工具注册、JSON Schema 参数校验、错误处理 |
 | `tools/json_repair.py` | 非法 JSON 三层修复 |
 | `memory/sqlite_store.py` | 会话 + 消息持久化 |
 | `rag/ingest.py` | 文档解析 → 分块 → 向量化入库 |
-| `mcp_server/kb_server.py` | 知识库 MCP server（2 个 tool） |
-| `mcp_client.py` | 自实现 MCP client，注册进内核 |
+| `mcp/server.py` | 知识库 MCP server（官方 SDK，2 个 tool） |
+| `mcp/client.py` | 自实现 MCP client，注册进内核 |
+| `utils/env.py` / `utils/errors.py` | 环境变量 / 统一错误 |
+
+> **借鉴来源**：
+> - 分层（`runtime/` / `tools/` / `memory/` / `utils/` / `tests/`）：借鉴 AI Agent Workbench 的 `backend/` 结构
+> - 工具调用契约（`tools/contracts.py`）：借鉴 OpenClaw tool-call-repair 的 `contracts.ts`
+> - JSON 修复分层（提取 → 修复 → 降级）：借鉴 OpenClaw tool-call-repair 的 grammar/payload/promote/stream-normalizer 分层思想
+> - `src/` 布局 + `pyproject.toml` + ruff/mypy/pytest：标准 Python 工程配置
 
 ## 3. 工具调用协议边界
 

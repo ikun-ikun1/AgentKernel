@@ -111,18 +111,16 @@ AgentKernel/
 │   ├── milestone-1-kernel.md           # 里程碑 1：ReAct 内核可跑
 │   ├── milestone-2-mcp.md              # 里程碑 2：知识库 MCP 打通
 │   └── milestone-3-deliverables.md     # 里程碑 3：交付物与缓冲
-├── agent.py                     # ReAct 主循环（待实现）
-├── llm.py                       # DeepSeek 封装（待实现）
-├── tools/
-│   ├── registry.py              # 工具注册（待实现）
-│   └── json_repair.py           # JSON 修复（待实现）
-├── memory/
-│   └── sqlite_store.py          # 记忆（待实现）
-├── rag/
-│   └── ingest.py                # 文档入库（待实现）
-├── mcp_server/
-│   └── kb_server.py             # MCP server（待实现）
-└── mcp_client.py                # MCP client（待实现）
+├── pyproject.toml                 # 工程配置（依赖 + ruff + mypy + pytest）
+├── src/agentkernel/               # 源码（src 布局）
+│   ├── __main__.py                # CLI 入口
+│   ├── runtime/                   # ReAct 循环 + 模型调用（借鉴 workbench runtime/）
+│   ├── tools/                     # registry + contracts + json_repair（借鉴 OpenClaw）
+│   ├── memory/                    # SQLite 记忆
+│   ├── rag/                       # 文档入库
+│   ├── mcp/                       # server（官方 SDK）+ client（自实现）
+│   └── utils/                     # env + errors（借鉴 workbench utils/）
+└── tests/                         # 测试（借鉴 workbench tests/）
 ```
 
 ---
