@@ -78,7 +78,7 @@
 | `mcp_server/kb_server.py` | 知识库 MCP server（2 个 tool） |
 | `mcp_client.py` | 自实现 MCP client，注册进内核 |
 
-详细见 [docs/architecture.md](docs/architecture.md)。
+详细见 [docs/technical-scope-and-boundary.md](docs/technical-scope-and-boundary.md)。
 
 ---
 
@@ -105,11 +105,12 @@ python -m agentkernel
 AgentKernel/
 ├── README.md
 ├── docs/
-│   ├── architecture.md          # 架构 + 模块 + 数据流
-│   ├── design.md                # 设计决策
-│   ├── phase-1-kernel.md        # 阶段 1：内核可跑
-│   ├── phase-2-mcp.md           # 阶段 2：知识库 MCP 打通
-│   └── phase-3-deliverables.md  # 阶段 3：交付物 + 缓冲
+│   ├── README.md                       # 里程碑文档索引
+│   ├── project-background.md           # 项目背景说明
+│   ├── technical-scope-and-boundary.md # 技术选型与边界
+│   ├── milestone-1-kernel.md           # 里程碑 1：ReAct 内核可跑
+│   ├── milestone-2-mcp.md              # 里程碑 2：知识库 MCP 打通
+│   └── milestone-3-deliverables.md     # 里程碑 3：交付物与缓冲
 ├── agent.py                     # ReAct 主循环（待实现）
 ├── llm.py                       # DeepSeek 封装（待实现）
 ├── tools/
@@ -130,9 +131,9 @@ AgentKernel/
 
 | 阶段 | 时间 | 验收 |
 |------|------|------|
-| [阶段 1：内核可跑](docs/phase-1-kernel.md) | 第 1 周 | CLI 多轮对话 + 2 个内置工具 + 坏 JSON 不崩 |
-| [阶段 2：知识库 MCP 打通](docs/phase-2-mcp.md) | 第 2 周 | 问「XX 是什么」→ 检索回答带来源 |
-| [阶段 3：交付物 + 缓冲](docs/phase-3-deliverables.md) | 第 3-4 周 | README + 架构图 + 录屏 + 简历可用 |
+| [里程碑 1：ReAct 内核可跑](docs/milestone-1-kernel.md) | 8/29-9/08 | CLI 多轮 + 2 内置工具 + 坏 JSON 不崩 |
+| [里程碑 2：知识库 MCP 打通](docs/milestone-2-mcp.md) | 9/09-9/18 | 问「XX 是什么」→ 检索回答带来源 |
+| [里程碑 3：交付物与缓冲](docs/milestone-3-deliverables.md) | 9/19-9/25 | README + 架构图 + 录屏 + 简历可用 |
 
 优先级分层：🔴 底线 > 🟡 重要 > 🟢 可砍。
 
