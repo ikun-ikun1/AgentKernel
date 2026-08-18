@@ -9,16 +9,20 @@ description = "从零实现的 Agent 内核 + 知识库 MCP 工具（不依赖�
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "openai>=1.0",              # DeepSeek（OpenAI 兼容）
-  "chromadb>=0.4",            # 向量库
-  "sentence-transformers>=2.2",  # bge-small-zh
-  "pymupdf>=1.23",            # PDF 解析
-  "markdown-it-py>=3.0",      # Markdown 解析
-  "mcp>=1.0",                 # MCP server（官方 SDK）
-  "python-dotenv>=1.0",       # .env
+  "openai>=1.0",              # DeepSeek（OpenAI 兼容）—— M1 核心
+  "python-dotenv>=1.0",       # .env —— M1 核心
 ]
 
 [project.optional-dependencies]
+rag = [
+  "chromadb>=0.4",            # 向量库 —— M2
+  "sentence-transformers>=2.2",  # bge-small-zh —— M2
+  "pymupdf>=1.23",            # PDF 解析 —— M2
+  "markdown-it-py>=3.0",      # Markdown 解析 —— M2
+]
+mcp = [
+  "mcp>=1.0",                 # MCP server（官方 SDK）—— M2
+]
 dev = [
   "pytest>=8.0",
   "ruff>=0.4",
