@@ -70,6 +70,12 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 {"action": "工具名", "action_input": {"参数": "值"}}
 ```
 
+多工具调用：
+
+```json
+{"actions": [{"action": "工具名1", "action_input": {...}}, {"action": "工具名2", "action_input": {...}}]}
+```
+
 最终回答：
 
 ```json
@@ -79,10 +85,10 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 边界规则：
 
 1. 工具必须通过 registry 注册，模型不能调用未注册的工具。
-2. 模型输出先按协议契约分类；工具调用必须命中**名字允许清单**，未注册工具一律降级为纯文本。
+2. 模型输出先按协议契约分类；工具调用必须命中**名字允许清单**（单工具与多工具数组都查），未注册工具一律降级为纯文本。
 3. 工具参数必须经 JSON Schema 校验（required / type / properties / enum / items / additionalProperties），非法参数返回明确错误。
 4. 模型输出非法 JSON 走三层修复：正则提取 → JSON 修复 → 降级纯文本；单候选 payload 超过 256KB 直接放弃修复。
-5. ReAct 循环设 MAX_STEPS 上限，防止死循环。
+5. ReAct 循环设 MAX_STEPS 上限，防止死循环；多工具调用当前按顺序执行（教学版便于解释观察回灌顺序）。
 6. 历史超预算时 truncate 固定首条用户要求；超过 compact 阈值时优先摘要压缩，压缩失败降级截断。
 
 ## 4. 安全边界

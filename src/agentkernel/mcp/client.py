@@ -42,6 +42,13 @@ class StdioMCPClient(MCPClient):
         self.command = command
         self._proc: subprocess.Popen[bytes] | None = None
         self._next_id = 1
+        self.server_info: dict[str, Any] = {}
+        self.protocol_version: str = ""
+
+    @property
+    def negotiated(self) -> bool:
+        """是否已完成 initialize 能力协商。"""
+        return bool(self.protocol_version)
 
     def start(self) -> "StdioMCPClient":
         if self._proc is not None:
@@ -97,11 +104,18 @@ class StdioMCPClient(MCPClient):
                 "clientInfo": {"name": "agentkernel-mcp-client", "version": "0.1.0"},
             },
         )
+        version = result.get("protocolVersion")
+        if not isinstance(version, str) or not version:
+            raise MCPClientError("initialize 响应缺少 protocolVersion")
+        self.protocol_version = version
+        server_info = result.get("serverInfo")
+        self.server_info = server_info if isinstance(server_info, dict) else {}
         self._send({"jsonrpc": "2.0", "method": "notifications/initialized"})
         return result
 
     def list_tools(self) -> list[dict[str, Any]]:
-        self.initialize()
+        if not self.negotiated:
+            self.initialize()
         result = self._request("tools/list")
         tools = result.get("tools")
         if not isinstance(tools, list):
@@ -109,20 +123,39 @@ class StdioMCPClient(MCPClient):
         return [t for t in tools if isinstance(t, dict)]
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
+        if not self.negotiated:
+            self.initialize()
         result = self._request(
             "tools/call", {"name": name, "arguments": arguments}
         )
+        return self._extract_tool_result(name, result)
+
+    @staticmethod
+    def _extract_tool_result(name: str, result: dict[str, Any]) -> str:
+        """从 tools/call 结果提取文本：优先 content，退化到 structuredContent。"""
         content = result.get("content")
-        if not isinstance(content, list):
-            raise MCPClientError("tools/call 返回格式错误")
-        text_parts = [
-            str(item["text"])
-            for item in content
-            if isinstance(item, dict) and item.get("type") == "text" and "text" in item
-        ]
-        if result.get("isError"):
-            raise MCPClientError("；".join(text_parts) or f"工具 {name} 调用失败")
-        return "\n".join(text_parts)
+        if isinstance(content, list):
+            text_parts = [
+                str(item["text"])
+                for item in content
+                if isinstance(item, dict) and item.get("type") == "text" and "text" in item
+            ]
+            if text_parts:
+                text = "\n".join(text_parts)
+                if result.get("isError"):
+                    raise MCPClientError(text or f"工具 {name} 调用失败")
+                return text
+            if result.get("isError"):
+                raise MCPClientError(f"工具 {name} 调用失败：{content}")
+
+        structured = result.get("structuredContent")
+        if structured is not None:
+            text = json.dumps(structured, ensure_ascii=False)
+            if result.get("isError"):
+                raise MCPClientError(text or f"工具 {name} 调用失败")
+            return text
+
+        raise MCPClientError("tools/call 返回缺少 content / structuredContent")
 
     def close(self) -> None:
         if self._proc is not None:
@@ -151,18 +184,22 @@ class InProcessMCPClient(MCPClient):
         return self.server.call_tool(name, arguments)
 
 
-def register_mcp_tools(registry: Registry, client: MCPClient) -> int:
+def register_mcp_tools(
+    registry: Registry, client: MCPClient, prefix: str = ""
+) -> int:
     """把 MCP client 暴露的工具注册进内核 registry，返回注册数量。
 
-    注册后内核把 MCP 工具当普通工具调用，对模型无感知（架构上的关键点）。
+    prefix 用于区分不同 MCP server（类似 Claude SDK 的 `mcp__server__tool` 命名），
+    避免多个 server 的工具重名互相覆盖。注册后内核把 MCP 工具当普通工具调用。
     """
     count = 0
     for tool_def in client.list_tools():
-        name = tool_def.get("name")
+        raw_name = tool_def.get("name")
         description = tool_def.get("description", "")
         schema = tool_def.get("inputSchema") or {"type": "object", "properties": {}}
-        if not isinstance(name, str) or not name:
+        if not isinstance(raw_name, str) or not raw_name:
             continue
+        name = f"{prefix}{raw_name}"
 
         def make_fn(tool_name: str):
             def fn(args: dict[str, Any]) -> str:
@@ -171,7 +208,12 @@ def register_mcp_tools(registry: Registry, client: MCPClient) -> int:
             return fn
 
         registry.register(
-            Tool(name=name, description=description, parameters=schema, fn=make_fn(name))
+            Tool(
+                name=name,
+                description=f"[外部 MCP 工具 {raw_name}] {description}" if prefix else description,
+                parameters=schema,
+                fn=make_fn(raw_name),
+            )
         )
         count += 1
     return count

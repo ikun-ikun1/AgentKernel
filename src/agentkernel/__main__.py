@@ -11,14 +11,17 @@
 - /quit         退出（同 quit / exit / q）
 
 知识库工具（knowledge_query / knowledge_list）默认注册；用 `--docs` 启动时直接入库。
+用 `--mcp` 可接入任意外部 stdio MCP server（类似 Claude Agent SDK 的 mcp_servers 配置）。
 """
 from __future__ import annotations
 
 import argparse
+import shlex
+import sys
 import uuid
 from pathlib import Path
 
-from agentkernel.mcp.client import InProcessMCPClient, register_mcp_tools
+from agentkernel.mcp.client import InProcessMCPClient, MCPClient, StdioMCPClient, register_mcp_tools
 from agentkernel.mcp.server import KnowledgeMCPServer
 from agentkernel.memory.sqlite_store import SQLiteStore, default_store
 from agentkernel.rag.ingest import KnowledgeBase
@@ -63,7 +66,8 @@ def _ingest_path(kb: KnowledgeBase, path: str) -> int:
 def _build_agent(
     docs: list[str] | None = None,
     kb_db: str | None = None,
-) -> tuple[Agent, Registry, KnowledgeBase]:
+    mcp_commands: list[str] | None = None,
+) -> tuple[Agent, Registry, KnowledgeBase, list[MCPClient]]:
     registry = Registry()
     builtin.register_builtin(registry)
 
@@ -74,7 +78,26 @@ def _build_agent(
             _ingest_path(kb, path)
     server = KnowledgeMCPServer(kb)
     register_mcp_tools(registry, InProcessMCPClient(server))
-    return Agent(registry), registry, kb
+
+    # 外部 stdio MCP server（类似 Claude SDK 的 mcp_servers 配置）
+    external_clients: list[MCPClient] = []
+    for idx, cmd in enumerate(mcp_commands or []):
+        try:
+            argv = shlex.split(cmd)
+            if not argv:
+                continue
+            # 用户习惯写 `python -m ...` 时，用当前解释器（.venv）保证子进程环境一致
+            if argv[0] in ("python", "python3"):
+                argv[0] = sys.executable
+            client = StdioMCPClient(argv)
+            prefix = f"mcp{idx}_"
+            n = register_mcp_tools(registry, client, prefix=prefix)
+            external_clients.append(client)
+            print(f"已接入外部 MCP server（{n} 个工具，前缀 {prefix}）：{cmd}")
+        except Exception as e:
+            print(f"接入外部 MCP server 失败（{cmd}）：{type(e).__name__}: {e}")
+
+    return Agent(registry), registry, kb, external_clients
 
 
 def _repl(store: SQLiteStore, kb: KnowledgeBase, agent: Agent) -> None:
@@ -191,14 +214,26 @@ def main() -> None:
         metavar="PATH",
         help="知识库持久化目录（启用 ChromaDB 后端；缺依赖时自动降级纯 Python 索引）",
     )
+    parser.add_argument(
+        "--mcp",
+        action="append",
+        default=None,
+        metavar="CMD",
+        help="接入外部 stdio MCP server（可多次使用），如 --mcp \"python -m agentkernel.mcp.server /tmp/docs\"",
+    )
     args = parser.parse_args()
 
     store = default_store() if args.db is None else SQLiteStore(args.db)
-    agent, _, kb = _build_agent(args.docs, args.kb_db)
+    agent, _, kb, clients = _build_agent(args.docs, args.kb_db, args.mcp)
     print(f"知识库后端：{kb.backend_name}")
     try:
         _repl(store, kb, agent)
     finally:
+        for client in clients:
+            try:
+                client.close()
+            except Exception:
+                pass
         store.close()
 
 

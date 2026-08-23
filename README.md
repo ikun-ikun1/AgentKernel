@@ -38,14 +38,15 @@
 
 | 特性 | 说明 |
 |------|------|
-| ReAct 主循环 | 思考 → 行动 → 观察 → 回复，`MAX_STEPS` 防死循环 |
+| ReAct 主循环 | 思考 → 行动 → 观察 → 回复，`MAX_STEPS` 防死循环；支持单工具与多工具（`actions`）调用 |
 | 上下文管理 | truncate 固定首条用户要求；compact 调模型摘要压缩（失败降级截断） |
 | 工具注册 | 纯 Python JSON Schema 校验（不引 jsonschema 依赖） |
 | 非法 JSON 修复 | 三层：提取 → 修复 → 降级；借鉴 OpenClaw 的 **工具名允许清单 + payload 上限** |
 | SQLite 记忆 | 会话 + 消息 + **工具调用审计** 持久化，重启不丢（标准库 `sqlite3`） |
 | 知识库 RAG | PDF/MD/TXT → 分块（带重叠）→ 检索；ChromaDB 优先，**纯 Python 降级索引**兜底 |
-| MCP 两端 | server 用官方 SDK（可选）+ 纯 Python stdio 入口；client 自实现 `Content-Length` 帧 + JSON-RPC 2.0 |
+| MCP 两端 | server 用官方 SDK（可选）+ 纯 Python stdio 入口；client 自实现 `Content-Length` 帧 + JSON-RPC 2.0，支持初始化协商与 `structuredContent` |
 | LLM 调用 | OpenAI client 复用 + 超时/重试，失败统一 `LLMError` |
+| 外部 MCP | CLI `--mcp` 可接任意 stdio MCP server（工具名自动加前缀，类似 Claude SDK `mcp_servers`） |
 | 安全边界 | 计算器 AST 白名单、知识库只读、API Key 走 `.env` |
 
 ---
@@ -126,6 +127,9 @@ python eval.py
 
 # 5. 单独启动 MCP stdio server（供自实现 client 或第三方 Host 调用）
 python -m agentkernel.mcp.server <文档路径>
+
+# 6. 接入任意外部 stdio MCP server（可多次 --mcp，工具名自动加 mcp0_/mcp1_ 前缀）
+python -m agentkernel --mcp "python -m agentkernel.mcp.server <文档路径>"
 ```
 
 CLI 内置命令：`/new [标题]` 新建会话、`/sessions` 列出会话、`/history` 查看历史、`/ingest <路径>` 入库文档、`/docs` 列出文档、`/logs` 查看工具调用审计、`/help` 帮助、`/quit` 退出。

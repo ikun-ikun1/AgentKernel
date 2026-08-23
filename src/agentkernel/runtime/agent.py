@@ -15,8 +15,10 @@ from agentkernel.tools.registry import Registry
 SYSTEM_PROMPT = """你是一个能调用工具的 Agent。
 
 回答规则（严格遵守，只输出 JSON，不要输出其他内容）：
-- 如果需要用工具，输出：
+- 如果需要用一个工具，输出：
   {"action": "工具名", "action_input": {"参数": "值"}}
+- 如果需要同时用多个互相独立的工具，输出：
+  {"actions": [{"action": "工具名1", "action_input": {...}}, {"action": "工具名2", "action_input": {...}}]}
 - 如果已经能回答用户，输出：
   {"action": "final_answer", "action_input": "你的回答内容"}
 - 如果使用了 knowledge_query 工具，最终回答必须带上工具结果里的「来源：文档名」。
@@ -75,22 +77,34 @@ class Agent:
 
             if isinstance(action, contracts.ToolCall):
                 history.append({"role": "assistant", "content": raw})
-                result = self.registry.run(action.action, action.action_input)
-                if self.on_tool_call is not None:
-                    try:
-                        self.on_tool_call(action.action, action.action_input, result)
-                    except Exception:
-                        pass  # 审计失败不影响主流程
-                history.append(
-                    {"role": "user", "content": f"工具 {action.action} 返回：{result}"}
-                )
+                self._execute_tool_call(action, history)
                 continue  # 回到循环，让模型基于观察结果继续
+
+            if isinstance(action, contracts.ToolCalls):
+                # 多工具调用：当前按顺序执行（模型应按无依赖关系来给多个调用）。
+                # 若要做真并行，可在无依赖时用线程池；教学版保持串行以便解释观察回灌顺序。
+                history.append({"role": "assistant", "content": raw})
+                for call in action.calls:
+                    self._execute_tool_call(call, history)
+                continue
 
             # 解析失败 → 降级为纯文本回答（OpenClaw：不能晋升为工具调用就当普通文本）
             history.append({"role": "assistant", "content": raw})
             return raw
 
         return "（达到最大步数上限，未完成）"
+
+    def _execute_tool_call(self, call: contracts.ToolCall, history: list[dict[str, str]]) -> None:
+        """执行单个工具调用，观察结果回灌历史，并触发审计观察者。"""
+        result = self.registry.run(call.action, call.action_input)
+        if self.on_tool_call is not None:
+            try:
+                self.on_tool_call(call.action, call.action_input, result)
+            except Exception:
+                pass  # 审计失败不影响主流程
+        history.append(
+            {"role": "user", "content": f"工具 {call.action} 返回：{result}"}
+        )
 
     def _build_messages(self, history: list[dict[str, str]]) -> list[dict[str, str]]:
         # 注意：SYSTEM_PROMPT 含 JSON 示例的 {} 括号，不能用 str.format，

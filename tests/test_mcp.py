@@ -51,6 +51,24 @@ def test_register_mcp_tools_into_registry():
     assert "来源：notes.md" in out
 
 
+def test_register_mcp_tools_with_prefix():
+    client = InProcessMCPClient(_make_server())
+    registry = Registry()
+    register_mcp_tools(registry, client, prefix="mcp0_")
+    assert "mcp0_knowledge_query" in registry.names()
+    out = registry.run("mcp0_knowledge_query", {"query": "ReAct 是什么"})
+    assert "来源：notes.md" in out
+
+
+def test_extract_tool_result_structured_content():
+    from agentkernel.mcp.client import StdioMCPClient
+
+    text = StdioMCPClient._extract_tool_result(
+        "demo", {"structuredContent": {"items": [1, 2]}}
+    )
+    assert text == '{"items": [1, 2]}'
+
+
 def test_handle_json_rpc_tools_call_and_errors():
     server = _make_server()
     ok = handle_json_rpc(
@@ -90,6 +108,9 @@ def test_stdio_client_against_self_hosted_server(tmp_path):
         names = {t["name"] for t in tools}
         assert "knowledge_query" in names
         assert "knowledge_list" in names
+        assert client.negotiated
+        assert client.protocol_version
+        assert client.server_info.get("name") == "agentkernel-knowledge"
 
         out = client.call_tool("knowledge_query", {"query": "ReAct 是什么"})
         assert "来源：notes.md" in out

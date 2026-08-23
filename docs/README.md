@@ -39,9 +39,10 @@
 1. [项目背景说明](./project-background.md)
 2. [技术选型与边界说明](./technical-scope-and-boundary.md)
 3. [教学映射（agent-study ↔ OpenClaw ↔ Workbench）](./learning-map.md)
-4. [里程碑 1：ReAct 内核可跑](./milestone-1-kernel.md)
-5. [里程碑 2：知识库 MCP 打通](./milestone-2-mcp.md)
-6. [里程碑 3：交付物与缓冲](./milestone-3-deliverables.md)
+4. [自我审查报告（Claude SDK / 高星 MCP 库 / agent-study）](./self-review.md)
+5. [里程碑 1：ReAct 内核可跑](./milestone-1-kernel.md)
+6. [里程碑 2：知识库 MCP 打通](./milestone-2-mcp.md)
+7. [里程碑 3：交付物与缓冲](./milestone-3-deliverables.md)
 
 ## 工作节奏说明
 

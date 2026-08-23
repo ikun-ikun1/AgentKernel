@@ -39,6 +39,32 @@ def test_tool_call_then_answer(monkeypatch):
     assert any("3" in m["content"] for m in history)
 
 
+def test_multi_tool_call_executes_all_then_answers(monkeypatch):
+    outputs = iter(
+        [
+            '{"actions": ['
+            '{"action": "calculator", "action_input": {"expression": "1+2"}}, '
+            '{"action": "calculator", "action_input": {"expression": "4*5"}}]}',
+            '{"action": "final_answer", "action_input": "分别是 3 和 20"}',
+        ]
+    )
+    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: next(outputs))
+    seen: list[str] = []
+    agent = _make_agent()
+    agent.on_tool_call = lambda name, args, result: seen.append(name)
+    history: list[dict[str, str]] = []
+    assert agent.run("算两个数", history) == "分别是 3 和 20"
+    assert seen == ["calculator", "calculator"]
+    assert (
+        sum(
+            1
+            for m in history
+            if m["role"] == "user" and "工具 calculator 返回" in m["content"]
+        )
+        == 2
+    )
+
+
 def test_tool_observer_receives_tool_calls(monkeypatch):
     outputs = iter(
         [

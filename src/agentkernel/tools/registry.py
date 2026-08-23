@@ -123,5 +123,15 @@ class Registry:
         parts = []
         for key, schema in props.items():
             mark = "必填" if key in required else "可选"
-            parts.append(f"{key} ({schema.get('type', 'any')}, {mark})")
-        return ", ".join(parts)
+            desc = schema.get("description", "")
+            extra = schema.get("type", "any")
+            if "enum" in schema:
+                extra += f"，取值 {schema['enum']!r}"
+            if "default" in schema:
+                extra += f"，默认 {schema['default']!r}"
+            text = f"{key} ({extra}, {mark}"
+            if desc:
+                text += f"：{desc}"
+            text += ")"
+            parts.append(text)
+        return "; ".join(parts)

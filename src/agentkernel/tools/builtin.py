@@ -51,7 +51,7 @@ def register_builtin(registry: Registry) -> None:
     registry.register(
         Tool(
             name="get_current_time",
-            description="返回当前时间，无参数",
+            description="获取当前日期和时间；当用户询问「现在几点」「今天日期」时使用，返回 YYYY-MM-DD HH:MM:SS",
             parameters={"type": "object", "properties": {}},
             fn=_current_time,
         )
@@ -59,10 +59,15 @@ def register_builtin(registry: Registry) -> None:
     registry.register(
         Tool(
             name="calculator",
-            description="计算四则运算表达式，参数 expression 如 '123*456'",
+            description="安全计算数学表达式；当用户需要算术计算时使用，expression 只支持数字、四则运算、括号和 ** 幂运算，如 '123*456'",
             parameters={
                 "type": "object",
-                "properties": {"expression": {"type": "string"}},
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": "数学表达式，如 '123*456' 或 '(1+2)*3'",
+                    }
+                },
                 "required": ["expression"],
             },
             fn=_calculator,

@@ -63,3 +63,24 @@ def test_repair_action_rejects_non_dict_input():
         )
         is None
     )
+
+
+def test_parse_and_classify_multi_actions():
+    text = (
+        '{"actions": [{"action": "calculator", "action_input": {"expression": "1+2"}}, '
+        '{"action": "get_current_time", "action_input": {}}]}'
+    )
+    action = json_repair.repair_action(
+        text, allowed_actions={"calculator", "get_current_time"}
+    )
+    assert isinstance(action, contracts.ToolCalls)
+    assert len(action.calls) == 2
+    assert action.calls[0].action == "calculator"
+
+
+def test_allowlist_filters_multi_actions():
+    text = (
+        '{"actions": [{"action": "calculator", "action_input": {}}, '
+        '{"action": "dangerous", "action_input": {}}]}'
+    )
+    assert json_repair.parse_json(text, allowed_actions={"calculator"}) is None

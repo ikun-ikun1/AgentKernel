@@ -95,12 +95,30 @@ def parse_json(
             continue
         if not isinstance(obj, dict):
             continue
-        if allowed_actions is not None:
-            action = obj.get("action")
-            if action != contracts.FINAL_ACTION and action not in allowed_actions:
-                return None
+        if allowed_actions is not None and not _actions_allowed(obj, allowed_actions):
+            return None
         return obj
     return None
+
+
+def _actions_allowed(
+    obj: dict[str, Any], allowed_actions: set[str] | frozenset[str]
+) -> bool:
+    """允许清单过滤：单工具看 action，多工具看 actions 数组每一项。"""
+    action = obj.get("action")
+    if action == contracts.FINAL_ACTION:
+        return True
+    if isinstance(action, str):
+        return action in allowed_actions
+    actions = obj.get("actions")
+    if isinstance(actions, list):
+        return all(
+            isinstance(item, dict)
+            and isinstance(item.get("action"), str)
+            and item["action"] in allowed_actions
+            for item in actions
+        )
+    return False
 
 
 def repair_action(
