@@ -58,3 +58,13 @@ def test_load_document_unsupported(tmp_path):
     path.write_text("hello", encoding="utf-8")
     with pytest.raises(RAGError):
         load_document(path)
+
+
+def test_load_document_txt_and_md(tmp_path):
+    txt = tmp_path / "a.txt"
+    txt.write_text("纯文本内容", encoding="utf-8")
+    assert load_document(txt) == "纯文本内容"
+
+    md = tmp_path / "b.md"
+    md.write_text("# 标题\n正文内容", encoding="utf-8")
+    assert load_document(md) == "# 标题\n正文内容"

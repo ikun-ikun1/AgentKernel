@@ -1,6 +1,6 @@
 # 里程碑 2：知识库 MCP 打通
 
-> **当前进度**：✅ 已实现。RAG 文档解析/分块/检索（ChromaDB 可选 + 纯 Python 降级索引）、MCP server（官方 SDK 可选）、自实现 MCP client（Content-Length 帧 + JSON-RPC 2.0）已打通；`tests/test_rag.py`、`tests/test_mcp.py` 覆盖核心链路。
+> **当前进度**：✅ 已实现。RAG 文档解析/分块/检索（ChromaDB 可选 + 纯 Python 降级索引）、MCP server（官方 SDK 可选 + 纯 Python stdio 入口 `python -m agentkernel.mcp.server`）、自实现 MCP client（Content-Length 帧 + JSON-RPC 2.0，含 stdio 子进程集成测试）已打通；`tests/test_rag.py`、`tests/test_mcp.py` 覆盖核心链路。
 
 ## 周期与验收要求
 
@@ -34,7 +34,7 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 ## 模块与目的
 
 1. `rag/ingest.py`  
-目的：解析 PDF（PyMuPDF）/ MD（markdown-it-py）/ TXT → 分块（带重叠）→ bge-small-zh 向量化 → 存入 ChromaDB。
+目的：解析 PDF（PyMuPDF）/ MD / TXT（MD/TXT 按 UTF-8 文本读取）→ 分块（带重叠）→ bge-small-zh 向量化 → 存入 ChromaDB。
 
 2. `mcp/server.py`  
 目的：用官方 `mcp` SDK 暴露 2 个工具——`knowledge_query(query, top_k)` 检索带来源、`knowledge_list()` 列出已入库文档。
@@ -77,6 +77,18 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 2. `knowledge_query` 能检索出相关片段并带来源。
 3. Agent 通过 MCP 调知识库，回答带来源。
 4. 5 个评估用例全过，或至少核心用例过。
+
+## 阶段 2 验收记录（2026-08-19）
+
+| 验收项 | 结果 | 证据 |
+|--------|------|------|
+| 文档入库（MD/TXT；PDF 依赖 PyMuPDF） | ✅ | `tests/test_rag.py`：load_document / chunk_text / ingest_file |
+| `knowledge_query` 带来源检索 | ✅ | `tests/test_mcp.py`：输出含 `[来源：notes.md]` |
+| Agent → MCP → 知识库链路 | ✅ | `eval.py` 用例 4（mock）；`tests/test_mcp.py::test_register_mcp_tools_into_registry` |
+| 自实现 MCP client 真连 stdio server | ✅ | `tests/test_mcp.py::test_stdio_client_against_self_hosted_server` |
+| 5 个评估用例 | ✅ mock 5/5；live 5 用例（4 个真实 API + 1 个解析层坏 JSON，依赖 API 可用性） | `python eval.py` / `python eval.py --live` |
+| CLI 知识库演示 | ✅ | `python -m agentkernel --docs <路径>`，`/docs`、`/ingest`、`/logs` |
+| ChromaDB 可选后端 | ✅ | CLI `--kb-db <目录>`；未装依赖自动降级纯 Python 索引 |
 
 ## 明确不做
 

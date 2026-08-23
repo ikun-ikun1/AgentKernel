@@ -18,7 +18,6 @@ rag = [
   "chromadb>=0.4",            # 向量库 —— M2
   "sentence-transformers>=2.2",  # bge-small-zh —— M2
   "pymupdf>=1.23",            # PDF 解析 —— M2
-  "markdown-it-py>=3.0",      # Markdown 解析 —— M2
 ]
 mcp = [
   "mcp>=1.0",                 # MCP server（官方 SDK）—— M2

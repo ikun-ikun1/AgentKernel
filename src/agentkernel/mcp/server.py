@@ -5,6 +5,9 @@
 - server 只暴露「查询 + 列出」两个只读工具，不提供写/删能力（安全边界）。
 """
 from __future__ import annotations
+import json
+import sys
+from pathlib import Path
 from typing import Any
 
 from agentkernel.rag.ingest import KnowledgeBase, SearchResult
@@ -96,3 +99,124 @@ class KnowledgeMCPServer:
             self.knowledge_list
         )
         return server
+
+
+# ---------------------------------------------------------------------------
+# 纯 Python stdio JSON-RPC 入口（教学点：agent-study Ch10.6 stdio 传输）
+# 无 mcp SDK 时也能启动一个标准 MCP stdio server，供自实现 client 子进程调用。
+# 协议消息走 stdout；日志/错误走 stderr。
+# ---------------------------------------------------------------------------
+
+def handle_json_rpc(server: KnowledgeMCPServer, request: dict[str, Any]) -> dict[str, Any] | None:
+    """处理一个 JSON-RPC 请求；通知（无 id）返回 None。"""
+    req_id = request.get("id")
+    method = request.get("method", "")
+    params = request.get("params") or {}
+
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "agentkernel-knowledge", "version": "0.1.0"},
+            },
+        }
+    if method == "notifications/initialized":
+        return None
+    if method == "tools/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {"tools": server.tool_definitions()},
+        }
+    if method == "tools/call":
+        name = str(params.get("name", ""))
+        arguments = params.get("arguments") or {}
+        if not isinstance(arguments, dict):
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {"code": -32602, "message": "arguments 必须是对象"},
+            }
+        try:
+            text = server.call_tool(name, arguments)
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {"content": [{"type": "text", "text": text}], "isError": False},
+            }
+        except AgentKernelError as e:
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {"code": -32602, "message": str(e)},
+            }
+        except Exception as e:  # 兜底：server 内部意外异常也要转成 JSON-RPC 错误
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {"code": -32603, "message": f"内部错误: {type(e).__name__}: {e}"},
+            }
+    return {
+        "jsonrpc": "2.0",
+        "id": req_id,
+        "error": {"code": -32601, "message": f"未知方法: {method}"},
+    }
+
+
+def run_stdio(server: KnowledgeMCPServer, stdin: Any = None, stdout: Any = None) -> None:
+    """标准 MCP stdio 服务循环：Content-Length 帧 + JSON-RPC 2.0。"""
+    from agentkernel.mcp.framing import read_frame, write_message
+
+    stdin = stdin or sys.stdin.buffer
+    stdout = stdout or sys.stdout.buffer
+
+    while True:
+        body = read_frame(stdin)
+        try:
+            request = json.loads(body.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            write_message(
+                stdout,
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": f"Parse error: {e}"},
+                },
+            )
+            continue
+        response = handle_json_rpc(server, request)
+        if response is not None:
+            write_message(stdout, response)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """`python -m agentkernel.mcp.server [文档路径...]` 启动 stdio server。"""
+    args = list(sys.argv[1:] if argv is None else argv)
+    kb = KnowledgeBase()
+    for path in args:
+        path_obj = Path(path).expanduser()
+        if path_obj.is_dir():
+            files = sorted(
+                f for f in path_obj.rglob("*")
+                if f.is_file() and f.suffix.lower() in {".pdf", ".md", ".markdown", ".txt"}
+            )
+        elif path_obj.is_file():
+            files = [path_obj]
+        else:
+            print(f"跳过不存在的路径：{path_obj}", file=sys.stderr)
+            continue
+        for file in files:
+            try:
+                kb.ingest_file(file)
+                print(f"已入库 {file.name}", file=sys.stderr)
+            except Exception as e:
+                print(f"入库失败 {file.name}：{e}", file=sys.stderr)
+
+    run_stdio(KnowledgeMCPServer(kb))
+
+
+if __name__ == "__main__":
+    main()

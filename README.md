@@ -42,9 +42,10 @@
 | 上下文管理 | truncate 固定首条用户要求；compact 调模型摘要压缩（失败降级截断） |
 | 工具注册 | 纯 Python JSON Schema 校验（不引 jsonschema 依赖） |
 | 非法 JSON 修复 | 三层：提取 → 修复 → 降级；借鉴 OpenClaw 的 **工具名允许清单 + payload 上限** |
-| SQLite 记忆 | 会话 + 消息持久化，重启不丢（标准库 `sqlite3`） |
+| SQLite 记忆 | 会话 + 消息 + **工具调用审计** 持久化，重启不丢（标准库 `sqlite3`） |
 | 知识库 RAG | PDF/MD/TXT → 分块（带重叠）→ 检索；ChromaDB 优先，**纯 Python 降级索引**兜底 |
-| MCP 两端 | server 用官方 SDK（可选），client 自实现 `Content-Length` 帧 + JSON-RPC 2.0 |
+| MCP 两端 | server 用官方 SDK（可选）+ 纯 Python stdio 入口；client 自实现 `Content-Length` 帧 + JSON-RPC 2.0 |
+| LLM 调用 | OpenAI client 复用 + 超时/重试，失败统一 `LLMError` |
 | 安全边界 | 计算器 AST 白名单、知识库只读、API Key 走 `.env` |
 
 ---
@@ -57,7 +58,7 @@
 | 模型 | DeepSeek API | OpenAI 兼容接口 |
 | 向量库 | ChromaDB（可选） | 未安装时降级为字符 2-gram 索引 |
 | Embedding | BAAI/bge-small-zh-v1.5（可选） | 中文向量 |
-| 文档解析 | PyMuPDF + markdown-it-py（可选） | PDF / Markdown / TXT |
+| 文档解析 | PyMuPDF（可选） | PDF；MD/TXT 直接按 UTF-8 文本读取 |
 | 记忆 | SQLite（标准库 `sqlite3`） | 无外部依赖 |
 | MCP server | `mcp` Python SDK（可选） | 官方实现，未安装时进程内适配 |
 | MCP client | 自实现 | `initialize` → `tools/list` → `tools/call` |
@@ -95,10 +96,11 @@
 | `tools/contracts.py` | 工具调用协议契约（允许清单 + 结构分类） |
 | `tools/registry.py` | 工具注册、纯 Python JSON Schema 校验、错误处理 |
 | `tools/json_repair.py` | 非法 JSON 三层修复（提取 → 修复 → 降级） |
-| `memory/sqlite_store.py` | 会话 + 消息持久化 |
+| `memory/sqlite_store.py` | 会话 + 消息 + 工具调用审计（tool_logs）持久化 |
 | `rag/ingest.py` | 文档解析 → 分块 → 向量化入库 → 检索（带来源） |
-| `mcp/server.py` | 知识库 MCP server（官方 SDK 可选，2 个 tool） |
-| `mcp/client.py` | 自实现 MCP client，注册进内核 |
+| `mcp/framing.py` | MCP stdio 帧协议（Content-Length + JSON-RPC） |
+| `mcp/server.py` | 知识库 MCP server（官方 SDK 可选 + 纯 Python stdio 入口，2 个 tool） |
+| `mcp/client.py` | 自实现 MCP client（stdio 子进程 / 进程内适配），注册进内核 |
 
 详细见 [docs/technical-scope-and-boundary.md](docs/technical-scope-and-boundary.md)。
 
@@ -111,19 +113,22 @@
 pip install openai python-dotenv
 
 # 可选：知识库 + MCP server（不装也能演示，自动降级）
-pip install chromadb sentence-transformers pymupdf markdown-it-py mcp
+pip install chromadb sentence-transformers pymupdf mcp
 
 # 2. 配环境变量（.env，勿提交）
 cp .env.example .env   # 填 DEEPSEEK_API_KEY=sk-xxx
 
 # 3. 跑 CLI
-python -m agentkernel
+python -m agentkernel --docs <文档路径>   # 可选：启动时入库文档
 
 # 4. 跑评估（mock 模式无需 API Key，验证内核逻辑）
 python eval.py
+
+# 5. 单独启动 MCP stdio server（供自实现 client 或第三方 Host 调用）
+python -m agentkernel.mcp.server <文档路径>
 ```
 
-CLI 内置命令：`/new [标题]` 新建会话、`/sessions` 列出会话、`/history` 查看历史、`/help` 帮助、`/quit` 退出。
+CLI 内置命令：`/new [标题]` 新建会话、`/sessions` 列出会话、`/history` 查看历史、`/ingest <路径>` 入库文档、`/docs` 列出文档、`/logs` 查看工具调用审计、`/help` 帮助、`/quit` 退出。
 
 ---
 
@@ -137,19 +142,20 @@ AgentKernel/
 │   ├── README.md                    # 里程碑文档索引
 │   ├── project-background.md        # 项目背景说明（会用 → 会造）
 │   ├── technical-scope-and-boundary.md
+│   ├── learning-map.md              # 教学映射：agent-study ↔ OpenClaw ↔ Workbench
 │   ├── milestone-1-kernel.md
 │   ├── milestone-2-mcp.md
 │   └── milestone-3-deliverables.md
 ├── pyproject.toml                   # 工程配置（依赖 + ruff + mypy + pytest）
 ├── src/agentkernel/                 # 源码（src 布局）
-│   ├── __main__.py                  # CLI 入口
+│   ├── __main__.py                  # CLI 入口（含 /ingest /docs /logs）
 │   ├── runtime/                     # ReAct 循环 + 模型调用
 │   ├── tools/                       # registry + contracts + json_repair
-│   ├── memory/                      # SQLite 记忆
+│   ├── memory/                      # SQLite 记忆（sessions/messages/tool_logs）
 │   ├── rag/                         # 文档入库与检索
-│   ├── mcp/                         # server（官方 SDK 可选）+ client（自实现）
+│   ├── mcp/                         # framing + server + client
 │   └── utils/                       # env + errors
-└── tests/                           # 43+ 测试用例
+└── tests/                           # 46 个测试用例
 ```
 
 ---

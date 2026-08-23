@@ -1,6 +1,6 @@
 # 里程碑 1：ReAct 内核可跑
 
-> **当前进度**：✅ 已实现。ReAct 循环、2 个内置工具、三层 JSON 修复、SQLite 记忆、truncate/compact 上下文管理均已落地；`tests/` 覆盖 fake LLM 的主循环与上下文用例。
+> **当前进度**：✅ 已实现。ReAct 循环、2 个内置工具、三层 JSON 修复、SQLite 记忆（sessions/messages/tool_logs）、truncate/compact 上下文管理、LLM 客户端超时/重试/连接复用均已落地；`tests/` 覆盖 fake LLM 的主循环、上下文与工具审计用例。
 
 ## 周期与验收要求
 

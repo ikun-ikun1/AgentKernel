@@ -43,3 +43,17 @@ def test_limit_and_offset():
             "m1",
             "m2",
         ]
+
+
+def test_tool_logs_audit():
+    with SQLiteStore(":memory:") as store:
+        store.create_session("s1")
+        store.log_tool_call("s1", "calculator", {"expression": "1+2"}, "3", success=True)
+        store.log_tool_call("s1", "nope", {}, "[工具不存在] 未注册的工具：nope", success=False)
+        logs = store.list_tool_logs("s1")
+        assert len(logs) == 2
+        # 按时间倒序，最近的在前面
+        assert logs[0]["tool_name"] == "nope"
+        assert logs[1]["tool_name"] == "calculator"
+        assert logs[1]["success"] == 1
+        assert logs[0]["success"] == 0

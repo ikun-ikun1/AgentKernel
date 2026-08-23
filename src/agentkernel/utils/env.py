@@ -34,3 +34,13 @@ def get_base_url() -> str:
 
 def get_model() -> str:
     return os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+
+
+def get_llm_timeout() -> str:
+    """OpenAI client 超时秒数（默认 60）。"""
+    return os.environ.get("AGENTKERNEL_LLM_TIMEOUT", "60")
+
+
+def get_llm_max_retries() -> str:
+    """OpenAI client 最大重试次数（默认 2）。"""
+    return os.environ.get("AGENTKERNEL_LLM_MAX_RETRIES", "2")

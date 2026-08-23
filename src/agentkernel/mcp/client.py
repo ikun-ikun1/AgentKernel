@@ -8,6 +8,7 @@ import json
 import subprocess
 from typing import Any
 
+from agentkernel.mcp.framing import frame_message, read_frame
 from agentkernel.tools.registry import Registry, Tool
 from agentkernel.utils.errors import AgentKernelError
 
@@ -29,33 +30,9 @@ class MCPClient:
         pass
 
 
-def _frame_message(message: bytes) -> bytes:
-    return b"Content-Length: " + str(len(message)).encode() + b"\r\n\r\n" + message
-
-
-def _read_frame(stream: Any) -> bytes:
-    """读取一个 Content-Length 帧，返回 body 字节串。"""
-    headers: dict[str, str] = {}
-    while True:
-        line = stream.readline()
-        if not line:
-            raise MCPClientError("MCP server 连接已关闭")
-        if line in (b"\r\n", b"\n"):
-            break
-        text = line.decode("utf-8", errors="replace").strip()
-        if ":" in text:
-            key, _, value = text.partition(":")
-            headers[key.strip().lower()] = value.strip()
-    length = int(headers.get("content-length", "0"))
-    chunks: list[bytes] = []
-    remaining = length
-    while remaining > 0:
-        chunk = stream.read(remaining)
-        if not chunk:
-            raise MCPClientError("MCP server 连接在消息体中途关闭")
-        chunks.append(chunk)
-        remaining -= len(chunk)
-    return b"".join(chunks)
+# 向后兼容：测试/教学代码可继续从 client 导入帧工具
+_frame_message = frame_message
+_read_frame = read_frame
 
 
 class StdioMCPClient(MCPClient):

@@ -4,23 +4,34 @@
 - /new [标题]   新建会话并切换过去
 - /sessions     列出最近会话
 - /history      查看当前会话历史
+- /ingest <路径> 入库文档（PDF/MD/TXT），之后可问知识库问题
+- /docs         列出已入库文档
+- /logs         查看当前会话的工具调用审计
 - /help         查看帮助
 - /quit         退出（同 quit / exit / q）
+
+知识库工具（knowledge_query / knowledge_list）默认注册；用 `--docs` 启动时直接入库。
 """
 from __future__ import annotations
 
 import argparse
 import uuid
+from pathlib import Path
 
+from agentkernel.mcp.client import InProcessMCPClient, register_mcp_tools
+from agentkernel.mcp.server import KnowledgeMCPServer
 from agentkernel.memory.sqlite_store import SQLiteStore, default_store
+from agentkernel.rag.ingest import KnowledgeBase
 from agentkernel.runtime.agent import Agent
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
 
+_SUPPORTED_SUFFIXES = {".pdf", ".md", ".markdown", ".txt"}
+
 
 def _print_help() -> None:
     print(
-        "内置命令：/new [标题] | /sessions | /history | /help | /quit\n"
+        "内置命令：/new [标题] | /sessions | /history | /ingest <路径> | /docs | /logs | /help | /quit\n"
         "其他输入都会交给 Agent 处理。"
     )
 
@@ -29,16 +40,52 @@ def _load_history(store: SQLiteStore, session_id: str) -> list[dict[str, str]]:
     return store.get_messages(session_id)
 
 
-def _build_agent() -> tuple[Agent, Registry]:
+def _ingest_path(kb: KnowledgeBase, path: str) -> int:
+    """入库一个文件或目录，返回入库文档数。"""
+    p = Path(path).expanduser()
+    if not p.exists():
+        print(f"路径不存在：{p}")
+        return 0
+    files = [p] if p.is_file() else sorted(
+        f for f in p.rglob("*") if f.is_file() and f.suffix.lower() in _SUPPORTED_SUFFIXES
+    )
+    total = 0
+    for file in files:
+        try:
+            chunks = kb.ingest_file(file)
+            print(f"已入库 {file.name}（{chunks} 块）")
+            total += 1
+        except Exception as e:
+            print(f"入库失败 {file.name}：{type(e).__name__}: {e}")
+    return total
+
+
+def _build_agent(
+    docs: list[str] | None = None,
+    kb_db: str | None = None,
+) -> tuple[Agent, Registry, KnowledgeBase]:
     registry = Registry()
     builtin.register_builtin(registry)
-    return Agent(registry), registry
+
+    # kb_db 为空时使用纯 Python 降级索引；给路径时优先 ChromaDB（未装则自动降级）
+    kb = KnowledgeBase(persist_dir=kb_db)
+    if docs:
+        for path in docs:
+            _ingest_path(kb, path)
+    server = KnowledgeMCPServer(kb)
+    register_mcp_tools(registry, InProcessMCPClient(server))
+    return Agent(registry), registry, kb
 
 
-def _repl(store: SQLiteStore) -> None:
-    agent, _ = _build_agent()
+def _repl(store: SQLiteStore, kb: KnowledgeBase, agent: Agent) -> None:
     session_id = "default"
     store.create_session(session_id)
+
+    def _log_tool_call(tool_name: str, action_input: dict[str, object], result: str) -> None:
+        ok = not result.startswith("[工具")
+        store.log_tool_call(session_id, tool_name, action_input, result, ok)
+
+    agent.on_tool_call = _log_tool_call
 
     print("AgentKernel 已启动（/help 查看内置命令，Ctrl+C 中断）")
     history: list[dict[str, str]] = _load_history(store, session_id)
@@ -84,6 +131,30 @@ def _repl(store: SQLiteStore) -> None:
                     who = "你" if m["role"] == "user" else "Agent"
                     print(f"{who} > {m['content']}")
                 continue
+            if cmd in ("ingest", "kb"):
+                if not arg.strip():
+                    print("用法：/ingest <文件或目录路径>")
+                    continue
+                _ingest_path(kb, arg.strip())
+                continue
+            if cmd == "docs":
+                docs = kb.list_documents()
+                if not docs:
+                    print("（知识库为空，用 /ingest <路径> 入库文档）")
+                for doc in docs:
+                    print(f"- {doc}")
+                continue
+            if cmd == "logs":
+                logs = store.list_tool_logs(session_id)
+                if not logs:
+                    print("（当前会话暂无工具调用记录）")
+                for log in logs:
+                    status = "成功" if log["success"] else "失败"
+                    print(
+                        f"- {log['created_at'][:19]} {log['tool_name']} {status}\n"
+                        f"  入参：{log['input_json']}\n  结果：{str(log['output_json'])[:120]}"
+                    )
+                continue
             print(f"未知命令 /{cmd}，输入 /help 查看帮助")
             continue
 
@@ -107,11 +178,26 @@ def main() -> None:
         default=None,
         help="SQLite 库文件路径（默认 ~/.agentkernel/agentkernel.db，可用 :memory:）",
     )
+    parser.add_argument(
+        "--docs",
+        nargs="+",
+        default=None,
+        metavar="PATH",
+        help="启动时入库的文档（文件或目录，支持 PDF/MD/TXT）",
+    )
+    parser.add_argument(
+        "--kb-db",
+        default=None,
+        metavar="PATH",
+        help="知识库持久化目录（启用 ChromaDB 后端；缺依赖时自动降级纯 Python 索引）",
+    )
     args = parser.parse_args()
 
     store = default_store() if args.db is None else SQLiteStore(args.db)
+    agent, _, kb = _build_agent(args.docs, args.kb_db)
+    print(f"知识库后端：{kb.backend_name}")
     try:
-        _repl(store)
+        _repl(store, kb, agent)
     finally:
         store.close()
 

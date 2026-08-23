@@ -10,7 +10,7 @@
 | 模型 | DeepSeek API（OpenAI 兼容） | 便宜、接口标准，换模型只改 base_url |
 | 向量库 | ChromaDB | 本地、轻量、Python 原生，个人项目够用 |
 | Embedding | BAAI/bge-small-zh-v1.5 | 中文效果好、体积小、本地可跑 |
-| 文档解析 | PyMuPDF + markdown-it-py | 支持 PDF / Markdown |
+| 文档解析 | PyMuPDF（PDF）；MD/TXT 按 UTF-8 文本读取 | 简单可靠，不引入无收益依赖 |
 | 记忆 | SQLite（标准库 `sqlite3`） | 零部署，CLI 场景够用 |
 | MCP server | `mcp` Python SDK | 官方实现，server 端不重复造轮子 |
 | MCP client | 自实现 | 证明懂协议底层（`initialize` → `tools/list` → `tools/call`） |
@@ -48,10 +48,11 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 | `tools/contracts.py` | 工具调用协议契约（结构定义 + 工具名允许清单） |
 | `tools/registry.py` | 工具注册、纯 Python JSON Schema 校验、错误处理 |
 | `tools/json_repair.py` | 非法 JSON 三层修复（提取 → 修复 → 降级 + payload 上限） |
-| `memory/sqlite_store.py` | 会话 + 消息持久化 |
+| `memory/sqlite_store.py` | 会话 + 消息 + 工具调用审计（tool_logs）持久化 |
 | `rag/ingest.py` | 文档解析 → 分块 → 向量化入库；ChromaDB 优先 + 纯 Python 降级索引 |
-| `mcp/server.py` | 知识库 MCP server（官方 SDK 可选，2 个 tool） |
-| `mcp/client.py` | 自实现 MCP client（Content-Length 帧 + JSON-RPC 2.0），注册进内核 |
+| `mcp/framing.py` | MCP stdio 帧协议（Content-Length + JSON-RPC 2.0） |
+| `mcp/server.py` | 知识库 MCP server（官方 SDK 可选 + 纯 Python stdio 入口，2 个 tool） |
+| `mcp/client.py` | 自实现 MCP client（stdio 子进程 / 进程内适配），注册进内核 |
 | `utils/env.py` / `utils/errors.py` | 环境变量 / 统一错误 |
 
 > **借鉴来源**：

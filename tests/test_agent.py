@@ -39,6 +39,24 @@ def test_tool_call_then_answer(monkeypatch):
     assert any("3" in m["content"] for m in history)
 
 
+def test_tool_observer_receives_tool_calls(monkeypatch):
+    outputs = iter(
+        [
+            '{"action": "calculator", "action_input": {"expression": "1+2"}}',
+            '{"action": "final_answer", "action_input": "3"}',
+        ]
+    )
+    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: next(outputs))
+    seen: list[tuple[str, dict, str]] = []
+    agent = _make_agent()
+    agent.on_tool_call = lambda name, args, result: seen.append((name, args, result))
+    agent.run("1+2 等于几", [])
+    assert len(seen) == 1
+    assert seen[0][0] == "calculator"
+    assert seen[0][1] == {"expression": "1+2"}
+    assert "3" in seen[0][2]
+
+
 def test_bad_json_degrades_to_plain_text(monkeypatch):
     raw = "我算不出来"
     monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: raw)
@@ -67,7 +85,12 @@ def test_max_steps_guard(monkeypatch):
     assert agent.run("现在几点", history) == "（达到最大步数上限，未完成）"
 
 
-def test_context_truncate_keeps_first_user_message():
+def test_context_truncate_keeps_first_user_message(monkeypatch):
+    # 让 compact 失败，强制走 truncate 路径，保证测试确定性（不依赖真实 API）
+    def boom(messages):
+        raise RuntimeError("模型不可用")
+
+    monkeypatch.setattr("agentkernel.runtime.llm.chat", boom)
     context = ContextConfig(max_history_chars=100, compact_trigger_chars=60, keep_recent_chars=40)
     agent = _make_agent(context=context)
     history = [{"role": "user", "content": "记住：我叫小明，我喜欢蓝色。"}]

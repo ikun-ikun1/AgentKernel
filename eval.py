@@ -1,13 +1,13 @@
-"""AgentKernel 评估脚本：5 个核心用例一键跑分。
+"""AgentKernel 评估脚本：一键跑分。
 
 用法：
-    python eval.py            # mock 模式（无需 API Key，验证内核逻辑）
-    python eval.py --live     # 真实 DeepSeek API（需 .env 配 DEEPSEEK_API_KEY）
+    python eval.py            # mock 模式（无需 API Key，验证内核逻辑，5 用例）
+    python eval.py --live     # 真实 DeepSeek API + 解析层坏 JSON 用例（5 用例）
 
-5 个用例对应里程碑验收：
+用例对应里程碑验收：
     1. 正常问答（final_answer 直出）
     2. 工具调用（calculator 被调用并回灌观察）
-    3. 坏 JSON 修复（单引号/带噪声 JSON 不崩）
+    3. 坏 JSON 修复（仅 mock：单引号/带噪声 JSON 不崩）
     4. 知识库问答（走 MCP knowledge_query，回答带来源）
     5. 上下文保持（第 2 轮还记得第 1 轮要求）
 """
@@ -23,7 +23,7 @@ from agentkernel.mcp.client import InProcessMCPClient, register_mcp_tools  # noq
 from agentkernel.mcp.server import KnowledgeMCPServer  # noqa: E402
 from agentkernel.rag.ingest import KnowledgeBase  # noqa: E402
 from agentkernel.runtime.agent import Agent  # noqa: E402
-from agentkernel.tools import builtin  # noqa: E402
+from agentkernel.tools import builtin, contracts, json_repair  # noqa: E402
 from agentkernel.tools.registry import Registry  # noqa: E402
 
 
@@ -172,25 +172,54 @@ def run_mock_cases() -> list[dict[str, str]]:
 
 
 def run_live_cases() -> list[dict[str, str]]:
-    from agentkernel.runtime import llm
-
     agent, _ = _build_agent()
-    cases = [
-        ("1. 正常问答", "用一句话介绍你自己", "Agent"),
-        ("2. 工具调用", "帮我算 123*456", "56088"),
-        ("3. 知识库问答", "什么是 ReAct？", "ReAct"),
-        ("4. 上下文保持", "先记住：我叫小明，我喜欢蓝色。", "小明"),
-    ]
     results: list[dict[str, str]] = []
     history: list[dict[str, str]] = []
-    for name, question, expected in cases:
+
+    cases = [
+        (
+            "1. 正常问答",
+            "用一句话介绍 AgentKernel（回答中必须包含 AgentKernel）",
+            lambda r: "AgentKernel" in r,
+        ),
+        ("2. 工具调用", "帮我算 123*456", lambda r: "56088" in r),
+        (
+            "3. 知识库问答",
+            "什么是 ReAct？",
+            lambda r: "ReAct" in r and ("来源" in r or "notes.md" in r),
+        ),
+    ]
+    for name, question, check in cases:
         try:
             reply = agent.run(question, history)
-            passed = expected in reply
+            passed = check(reply)
         except Exception as e:
             reply = f"错误：{type(e).__name__}: {e}"
             passed = False
         results.append({"case": name, "pass": passed, "detail": reply})
+
+    # 4. 上下文保持（使用独立历史，确保测试的是「第 2 轮记得第 1 轮」）
+    context_history: list[dict[str, str]] = []
+    try:
+        agent.run("先记住：我叫小明，我喜欢蓝色。", context_history)
+        reply = agent.run("我叫什么？", context_history)
+        passed = "小明" in reply
+    except Exception as e:
+        reply = f"错误：{type(e).__name__}: {e}"
+        passed = False
+    results.append({"case": "4. 上下文保持", "pass": passed, "detail": reply})
+
+    # 5. 坏 JSON 修复（解析层，不调 API；真实模型不易故意输出坏 JSON）
+    bad = "好的，结果如下：{'action': 'final_answer', 'action_input': '修复成功'}"
+    action = json_repair.repair_action(bad)
+    passed = isinstance(action, contracts.FinalAnswer) and action.text == "修复成功"
+    results.append(
+        {
+            "case": "5. 坏 JSON 修复（解析层）",
+            "pass": passed,
+            "detail": "修复成功" if passed else str(action),
+        }
+    )
     return results
 
 

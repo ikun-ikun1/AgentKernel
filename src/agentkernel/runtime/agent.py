@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from agentkernel.runtime import llm
 from agentkernel.tools import contracts, json_repair
@@ -19,6 +19,7 @@ SYSTEM_PROMPT = """你是一个能调用工具的 Agent。
   {"action": "工具名", "action_input": {"参数": "值"}}
 - 如果已经能回答用户，输出：
   {"action": "final_answer", "action_input": "你的回答内容"}
+- 如果使用了 knowledge_query 工具，最终回答必须带上工具结果里的「来源：文档名」。
 
 可用工具：
 {tools}
@@ -43,16 +44,22 @@ class ContextConfig:
     keep_recent_chars: int = 2000         # compact 时保留的最近消息字符数
 
 
+# 工具调用观察者：在每次工具执行后回调，用于审计日志等（对应 agent-study Ch14 tool_logs）
+ToolObserver = Callable[[str, dict[str, Any], str], None]
+
+
 class Agent:
     def __init__(
         self,
         registry: Registry,
         max_steps: int = 10,
         context: ContextConfig | None = None,
+        on_tool_call: ToolObserver | None = None,
     ) -> None:
         self.registry = registry
         self.max_steps = max_steps
         self.context = context or ContextConfig()
+        self.on_tool_call = on_tool_call
 
     def run(self, user_input: str, history: list[dict[str, str]]) -> str:
         """跑一轮对话，就地更新 history。返回最终回答。"""
@@ -69,6 +76,11 @@ class Agent:
             if isinstance(action, contracts.ToolCall):
                 history.append({"role": "assistant", "content": raw})
                 result = self.registry.run(action.action, action.action_input)
+                if self.on_tool_call is not None:
+                    try:
+                        self.on_tool_call(action.action, action.action_input, result)
+                    except Exception:
+                        pass  # 审计失败不影响主流程
                 history.append(
                     {"role": "user", "content": f"工具 {action.action} 返回：{result}"}
                 )

@@ -30,6 +30,20 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id, id);
+
+-- 工具调用审计（对应 agent-study Ch14 的 tool_logs 表）
+CREATE TABLE IF NOT EXISTS tool_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    tool_name TEXT NOT NULL,
+    input_json TEXT NOT NULL,
+    output_json TEXT NOT NULL,
+    success INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_tool_logs_session_id ON tool_logs(session_id, id);
 """
 
 
@@ -136,6 +150,45 @@ class SQLiteStore:
                 "SELECT COUNT(*) AS n FROM messages WHERE session_id = ?", (session_id,)
             ).fetchone()
         return int(row["n"]) if row else 0
+
+    # ---- 工具调用审计 ----
+
+    def log_tool_call(
+        self,
+        session_id: str,
+        tool_name: str,
+        action_input: dict[str, object],
+        result: str,
+        success: bool,
+    ) -> int:
+        import json as _json
+
+        now = _now()
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO tool_logs "
+                "(session_id, tool_name, input_json, output_json, success, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    session_id,
+                    tool_name,
+                    _json.dumps(action_input, ensure_ascii=False),
+                    result,
+                    1 if success else 0,
+                    now,
+                ),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid)
+
+    def list_tool_logs(self, session_id: str, limit: int = 20) -> list[dict[str, object]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT tool_name, input_json, output_json, success, created_at "
+                "FROM tool_logs WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+                (session_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
 
 def default_store() -> SQLiteStore:
