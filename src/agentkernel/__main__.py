@@ -56,8 +56,11 @@ def _ingest_path(kb: KnowledgeBase, path: str) -> int:
     for file in files:
         try:
             chunks = kb.ingest_file(file)
-            print(f"已入库 {file.name}（{chunks} 块）")
-            total += 1
+            if chunks:
+                print(f"已入库 {file.name}（{chunks} 块）")
+                total += 1
+            else:
+                print(f"已跳过（内容未变化）：{file.name}")
         except Exception as e:
             print(f"入库失败 {file.name}：{type(e).__name__}: {e}")
     return total
@@ -67,12 +70,13 @@ def _build_agent(
     docs: list[str] | None = None,
     kb_db: str | None = None,
     mcp_commands: list[str] | None = None,
+    kb_backend: str = "lexical",
 ) -> tuple[Agent, Registry, KnowledgeBase, list[MCPClient]]:
     registry = Registry()
     builtin.register_builtin(registry)
 
-    # kb_db 为空时使用纯 Python 降级索引；给路径时优先 ChromaDB（未装则自动降级）
-    kb = KnowledgeBase(persist_dir=kb_db)
+    # CLI 传入持久化目录；测试可省略 kb_db 以获得 :memory: 存储。
+    kb = KnowledgeBase(persist_dir=kb_db, backend=kb_backend)
     if docs:
         for path in docs:
             _ingest_path(kb, path)
@@ -212,7 +216,13 @@ def main() -> None:
         "--kb-db",
         default=None,
         metavar="PATH",
-        help="知识库持久化目录（启用 ChromaDB 后端；缺依赖时自动降级纯 Python 索引）",
+        help="知识库持久化目录（默认 ~/.agentkernel/knowledge）",
+    )
+    parser.add_argument(
+        "--kb-backend",
+        choices=("auto", "lexical", "hybrid", "semantic"),
+        default="lexical",
+        help="知识库后端：lexical 默认稳定；hybrid/semantic 显式启用向量模型",
     )
     parser.add_argument(
         "--mcp",
@@ -224,8 +234,15 @@ def main() -> None:
     args = parser.parse_args()
 
     store = default_store() if args.db is None else SQLiteStore(args.db)
-    agent, _, kb, clients = _build_agent(args.docs, args.kb_db, args.mcp)
-    print(f"知识库后端：{kb.backend_name}")
+    agent, _, kb, clients = _build_agent(
+        args.docs,
+        args.kb_db or "~/.agentkernel/knowledge",
+        args.mcp,
+        args.kb_backend,
+    )
+    print(f"知识库：{kb.backend_name}（持久化目录：{kb.persist_dir or '内存'}）")
+    if kb.backend_warning:
+        print(f"知识库提示：{kb.backend_warning}")
     try:
         _repl(store, kb, agent)
     finally:
@@ -234,6 +251,10 @@ def main() -> None:
                 client.close()
             except Exception:
                 pass
+        try:
+            kb.close()
+        except Exception:
+            pass
         store.close()
 
 

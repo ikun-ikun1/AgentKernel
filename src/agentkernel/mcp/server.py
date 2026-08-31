@@ -5,7 +5,9 @@
 - server 只暴露「查询 + 列出」两个只读工具，不提供写/删能力（安全边界）。
 """
 from __future__ import annotations
+import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -193,10 +195,23 @@ def run_stdio(server: KnowledgeMCPServer, stdin: Any = None, stdout: Any = None)
 
 
 def main(argv: list[str] | None = None) -> None:
-    """`python -m agentkernel.mcp.server [文档路径...]` 启动 stdio server。"""
-    args = list(sys.argv[1:] if argv is None else argv)
-    kb = KnowledgeBase()
-    for path in args:
+    """Start the stdio server and incrementally ingest supplied documents."""
+    parser = argparse.ArgumentParser(description="AgentKernel knowledge MCP server")
+    parser.add_argument("paths", nargs="*", metavar="PATH", help="PDF/MD/TXT file or directory")
+    parser.add_argument(
+        "--kb-db",
+        default=os.environ.get("AGENTKERNEL_KB_DIR") or "~/.agentkernel/knowledge",
+        help="persistent knowledge base directory",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=("auto", "lexical", "hybrid", "semantic"),
+        default="lexical",
+        help="retrieval backend; hybrid/semantic explicitly enable vector models",
+    )
+    parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
+    kb = KnowledgeBase(persist_dir=parsed.kb_db, backend=parsed.backend)
+    for path in parsed.paths:
         path_obj = Path(path).expanduser()
         if path_obj.is_dir():
             files = sorted(
@@ -210,8 +225,11 @@ def main(argv: list[str] | None = None) -> None:
             continue
         for file in files:
             try:
-                kb.ingest_file(file)
-                print(f"已入库 {file.name}", file=sys.stderr)
+                chunks = kb.ingest_file(file)
+                if chunks:
+                    print(f"已入库 {file.name}（{chunks} 块）", file=sys.stderr)
+                else:
+                    print(f"已跳过（内容未变化）：{file.name}", file=sys.stderr)
             except Exception as e:
                 print(f"入库失败 {file.name}：{e}", file=sys.stderr)
 

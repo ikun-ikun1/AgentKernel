@@ -8,8 +8,9 @@ venv/
 
 # 数据（本地生成，不入库）
 data/
-chroma/
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
 
 # 系统

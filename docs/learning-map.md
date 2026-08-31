@@ -8,7 +8,7 @@
 |------|------|-------------------|
 | `agent-study-main` | 教学课程（Ch0-Ch15），讲原理 + 面试高频 | 每章对应一个模块，见下表 |
 | `openclaw` | 工业级开源 Agent（TypeScript） | 借鉴 `packages/tool-call-repair` 的分层设计 |
-| `ai-agent-workbench-main` | 实习项目（Claude Agent SDK 搭平台） | 分层/工程规范来源，形成「会用 → 会造」互补 |
+| `ai-agent-workbench-main` | 实习项目（Claude Agent SDK 搭业务平台） | 作为应用层对照，明确 SDK Runtime 与自实现 Runtime 的边界 |
 
 ## 2. 模块 ↔ 教学章节映射
 
@@ -18,8 +18,8 @@
 | `tools/contracts.py` + `tools/json_repair.py` | Ch11（Tool Calling 底层） | **LLM 不是「调用函数」，只是输出 JSON，代码解析并执行**；脏 JSON 修复 | 工具调用失败/坏 JSON 怎么办？ |
 | `tools/registry.py` | Ch2（工具设计）、Ch11 | 工具注册、JSON Schema 校验、错误回灌 | 工具参数怎么校验？工具报错怎么处理？ |
 | `runtime/llm.py` | Ch11（Token 原理） | 工具定义消耗 token；模型只返回文本 | 工具描述计入 prompt token 吗？ |
-| `memory/sqlite_store.py` | Ch14（SQLite + Agent 存储） | sessions/messages/tool_logs 三表；WAL；外键 | Agent 数据库 schema 怎么设计？WAL 是什么？ |
-| `rag/ingest.py` | Ch9（RAG 深潜） | 分块带重叠、向量检索、带来源引用 | RAG 为什么要分块？重叠有什么用？ |
+| `memory/sqlite_store.py` | Ch14（SQLite + Agent 存储） | 用最小持久化适配器验证消息/观察恢复 | Runtime 为什么需要状态存储？WAL 是什么？ |
+| `rag/ingest.py` | Ch9（RAG 深潜） | 文档指纹、增量索引、FTS5、向量召回、混合排序和来源引用 | 如何保证重建幂等？词法/向量如何融合？引用如何可追踪？ |
 | `mcp/client.py` + `mcp/server.py` | Ch10（MCP 协议） | JSON-RPC 2.0；stdio 传输；`initialize → tools/list → tools/call` | MCP 为什么不是 REST？stdio 和 SSE 区别？ |
 | `mcp/framing.py` | Ch10.6（传输层） | Content-Length 帧；日志走 stderr | stdio 生产陷阱？ |
 
@@ -75,14 +75,14 @@
 ### 第六步：RAG——Ch9 + `rag/ingest.py`
 
 读 `agent-study-main/chapter_09_rag_deepdive/09_rag_deepdive.py`。
-对应代码：`load_document` / `chunk_text`（带重叠）/ `ShingleIndex`（无依赖降级）/ `KnowledgeBase`。
+对应代码：`load_document_parts` / `chunk_text` / `SQLiteIndex` / `_VectorIndex` / `KnowledgeBase`。
 
 ## 4. 与实习项目互补的讲述逻辑
 
 1. **问题**：实习用 Claude Agent SDK 搭工作台，主循环/工具调用/上下文全被框架封装，面试讲不清底层。
-2. **做法**：个人项目不套框架，从零实现 ReAct、工具注册、JSON 修复、SQLite 记忆、MCP 两端。
-3. **证据**：CLI 多轮不丢上下文、坏 JSON 不崩、知识库问答带来源、`eval.py` 一键验证。
-4. **互补**：Workbench 证明「会用框架交付业务」，AgentKernel 证明「会造内核讲清原理」。
+2. **做法**：个人项目不套框架，从零实现最小 ReAct、工具调用契约、JSON 修复、上下文策略和 MCP 两端，并用检索样例验证外部状态接入；Workbench 负责直接使用 SDK 把能力编排成业务产品。
+3. **证据**：单元测试和 `eval.py` 能验证工具调用、坏 JSON、上下文压缩、MCP stdio 链路、增量入库和持久化检索。
+4. **互补**：Workbench 证明「会用框架交付业务」，AgentKernel 证明「能拆解、实现并验证 Runtime 底层机制」。
 
 ## 5. 深挖问答自查清单
 

@@ -2,24 +2,61 @@
 
 ## 1. 推荐技术选型
 
-以下技术栈是本项目默认方案，目的是降低上手成本、减少工程变量，保证 4 周内完成可演示闭环。
+以下技术栈分为 Runtime 核心和检索实验模块两层。项目不做 Workbench 的业务 UI 和企业治理；检索模块用于验证持久化、增量更新、召回和来源保留，不定位为生产知识库。
 
 | 组件 | 选型 | 选型理由 |
 |------|------|---------|
 | 语言 | Python 3.11+ | 已有 Python 和 Agent 项目经验 |
 | 模型 | DeepSeek API（OpenAI 兼容） | 便宜、接口标准，换模型只改 base_url |
-| 向量库 | ChromaDB | 本地、轻量、Python 原生，个人项目够用 |
-| Embedding | BAAI/bge-small-zh-v1.5 | 中文效果好、体积小、本地可跑 |
-| 文档解析 | PyMuPDF（PDF）；MD/TXT 按 UTF-8 文本读取 | 简单可靠，不引入无收益依赖 |
+| 词法检索 | SQLite FTS5 | 持久化、可索引、无额外服务，作为稳定基线 |
+| 语义检索 | ChromaDB + sentence-transformers（可选） | 用于对比语义召回；缺失时保留 FTS5，便于实验继续进行 |
+| 文档解析 | PyMuPDF（可选）+ 标准库 | PDF 保留页码，MD/TXT 直接读取 |
 | 记忆 | SQLite（标准库 `sqlite3`） | 零部署，CLI 场景够用 |
-| MCP server | `mcp` Python SDK | 官方实现，server 端不重复造轮子 |
-| MCP client | 自实现 | 证明懂协议底层（`initialize` → `tools/list` → `tools/call`） |
+| MCP server | `mcp` Python SDK（可选）+ 纯 Python stdio 入口 | 对比官方 SDK 与最小协议实现 |
+| MCP client | 自实现 | 验证协议底层（`initialize` → `tools/list` → `tools/call`） |
 
 技术选型写死，不中途换栈。若确实要换，需说明理由 + 对进度的影响，先确认再改。
 
-## 2. 系统模块边界
+## 2. 与 AI Agent Workbench 的系统边界
 
-MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计）：
+两个项目的关系不是“两个 Agent 产品”，而是“应用层交付”和“底层机制研究”的互补：
+
+| 层次 | AI Agent Workbench | AgentKernel |
+|------|--------------------|-------------|
+| 产品入口 | Web、SSE、Agent 选择、会话生命周期 | CLI，仅用于触发 Runtime |
+| Agent Runtime | Claude Agent SDK 提供主循环、tool_use、session | 自己实现最小 ReAct 主循环 |
+| 工具与权限 | 业务 CLI/MCP、manifest 白名单、人工审批 | 固定 Tool Registry、协议分类、Schema 子集校验 |
+| 业务能力 | 工时、考勤、制度问答、项目等业务 Agent | 时间、计算器和检索/MCP 实验样例 |
+| 持久化与观测 | 用户会话、跨会话记忆、审批和审计产品 | SQLite 仅用于 Runtime 恢复和测试观察 |
+| MCP | 业务工具集成 | stdio/JSON-RPC 协议实验和互操作测试 |
+
+### AgentKernel 的硬边界
+
+AgentKernel 不实现以下 Workbench 能力：
+
+1. Web 前端、SSE 流式 UI、登录和用户系统。
+2. Agent manifest、业务子 Agent、路由器和 Skills 配置平台。
+3. 人工审批、企业鉴权、跨 Agent 权限隔离和生产级审计平台。
+4. 真实工时、考勤、制度或其他企业系统接入。
+5. 文档管理 UI、企业知识权限平台、多租户和部署运维；RAG 的索引与检索核心仍属于本项目主线。
+
+`rag/` 是用于实验的检索模块；`mcp/server.py` 是它的只读协议适配层。Workbench 可以参考这类实现，但不由 AgentKernel 实现业务知识库页面、组织权限和审批流程。
+
+### 研究与优化主线
+
+项目不把“能跑通一个 Agent”作为最终成果，而采用“基线实现 → 暴露问题 → 针对性改进 → 场景验证”的路线：
+
+| 研究问题 | 基线做法 | 改进方案 | 验证方式 |
+|----------|----------|----------|----------|
+| 模型输出不是合法 JSON，或普通长文本被误识别为工具调用 | 直接解析模型输出 | 平衡结构提取、格式修复、工具名 allowlist、payload 上限，失败降级为文本 | 噪声 JSON、单引号、代码围栏、未知工具和超长载荷 |
+| 对话历史变长后早期约束丢失 | 固定携带全部历史或仅做固定截断 | 保留首条用户要求；旧消息优先 compact，摘要失败再 truncate | 超预算历史、摘要失败和最大步数场景 |
+| 文档重复入库、修改后索引难以维护，向量依赖可能不可用 | 每次重新构建或只依赖向量检索 | checksum 增量更新；FTS5 作为持久化基线，向量检索可选并支持回退 | 重复入库、修改文档、向量依赖缺失 |
+
+其中，工具调用可靠性和检索链路可恢复性是本项目的主要优化方向；MCP 协议帧、能力协商和外部 Server 接入属于互操作性验证，不宣称重新发明协议。
+
+## 3. 系统模块边界
+
+研究阶段实现以下核心模块。模块按“Runtime 基线 → 问题优化 → 场景验证”的链路组织，不复制 Workbench 的 Web/API/业务层：
 
 ```
 ┌──────────────┐
@@ -38,7 +75,9 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 │DeepSeek   │ └────┬──────┘ └────────────────┘
 └───────────┘     │ 注册工具
                   ├── 内置工具（当前时间 / 计算器）
-                  └── mcp/client.py ──▶ mcp/server.py ──▶ rag/ingest.py ──▶ ChromaDB
+                   └── mcp/client.py ──▶ mcp/server.py ──▶ rag/ingest.py
+                                                     ├── SQLite FTS5
+                                                     └── Chroma（可选）
 ```
 
 | 模块 | 职责 |
@@ -48,21 +87,21 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 | `tools/contracts.py` | 工具调用协议契约（结构定义 + 工具名允许清单） |
 | `tools/registry.py` | 工具注册、纯 Python JSON Schema 校验、错误处理 |
 | `tools/json_repair.py` | 非法 JSON 三层修复（提取 → 修复 → 降级 + payload 上限） |
-| `memory/sqlite_store.py` | 会话 + 消息 + 工具调用审计（tool_logs）持久化 |
-| `rag/ingest.py` | 文档解析 → 分块 → 向量化入库；ChromaDB 优先 + 纯 Python 降级索引 |
+| `memory/sqlite_store.py` | Runtime 验证用的消息与工具观察持久化，不承担会话产品能力 |
+| `rag/ingest.py` | 文档指纹、增量入库、分块、来源元数据、FTS5 与可选向量混合检索 |
 | `mcp/framing.py` | MCP stdio 帧协议（Content-Length + JSON-RPC 2.0） |
-| `mcp/server.py` | 知识库 MCP server（官方 SDK 可选 + 纯 Python stdio 入口，2 个 tool） |
+| `mcp/server.py` | 只读示例 MCP server（官方 SDK 可选 + 纯 Python stdio 入口，2 个 tool） |
 | `mcp/client.py` | 自实现 MCP client（stdio 子进程 / 进程内适配），注册进内核 |
 | `utils/env.py` / `utils/errors.py` | 环境变量 / 统一错误 |
 
 > **借鉴来源**：
-> - 分层（`runtime/` / `tools/` / `memory/` / `utils/` / `tests/`）：借鉴 AI Agent Workbench 的 `backend/` 结构
+> - 分层（`runtime/` / `tools/` / `memory/` / `utils/` / `tests/`）：借鉴 AI Agent Workbench 的工程组织方式，但不复制其 Web、业务和审批层
 > - 工具调用契约（`tools/contracts.py`）：借鉴 OpenClaw tool-call-repair 的 `contracts.ts`
 > - JSON 修复分层（提取 → 修复 → 降级）：借鉴 OpenClaw tool-call-repair 的 grammar/payload/promote/stream-normalizer 分层思想
 > - 工具名允许清单 + payload 字节上限：借鉴 OpenClaw `scanPlainTextToolCall` 的 `matcher` 与 `maxPayloadBytes`
 > - `src/` 布局 + `pyproject.toml` + ruff/mypy/pytest：标准 Python 工程配置
 
-## 3. 工具调用协议边界
+## 4. 工具调用协议边界
 
 模型被要求按固定 JSON 输出工具调用：
 
@@ -91,42 +130,53 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 5. ReAct 循环设 MAX_STEPS 上限，防止死循环；多工具调用当前按顺序执行（教学版便于解释观察回灌顺序）。
 6. 历史超预算时 truncate 固定首条用户要求；超过 compact 阈值时优先摘要压缩，压缩失败降级截断。
 
-## 4. 安全边界
+## 5. 安全边界
 
-个人项目没有「企业安全」那么重，但以下底线不放松：
+个人项目不承担 Workbench 的企业安全职责，但以下 Runtime 级底线不放松：
 
 1. API Key 放 `.env`，用 python-dotenv 读，**不硬编码、不入库**（`.gitignore` 排除 `.env`）。
 2. 不把通用 shell 暴露给模型；内置工具是固定实现，模型只能传参数。
 3. 工具执行异常捕获后作为「观察」回灌，不让异常穿透崩溃。
 4. 知识库检索只读（查询 + 列出），不提供写/删能力给模型。
 
-## 5. 功能范围
+## 6. 具体实现范围
 
-### MVP 必达能力
+### 必须实现并可验证
 
-1. CLI 多轮对话，上下文不丢。
-2. 至少 2 个内置工具（当前时间 / 计算器）可被调用。
-3. 非法 JSON 能修复或降级，不崩溃。
-4. SQLite 记忆，重启后历史仍在。
-5. 至少 1 个 MCP 知识库工具（`knowledge_query`）能带来源回答。
-6. 有评估脚本验证核心用例。
+1. `runtime/agent.py` 能执行最多 `MAX_STEPS` 的 ReAct 循环。
+2. `tools/contracts.py` 能区分单工具、多工具和最终回答协议。
+3. `tools/registry.py` 能注册工具、生成描述、校验参数并把异常转为观察结果。
+4. `tools/json_repair.py` 能处理带噪声/代码围栏/尾逗号/单引号 JSON，失败时降级纯文本。
+5. `ContextConfig` 能执行首条用户要求保留、最近消息截断和摘要压缩降级。
+6. `mcp/framing.py`、`mcp/client.py`、`mcp/server.py` 能完成 `initialize → tools/list → tools/call`。
+7. `eval.py` 和 `tests/` 能用 fake LLM 验证上述行为，不依赖真实 API。
+
+### 检索实验能力
+
+1. `memory/sqlite_store.py`：验证 Runtime 消息恢复和工具观察记录。
+2. `rag/ingest.py`：文档 checksum、增量更新、稳定 chunk ID、SQLite FTS5 和可选向量索引。
+3. `rag/ingest.py`：保留 source/page/section 元数据，检索结果可生成可审计引用。
+4. `mcp/server.py`：通过 `knowledge_query` / `knowledge_list` 暴露只读检索能力，验证 Runtime 接入外部状态的方式。
+5. `__main__.py`：CLI 作为运维/开发入口，支持持久化知识库目录。
 
 ### 可降级实现
 
 1. 上下文压缩（compact）可以先用纯截断（truncate）替代。
-2. FastAPI 演示层可选，CLI 够演示。
-3. 2 分钟录屏可省。
-4. RAG 只做朴素向量检索，不做混合检索/重排。
+2. 向量依赖不可用时降级为持久化 FTS5，不能降级为丢失数据的内存索引。
+3. PDF 依赖不可用时只拒绝 PDF，不影响已有 MD/TXT 索引和查询。
+4. MCP server 可使用纯 Python stdio 实现，不要求官方 SDK；官方 SDK 仅作为可选实现方式。
+5. 2 分钟录屏可省，测试、评估和索引一致性验证优先。
 
-### 默认不做，除非单独确认
+### 默认不做，且不属于本项目主线
 
-1. 不做 IM 渠道（飞书等）。
-2. 不做 Agent 框架（LangChain / Claude SDK）。
-3. 不做多租户、卡片交互。
-4. 不做复杂 RAG 优化（混合检索/重排）。
-5. 不做生产级部署。
+1. 不做 Web、SSE、Agent manifest、子 Agent 和业务路由。
+2. 不做人工审批、企业鉴权、跨会话产品记忆和完整审计平台。
+3. 不做 IM 渠道（飞书等）和真实企业系统接入。
+4. 不做文档管理 UI、企业权限平台和多租户知识库；混合检索、增量索引和来源追踪仅属于本项目的实验范围。
+5. 不做 Agent 插件市场、多租户和生产级部署。
+6. 不引入 LangChain / Claude SDK 作为 Runtime 实现；它们只作为实习项目对照和文档讨论对象。
 
-## 6. 时间控制规则
+## 7. 时间控制规则
 
 个人项目，优先保证演示闭环。遇到以下情况立即收窄范围：
 
@@ -141,12 +191,13 @@ MVP 阶段实现以下核心模块（借鉴 workbench 分层 + OpenClaw 设计�
 3. 先完成一个工具，再复制第二个工具。
 4. 先本地演示，再考虑扩展。
 
-## 7. 成功标准
+## 8. 成功标准
 
 项目成功不以功能数量判断，而以以下标准判断：
 
 1. 能清楚解释为什么从零写、不套框架。
 2. 能清楚解释 ReAct 循环和工具调用失败怎么处理。
 3. 能清楚解释上下文太长为什么忘事、怎么截断/压缩。
-4. 能演示「多轮 → 工具 → 知识库带来源 → 坏 JSON 不崩」闭环。
-5. 能从原理、工程、面试三个角度讲清楚项目。
+4. 能用测试或 eval 证明「多轮 → 工具 → MCP → 坏 JSON 不崩」闭环。
+5. 能说明检索实验与 Workbench 业务知识库的边界：前者用于验证机制，后者是业务应用。
+6. 能从原理、工程、协议、数据一致性和面试五个角度讲清楚项目。

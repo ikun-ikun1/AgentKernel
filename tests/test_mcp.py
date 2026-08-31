@@ -102,7 +102,16 @@ def test_stdio_client_against_self_hosted_server(tmp_path):
     src_path = str(project_root / "src")
     env["PYTHONPATH"] = src_path + os.pathsep + env.get("PYTHONPATH", "")
 
-    client = StdioMCPClient([sys.executable, "-m", "agentkernel.mcp.server", str(doc)])
+    client = StdioMCPClient(
+        [
+            sys.executable,
+            "-m",
+            "agentkernel.mcp.server",
+            "--kb-db",
+            str(tmp_path / "kb"),
+            str(doc),
+        ]
+    )
     try:
         tools = client.list_tools()
         names = {t["name"] for t in tools}

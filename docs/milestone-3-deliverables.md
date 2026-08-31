@@ -1,6 +1,6 @@
 # 里程碑 3：交付物与缓冲
 
-> **当前进度**：🟡 进行中。`eval.py`（mock/live 5 用例）、README、架构说明已更新；架构图 PNG、演示录屏、简历定稿仍待完成。
+> **当前进度**：✅ 已完成（录屏可选）。`eval.py`、README、Runtime/MCP 研究文档、检索实验模块、架构图、演示脚本和简历面试材料已就绪；真实录屏按演示脚本在本地 API 环境执行即可。
 
 ## 周期与验收要求
 
@@ -10,13 +10,13 @@
 
 ## 阶段目标
 
-把前两周的内核和知识库能力沉淀成「能写进简历、能讲给面试官」的交付物：评估脚本、README、架构图、演示录屏、简历描述。
+把前两周的 Runtime 和 MCP 协议实验沉淀成「能写进简历、能讲给面试官」的交付物：评估脚本、README、架构图、演示录屏、简历描述。重点讲清 AgentKernel 与 AI Agent Workbench 的互补关系，并把“基线复现”和“问题驱动优化”区分开，不把它包装成第二个业务工作台。
 
 本阶段不追求新功能，重点是收尾 + 平欠账 + 补细节。
 
 ## 设计思路
 
-先量化（评估脚本），再文档化（README + 架构图），最后故事化（录屏 + 简历 + 面试话术）。
+先复现基线，再针对问题优化，最后量化验证（评估脚本）、文档化（README + 架构图）和故事化（录屏 + 简历 + 面试话术）。
 
 优先级：🟡 重要（README/架构图/评估脚本）必须做；🟢 可砍（录屏/FastAPI）砍了不影响面试故事。
 
@@ -25,8 +25,9 @@
 1. 评估脚本 `eval.py`（5 用例跑分）。
 2. 完善的 README（最终用法 + 目录结构 + 截图）。
 3. 架构图（PNG）。
-4. 简历 bullet 定稿。
-5. （可选）2 分钟演示录屏。
+4. 演示脚本 `docs/demo-script.md`。
+5. 简历与面试材料 `docs/resume-and-interview.md`。
+6. （可选）2 分钟演示录屏。
 
 ## 任务拆解
 
@@ -57,9 +58,11 @@
 
 ## 简历描述（定稿版）
 
-> **Agent 内核 + 知识库 MCP 工具**（个人项目，独立完成）
-> - 用 Python 从零实现 Agent 内核（不依赖 LangChain/Claude SDK）：ReAct 主循环、工具注册与参数校验、非法 JSON 三层修复（正则提取 → JSON 修复 → 降级纯文本）、SQLite 对话记忆
-> - 基于 mcp Python SDK 自建知识库工具（ChromaDB + bge-small-zh 向量检索，支持 PDF/MD/TXT），并自行实现 MCP client 端，打通「Agent → MCP → 知识库」链路
+> **Agent Runtime 原理研究与 MCP 检索实验**（个人项目，独立完成）
+> - 以实习项目中的 Claude Agent SDK 为对照，用 Python 从零实现可解释的最小 Runtime：ReAct 主循环、工具调用契约、参数校验、非法 JSON 三层修复（提取 → 修复 → 降级）和 truncate/compact 上下文策略
+> - 实现 PDF/MD/TXT 文档 checksum 增量索引、SQLite FTS5 词法检索和可选 Chroma 向量检索，通过 RRF 融合召回并保留页码/来源信息，作为外部状态接入的实验样例
+> - 自实现 MCP stdio/JSON-RPC client，完成 `initialize → tools/list → tools/call` 与错误处理；server 侧提供官方 SDK 可选适配和纯 Python stdio 实现，将检索样例以只读工具接入 Runtime
+> - 通过单元测试与 `eval.py` mock 评估验证增量入库、持久化恢复、工具回灌、坏 JSON 降级、上下文保持和 MCP 子进程链路，形成与 Claude Agent SDK 工作台的底层对照
 > - 参考 OpenClaw 源码 tool-call-repair 设计，理解工业级 Agent「把模型会犯错当默认前提」的工程思路
 
 ## 验收标准
@@ -68,6 +71,7 @@
 2. 陌生人照着 README 能跑起来。
 3. 架构图清晰展示 8 模块和数据流。
 4. 简历 bullet 与实际功能逐条核对（面试被深挖不穿帮）。
+5. 演示脚本能在无真实 API 时完成自动化和 RAG 验收，在有 API 时完成 CLI 对话演示。
 
 ## 底线完成定义
 

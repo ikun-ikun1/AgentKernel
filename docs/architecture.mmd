@@ -1,0 +1,28 @@
+flowchart LR
+    User[CLI / MCP Host]
+    Agent[Agent Runtime\nReAct Loop + Context Policy]
+    LLM[LLM Adapter\nOpenAI-compatible]
+    Registry[Tool Registry\nContract + Schema + Errors]
+    MCPClient[MCP Client\nJSON-RPC + stdio framing]
+    MCPServer[MCP Server\nRead-only knowledge tools]
+    RAG[RAG Infrastructure\nIngestion + Retrieval]
+    Catalog[(SQLite Catalog\nDocuments + Chunks + FTS5)]
+    Vector[(Chroma\nOptional vectors)]
+    Source[PDF / Markdown / TXT]
+    Memory[(SQLite Runtime Store\nSessions + Messages + Tool Logs)]
+
+    User --> Agent
+    Agent --> LLM
+    Agent --> Registry
+    Registry --> MCPClient
+    MCPClient --> MCPServer
+    MCPServer --> RAG
+    Source --> RAG
+    RAG --> Catalog
+    RAG -. optional semantic index .-> Vector
+    Agent --> Memory
+
+    classDef core fill:#e8f0fe,stroke:#315ea8,stroke-width:1px;
+    classDef storage fill:#fff4d6,stroke:#a36b00,stroke-width:1px;
+    class Agent,LLM,Registry,MCPClient,MCPServer,RAG core;
+    class Catalog,Vector,Memory storage;

@@ -9,11 +9,11 @@
 
 市面上做 Agent 应用，大多直接套 LangChain、Claude Agent SDK 这类框架，主循环、工具调用、上下文管理全被框架封装。这样虽然快，但面试被问到「ReAct 怎么实现、工具调用失败怎么处理、上下文太长怎么办」时，只能答「框架帮我做了」。
 
-本项目反过来：用 Python **从零实现**一个不依赖任何 Agent 框架的内核，包含 ReAct 主循环、工具注册与参数校验、非法 JSON 修复、SQLite 记忆，并自建知识库 MCP 工具（server 端用官方 SDK、client 端自实现），打通「Agent → MCP → 知识库」链路。
+本项目反过来：围绕实习项目中由 Claude Agent SDK 封装的能力，用 Python **先复现一个可解释的 Runtime 基线，再针对具体问题做优化实验**，并配套一个用于验证外部状态接入的检索模块。项目包含 ReAct 主循环、工具调用契约、参数校验、非法 JSON 修复、上下文策略、MCP 协议、增量索引和混合检索，但不复制 Workbench 的 Web、业务 Agent 和企业治理层。
 
-目标不是「再造一个 OpenClaw」，而是证明原理级工程能力——实习「会用」框架搭平台，个人项目「会造」内核。
+目标不是「再造一个 OpenClaw」，而是验证原理级工程能力——实习「会用」框架搭平台，个人项目「能理解并验证」内核机制。
 
-更完整的背景说明见：[project-background.md](./project-background.md)。
+更完整的背景说明见：[project-background.md](./project-background.md)；硬边界见：[technical-scope-and-boundary.md](./technical-scope-and-boundary.md)。
 
 ## 当前进度
 
@@ -23,7 +23,7 @@
 
 ## 与实习项目 AI Agent Workbench 互补
 
-实习项目用 Claude Agent SDK「会用」框架搭工作台；本项目不套框架「会造」内核。两者合起来构成完整简历主线，详见 [README 互补表](../README.md)。
+实习项目直接使用 Claude Agent SDK「会用」框架搭业务工作台；本项目围绕实习中遇到的 Runtime、Tool Calling 和 MCP 能力「复现基线、发现问题、优化实现、验证效果」。两者不是两个同类产品：Workbench 负责用户、业务和治理，AgentKernel 负责解释、改进和验证框架底层机制。详见 [README 边界声明](../README.md#边界声明) 和 [技术边界](./technical-scope-and-boundary.md)。
 
 ## 里程碑时间轴
 
@@ -40,9 +40,13 @@
 2. [技术选型与边界说明](./technical-scope-and-boundary.md)
 3. [教学映射（agent-study ↔ OpenClaw ↔ Workbench）](./learning-map.md)
 4. [自我审查报告（Claude SDK / 高星 MCP 库 / agent-study）](./self-review.md)
-5. [里程碑 1：ReAct 内核可跑](./milestone-1-kernel.md)
-6. [里程碑 2：知识库 MCP 打通](./milestone-2-mcp.md)
-7. [里程碑 3：交付物与缓冲](./milestone-3-deliverables.md)
+5. [架构图源文件](./architecture.mmd)
+6. [架构图 PNG](./architecture.png)
+7. [演示脚本](./demo-script.md)
+8. [简历与面试材料](./resume-and-interview.md)
+9. [里程碑 1：ReAct 内核可跑](./milestone-1-kernel.md)
+10. [里程碑 2：MCP 协议与示例工具链打通](./milestone-2-mcp.md)
+11. [里程碑 3：交付物与缓冲](./milestone-3-deliverables.md)
 
 ## 工作节奏说明
 
@@ -61,9 +65,8 @@
 
 项目结束时应具备：
 
-1. 一个可运行的 CLI Agent（多轮对话 + 工具调用）。
-2. 非法 JSON 能修复或降级，不崩溃。
-3. SQLite 记忆，重启不丢、超长截断/压缩。
-4. 知识库 RAG（PDF/MD/TXT 入库 + 向量检索带来源）。
-5. MCP server（官方 SDK）+ MCP client（自实现）两端，打通完整链路。
-6. README + 架构图 + 2 分钟演示录屏 + 简历描述定稿。
+1. 一个可运行的 CLI Runtime 演示（多轮对话 + 工具调用）。
+2. 可测试的 Tool Calling 契约、JSON 修复和上下文管理策略。
+3. MCP stdio/JSON-RPC client/server 的协议级测试。
+4. SQLite 文档库和检索模块作为实验样例，验证 Runtime 如何接入持久化外部状态并保留工具结果来源。
+5. `eval.py`、README、架构图、演示录屏和简历描述，能清楚说明与 Workbench 的边界。

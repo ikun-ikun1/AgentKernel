@@ -1,6 +1,6 @@
-# 里程碑 2：知识库 MCP 打通
+# 里程碑 2：MCP 协议与示例工具链打通
 
-> **当前进度**：✅ 已实现。RAG 文档解析/分块/检索（ChromaDB 可选 + 纯 Python 降级索引）、MCP server（官方 SDK 可选 + 纯 Python stdio 入口 `python -m agentkernel.mcp.server`）、自实现 MCP client（Content-Length 帧 + JSON-RPC 2.0，含 stdio 子进程集成测试）已打通；`tests/test_rag.py`、`tests/test_mcp.py` 覆盖核心链路。
+> **当前进度**：✅ 已实现。持久化文档解析、checksum 增量入库、SQLite FTS5 词法检索、可选 Chroma 向量后端、MCP server 和自实现 MCP client 已打通；`tests/test_rag.py`、`tests/test_mcp.py` 覆盖核心链路。
 
 ## 周期与验收要求
 
@@ -10,18 +10,18 @@
 
 ## 阶段目标
 
-在 M1 内核基础上，接入知识库：文档入库 → 向量检索 → 通过 MCP 暴露成工具 → 内核无感知调用，实现「问 XX 是什么 → 检索回答带来源」。
+在 M1 内核基础上，完成一条用于验证外部状态接入的检索实验链路：文档解析 → 指纹增量入库 → 词法/向量召回 → 来源引用 → 通过 MCP 暴露给内核。Workbench 负责业务知识问答编排，AgentKernel 负责最小 Runtime、协议验证和检索样例。
 
-本阶段重点是打通「Agent → MCP → 知识库」链路，证明 MCP 两端都写过。
+本阶段重点是打通「Agent → MCP client → MCP server → 示例数据源」链路，证明 MCP 两端都写过，并验证 Runtime 对外部工具的抽象。
 
 ## 设计思路
 
-分两半：先把 RAG 跑通（文档 → 向量 → 检索），再用 MCP 包一层暴露给内核。
+分两半：先实现持久化 RAG 管线（文档 → 指纹 → 分块 → FTS5/向量索引 → 混合召回），再用 MCP 包一层暴露给内核。
 
 ```
 Agent → mcp/client.py（自实现 tools/list + tools/call）
-     → mcp/server.py（官方 SDK，注册 knowledge_query / knowledge_list）
-     → rag/ingest.py（文档 → 分块 → bge 向量化 → ChromaDB）
+     → mcp/server.py（官方 SDK 可选，注册 knowledge_query / knowledge_list）
+     → rag/ingest.py（PDF/MD/TXT → 分块 → FTS5 + 可选向量混合检索）
      → 检索返回带来源片段
 ```
 
@@ -34,7 +34,7 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 ## 模块与目的
 
 1. `rag/ingest.py`  
-目的：解析 PDF（PyMuPDF）/ MD / TXT（MD/TXT 按 UTF-8 文本读取）→ 分块（带重叠）→ bge-small-zh 向量化 → 存入 ChromaDB。
+目的：解析 PDF/MD/TXT，按 checksum 增量入库，保存页码与来源，执行 FTS5 和可选向量混合检索。
 
 2. `mcp/server.py`  
 目的：用官方 `mcp` SDK 暴露 2 个工具——`knowledge_query(query, top_k)` 检索带来源、`knowledge_list()` 列出已入库文档。
@@ -45,18 +45,19 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 ## 交付物
 
 1. 知识库入库 + 检索能力。
-2. MCP server（官方 SDK）+ MCP client（自实现）。
+2. MCP server（官方 SDK 可选适配/纯 Python stdio）+ MCP client（自实现）。
 3. 打通「Agent → MCP → 知识库」链路。
 4. 至少 1 个测试文档（内容自己熟，方便验证）。
 
 ## 任务拆解
 
-### D1-2：文档解析 + 分块 + 向量化入库
+### D1-2：文档解析 + 分块 + 持久化索引
 
-- `rag/ingest.py`：解析、分块（带重叠）、向量化、入库。
-- 检索：query 向量化 → top_k 召回。
+- `rag/ingest.py`：解析、checksum、分块、SQLite 元数据与 FTS5 索引。
+- 可选向量：SentenceTransformer 编码 + Chroma 持久化，缺失时保留 FTS5。
+- 检索：词法/向量候选 → Reciprocal Rank Fusion → top_k，并保留来源元数据。
 
-### D3-4：mcp/server 注册两个 tool
+### D3-4：mcp/server 注册两个示例 tool
 
 - `mcp/server.py`：注册 `knowledge_query` + `knowledge_list`。
 - 参考实习 M3 的 MCP server 代码。
@@ -73,7 +74,7 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 
 ## 验收标准
 
-1. 文档能入库（PDF/MD/TXT）。
+1. PDF/MD/TXT 文档能加载并建立持久化索引（PDF 依赖 PyMuPDF）。
 2. `knowledge_query` 能检索出相关片段并带来源。
 3. Agent 通过 MCP 调知识库，回答带来源。
 4. 5 个评估用例全过，或至少核心用例过。
@@ -82,19 +83,19 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 
 | 验收项 | 结果 | 证据 |
 |--------|------|------|
-| 文档入库（MD/TXT；PDF 依赖 PyMuPDF） | ✅ | `tests/test_rag.py`：load_document / chunk_text / ingest_file |
+| 文档加载与检索（MD/TXT） | ✅ | `tests/test_rag.py`：load_document / chunk_text / ingest_file |
 | `knowledge_query` 带来源检索 | ✅ | `tests/test_mcp.py`：输出含 `[来源：notes.md]` |
 | Agent → MCP → 知识库链路 | ✅ | `eval.py` 用例 4（mock）；`tests/test_mcp.py::test_register_mcp_tools_into_registry` |
 | 自实现 MCP client 真连 stdio server | ✅ | `tests/test_mcp.py::test_stdio_client_against_self_hosted_server` |
 | 5 个评估用例 | ✅ mock 5/5；live 5 用例（4 个真实 API + 1 个解析层坏 JSON，依赖 API 可用性） | `python eval.py` / `python eval.py --live` |
 | CLI 知识库演示 | ✅ | `python -m agentkernel --docs <路径>`，`/docs`、`/ingest`、`/logs` |
-| ChromaDB 可选后端 | ✅ | CLI `--kb-db <目录>`；未装依赖自动降级纯 Python 索引 |
+| 持久化/增量索引 | ✅ | SQLite 文档 checksum、FTS5、稳定 chunk ID |
 
 ## 明确不做
 
-1. 不做混合检索 / 重排（知道思路、口头能讲即可）。
-2. 不做真实企业知识库接入。
-3. 不做多文档库 / 复杂权限。
+1. 不做 Workbench 的业务知识库 UI、组织权限和多租户平台。
+2. 不做真实企业数据接入和生产部署运维。
+3. 不砍掉混合检索、增量索引、来源追踪和离线评估，这些是本项目用于观察检索行为的实验内容。
 4. 不做 Web 界面。
 
 ## 踩坑提示
