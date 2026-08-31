@@ -200,8 +200,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("paths", nargs="*", metavar="PATH", help="PDF/MD/TXT file or directory")
     parser.add_argument(
         "--kb-db",
-        default=os.environ.get("AGENTKERNEL_KB_DIR") or "~/.agentkernel/knowledge",
-        help="persistent knowledge base directory",
+        default=os.environ.get("AGENTKERNEL_KB_DSN") or "~/.agentkernel/knowledge",
+        help="knowledge store: mysql+pymysql://... DSN or local path (SQLite adapter)",
     )
     parser.add_argument(
         "--backend",
@@ -210,7 +210,16 @@ def main(argv: list[str] | None = None) -> None:
         help="retrieval backend; hybrid/semantic explicitly enable vector models",
     )
     parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
-    kb = KnowledgeBase(persist_dir=parsed.kb_db, backend=parsed.backend)
+    kb_dsn = (
+        parsed.kb_db
+        if parsed.kb_db.startswith("mysql://") or parsed.kb_db.startswith("mysql+pymysql://")
+        else None
+    )
+    kb = KnowledgeBase(
+        persist_dir=None if kb_dsn else parsed.kb_db,
+        backend=parsed.backend,
+        dsn=kb_dsn,
+    )
     for path in parsed.paths:
         path_obj = Path(path).expanduser()
         if path_obj.is_dir():

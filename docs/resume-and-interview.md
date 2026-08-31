@@ -1,14 +1,16 @@
 # 简历与面试材料
 
+> 以下 MySQL、SQLAlchemy、Alembic 和集成测试表述适用于 ADR-001 完成代码迁移并通过验收后的简历版本；迁移完成前不要对外宣称已使用。
+
 ## 简历 Bullet
 
 **Agent Runtime 原理研究与 MCP 检索实验**，Python，个人项目，独立完成
 
-- 参考 agent-study 复现 ReAct、工具注册、观察回灌和 SQLite 记忆等 Agent 基线，并以实习项目中的 Claude Agent SDK 为对照，拆解框架隐藏的 Runtime 行为。
+- 参考 agent-study 复现 ReAct、工具注册、观察回灌和持久化记忆等 Agent 基线，并以实习项目中的 Claude Agent SDK 为对照，拆解框架隐藏的 Runtime 行为。
 - 针对模型输出不稳定问题，参考 OpenClaw 的工具调用修复思路，实现“平衡结构提取 → JSON 格式修复 → 工具名 allowlist/payload 上限校验 → 纯文本降级”链路，避免普通文本被误执行或异常输出导致 Agent 崩溃。
-- 针对文档重复入库、内容更新和向量依赖不可用问题，实现 checksum 增量索引、SQLite FTS5 词法基线、可选 Chroma 向量检索和 RRF 融合，并保留来源信息作为可验证的检索实验。
+- 针对文档重复入库、内容更新和向量依赖不可用问题，使用 MySQL 8 持久化文档元数据与 Chunk，结合 ngram 全文检索、可选 Chroma 向量检索和 RRF 融合，并保留来源信息作为可验证的检索实验。
 - 自实现 MCP stdio/JSON-RPC 2.0 client，完成 `initialize`、`tools/list`、`tools/call`、错误映射和外部工具注册；server 侧提供官方 SDK 可选适配和纯 Python stdio 实现，将检索样例以只读 MCP 工具接入 Runtime。
-- 通过 57 个单元测试、5 个 mock 评估用例和故障场景验证，覆盖持久化恢复、增量重建、工具回灌、坏 JSON 降级、上下文压缩回退和 MCP 子进程链路。
+- 通过 60 个测试用例（另有 2 个 MySQL 集成测试按需启用）、5 个 mock 评估用例和故障场景验证，覆盖持久化恢复、增量重建、工具回灌、坏 JSON 降级、上下文压缩回退和 MCP 子进程链路。
 
 ## 30 秒介绍
 
@@ -19,7 +21,7 @@
 1. **问题**：框架让 Agent 应用交付更快，但 Runtime 的底层行为不可见；因此先复现关键机制，再选择模型输出可靠性和文档更新两个具体问题做优化。
 2. **基线**：参考 agent-study 实现 ReAct、工具调用和观察回灌，明确模型输出文本如何转换成受控动作。
 3. **可靠性优化**：参考 OpenClaw 的分层修复思路，加入结构提取、格式修复、allowlist、payload 上限和纯文本降级，处理坏 JSON 和误识别风险。
-4. **检索优化**：用 checksum 判断是否需要重建；文档分块后写入 SQLite 文档目录、Chunk 表和 FTS5；向量依赖可用时写入 Chroma，并用 RRF 合并词法与语义候选，失败时保留 FTS5 基线。
+4. **检索优化**：用 checksum 判断是否需要重建；文档分块后写入 MySQL 文档目录、Chunk 表并使用 ngram 全文检索；向量依赖可用时写入 Chroma，并用 RRF 合并词法与语义候选，失败时保留 MySQL 检索基线。
 5. **协议**：MCP client 自己实现 Content-Length 帧和 JSON-RPC 请求，server 只暴露只读知识工具，结果包含 source/page 元数据。
 6. **互补**：Workbench 负责 Web、业务 Agent、审批和企业治理；AgentKernel 负责原理复现和问题优化，不重复做业务平台。
 
@@ -37,21 +39,21 @@ Workbench 负责制度问答等业务编排；AgentKernel 用一个小型检索�
 
 **代码位置**：`rag/ingest.py`（检索样例）、`mcp/server.py`（只读工具适配）。
 
-### 3. 为什么同时保留 FTS5 和向量检索？
+### 3. 为什么同时保留 MySQL ngram 和向量检索？
 
-词法检索对专有名词、错误码和精确短语稳定，向量检索对语义改写更好。两者候选集合互补，RRF 不要求不同分数空间可直接比较。
+MySQL ngram 词法检索对专有名词、错误码和精确短语稳定，向量检索对语义改写更好。两者候选集合互补，RRF 不要求不同分数空间可直接比较。
 
-**代码位置**：`rag/ingest.py` 的 `KnowledgeBase.query`（hybrid 分支做 RRF 融合）、`SQLiteIndex.lexical_query`（FTS5 词法）。
+**代码位置**：迁移后对应 `KnowledgeBase.query` 的 hybrid 分支和 MySQL Repository 的 ngram 词法查询。
 
 ### 4. 文档重复入库如何处理？
 
 以规范化路径生成 `doc_id`，以文件 SHA-256 判断内容是否变化；未变化直接跳过，变化则在事务中删除旧 Chunk、写入新 Chunk，并使用稳定的 `doc_id:ordinal` 生成 Chunk ID。
 
-**代码位置**：`rag/ingest.py` 的 `_sha256_file`、`KnowledgeBase.ingest_file`（checksum 命中 return 0）、`SQLiteIndex.upsert_document`（事务内重建）。
+**代码位置**：`rag/ingest.py` 的 `_sha256_file`、`KnowledgeBase.ingest_file`（checksum 命中 return 0）和迁移后的 MySQL Repository（事务内重建）。
 
 ### 5. 向量模型下载失败怎么办？
 
-SQLite FTS5 是持久化基线。`lexical` 后端不依赖模型；`hybrid/auto` 初始化失败时明确记录降级原因，不切换到会丢数据的内存索引；`semantic` 则 fail-fast。
+MySQL ngram 是持久化基线。词法后端不依赖向量模型；`hybrid/auto` 初始化失败时明确记录降级原因，回退到 MySQL 检索；`semantic` 则 fail-fast。
 
 **代码位置**：`rag/ingest.py` 的 `KnowledgeBase.__init__`（auto/hybrid 降级、semantic 抛错）和 `_VectorIndex`。
 

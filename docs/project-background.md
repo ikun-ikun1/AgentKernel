@@ -29,7 +29,7 @@ Workbench 的目标是交付一个面向用户的业务应用；AgentKernel 的�
 | 用户交互 | Web、SSE、Agent 选择、会话生命周期 | CLI 输入输出 |
 | Agent 组织 | manifest、子 Agent、业务 prompt/skills | 单个 Runtime + 固定 system prompt |
 | 工具系统 | 业务 CLI/MCP Adapter、审批和权限 | Tool Registry、调用契约、参数校验 |
-| 持久化 | 用户会话、跨会话记忆、草稿、审计 | 文档 checksum、chunk、FTS5 和可选向量索引 |
+| 持久化 | 用户会话、跨会话记忆、草稿、审计 | MySQL 会话/文档存储、checksum、chunk 和可选向量索引 |
 | 知识库 | 业务制度 RAG、权限和 Agent 上下文注入 | 文档解析、增量索引、混合召回、来源追踪 |
 | MCP | 业务工具暴露和接入 | stdio/JSON-RPC 协议实现与测试 |
 | 安全 | 企业鉴权、审批、工具隔离、凭据隔离 | allowlist、只读样例、基础输入边界 |
@@ -42,9 +42,9 @@ AgentKernel 是一个用 Python 从零实现的 Agent Runtime 研究原型，不
 
 ## 3. 研究路线：先复现，再优化
 
-1. **复现基线**：参考 agent-study 的 Agent 教学设计，实现 ReAct、工具注册、观察回灌和 SQLite 记忆，先证明理解 Agent 的基本组成。
+1. **复现基线**：参考 agent-study 的 Agent 教学设计，实现 ReAct、工具注册、观察回灌和持久化记忆，先证明理解 Agent 的基本组成。
 2. **工程参考**：参考 OpenClaw 对工具调用修复、允许清单和载荷边界的处理思路，不复制其实现，提炼为适合本项目的 Python 版本。
-3. **问题驱动优化**：围绕“模型输出不稳定”和“知识库更新不稳定”两个问题，增加分层降级、工具安全边界、checksum 增量更新、FTS5 基线和可选向量回退。
+3. **问题驱动优化**：围绕“模型输出不稳定”和“知识库更新不稳定”两个问题，增加分层降级、工具安全边界、checksum 增量更新、MySQL ngram 基线和可选向量回退。
 4. **验证方式**：通过 fake LLM、故障输入、文档重复/修改和 MCP 子进程场景验证改进是否有效，而不是只验证成功路径。
 5. **面试故事**：实习「会用」框架交付应用，个人项目先复现原理、再针对问题优化，一条线串起来讲。
 
@@ -72,7 +72,7 @@ AgentKernel 是一个用 Python 从零实现的 Agent Runtime 研究原型，不
 Agent 应用开发不能只会套框架。框架封装的 ReAct、工具调用、上下文管理，是 Agent 岗面试的核心考点，只会用框架答不清原理。
 
 2. **我做了什么**  
-我用 Python 从零实现了一个可解释的最小 Agent Runtime，不依赖任何框架：ReAct 主循环、工具调用契约、参数校验、非法 JSON 三层修复、上下文策略和 MCP 协议客户端；另外实现了一个带 checksum、增量更新、FTS5/向量混合检索和来源元数据的知识库检索样例。
+我用 Python 从零实现了一个可解释的 Agent Runtime，不依赖任何框架：ReAct 主循环、工具调用契约、参数校验、非法 JSON 三层修复、上下文策略和 MCP 协议客户端；另外实现了一个使用 MySQL 持久化、带 checksum 增量更新、全文/向量混合检索和来源元数据的知识库检索样例。
 
 3. **技术上怎么做**  
 先实现「思考 → 行动 → 观察 → 回复」的 ReAct 基线；再针对模型输出不稳定增加平衡括号提取、格式修复、工具名允许清单和 payload 上限，失败时降级为普通文本；针对上下文超限保留首条用户要求并对旧消息做摘要压缩，压缩失败再截断；检索样例则用 checksum 增量更新，保留 FTS5 基线并在向量依赖不可用时回退；MCP client 端自实现 `tools/list` + `tools/call`，server 端提供官方 SDK 可选适配和纯 Python stdio 实现。

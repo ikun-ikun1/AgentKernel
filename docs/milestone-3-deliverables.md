@@ -60,7 +60,7 @@
 
 > **Agent Runtime 原理研究与 MCP 检索实验**（个人项目，独立完成）
 > - 以实习项目中的 Claude Agent SDK 为对照，用 Python 从零实现可解释的最小 Runtime：ReAct 主循环、工具调用契约、参数校验、非法 JSON 三层修复（提取 → 修复 → 降级）和 truncate/compact 上下文策略
-> - 实现 PDF/MD/TXT 文档 checksum 增量索引、SQLite FTS5 词法检索和可选 Chroma 向量检索，通过 RRF 融合召回并保留页码/来源信息，作为外部状态接入的实验样例
+> - 使用 MySQL 8 持久化 PDF/MD/TXT 文档元数据与 Chunk，结合 ngram 全文检索和可选 Chroma 向量检索，通过 RRF 融合召回并保留页码/来源信息，作为外部状态接入的实验样例
 > - 自实现 MCP stdio/JSON-RPC client，完成 `initialize → tools/list → tools/call` 与错误处理；server 侧提供官方 SDK 可选适配和纯 Python stdio 实现，将检索样例以只读工具接入 Runtime
 > - 通过单元测试与 `eval.py` mock 评估验证增量入库、持久化恢复、工具回灌、坏 JSON 降级、上下文保持和 MCP 子进程链路，形成与 Claude Agent SDK 工作台的底层对照
 > - 参考 OpenClaw 源码 tool-call-repair 设计，理解工业级 Agent「把模型会犯错当默认前提」的工程思路

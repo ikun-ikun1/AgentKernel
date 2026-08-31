@@ -9,7 +9,7 @@
 
 市面上做 Agent 应用，大多直接套 LangChain、Claude Agent SDK 这类框架，主循环、工具调用、上下文管理全被框架封装。这样虽然快，但面试被问到「ReAct 怎么实现、工具调用失败怎么处理、上下文太长怎么办」时，只能答「框架帮我做了」。
 
-本项目反过来：围绕实习项目中由 Claude Agent SDK 封装的能力，用 Python **先复现一个可解释的 Runtime 基线，再针对具体问题做优化实验**，并配套一个用于验证外部状态接入的检索模块。项目包含 ReAct 主循环、工具调用契约、参数校验、非法 JSON 修复、上下文策略、MCP 协议、增量索引和混合检索，但不复制 Workbench 的 Web、业务 Agent 和企业治理层。
+本项目反过来：围绕实习项目中由 Claude Agent SDK 封装的能力，用 Python **先复现一个可解释的 Runtime 基线，再针对具体问题做优化实验**，并配套一个使用 MySQL 持久化的检索模块。项目包含 ReAct 主循环、工具调用契约、参数校验、非法 JSON 修复、上下文策略、MCP 协议、增量索引和混合检索，但不复制 Workbench 的 Web、业务 Agent 和企业治理层。
 
 目标不是「再造一个 OpenClaw」，而是验证原理级工程能力——实习「会用」框架搭平台，个人项目「能理解并验证」内核机制。
 
@@ -40,13 +40,14 @@
 2. [技术选型与边界说明](./technical-scope-and-boundary.md)
 3. [教学映射（agent-study ↔ OpenClaw ↔ Workbench）](./learning-map.md)
 4. [自我审查报告（Claude SDK / 高星 MCP 库 / agent-study）](./self-review.md)
-5. [架构图源文件](./architecture.mmd)
-6. [架构图 PNG](./architecture.png)
-7. [演示脚本](./demo-script.md)
-8. [简历与面试材料](./resume-and-interview.md)
-9. [里程碑 1：ReAct 内核可跑](./milestone-1-kernel.md)
-10. [里程碑 2：MCP 协议与示例工具链打通](./milestone-2-mcp.md)
-11. [里程碑 3：交付物与缓冲](./milestone-3-deliverables.md)
+5. [ADR-001：MySQL 主存储](./adr-001-mysql-primary-storage.md)
+6. [架构图源文件](./architecture.mmd)
+7. [架构图 PNG](./architecture.png)
+8. [演示脚本](./demo-script.md)
+9. [简历与面试材料](./resume-and-interview.md)
+10. [里程碑 1：ReAct 内核可跑](./milestone-1-kernel.md)
+11. [里程碑 2：MCP 协议与示例工具链打通](./milestone-2-mcp.md)
+12. [里程碑 3：交付物与缓冲](./milestone-3-deliverables.md)
 
 ## 工作节奏说明
 
@@ -68,5 +69,5 @@
 1. 一个可运行的 CLI Runtime 演示（多轮对话 + 工具调用）。
 2. 可测试的 Tool Calling 契约、JSON 修复和上下文管理策略。
 3. MCP stdio/JSON-RPC client/server 的协议级测试。
-4. SQLite 文档库和检索模块作为实验样例，验证 Runtime 如何接入持久化外部状态并保留工具结果来源。
+4. MySQL 文档库和检索模块作为实验样例，验证 Runtime 如何接入主流数据库持久化外部状态并保留工具结果来源。
 5. `eval.py`、README、架构图、演示脚本和简历描述（录屏可选），能清楚说明与 Workbench 的边界。

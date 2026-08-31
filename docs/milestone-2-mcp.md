@@ -1,6 +1,6 @@
 # 里程碑 2：MCP 协议与示例工具链打通
 
-> **当前进度**：✅ 已实现。持久化文档解析、checksum 增量入库、SQLite FTS5 词法检索、可选 Chroma 向量后端、MCP server 和自实现 MCP client 已打通；`tests/test_rag.py`、`tests/test_mcp.py` 覆盖核心链路。
+> **当前进度**：基础链路已实现；MySQL 数据库迁移待完成。当前代码仍以 SQLite FTS5 为检索实现，迁移后需补 MySQL ngram 词法检索和集成测试。
 
 ## 周期与验收要求
 
@@ -16,7 +16,7 @@
 
 ## 设计思路
 
-分两半：先实现持久化 RAG 管线（文档 → 指纹 → 分块 → FTS5/向量索引 → 混合召回），再用 MCP 包一层暴露给内核。
+分两半：先实现持久化检索管线（文档 → 指纹 → 分块 → MySQL ngram/向量索引 → 混合召回），再用 MCP 包一层暴露给内核。
 
 ```
 Agent → mcp/client.py（自实现 tools/list + tools/call）
@@ -53,8 +53,8 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 
 ### D1-2：文档解析 + 分块 + 持久化索引
 
-- `rag/ingest.py`：解析、checksum、分块、SQLite 元数据与 FTS5 索引。
-- 可选向量：SentenceTransformer 编码 + Chroma 持久化，缺失时保留 FTS5。
+- `rag/ingest.py`：解析、checksum、分块、MySQL 元数据与 ngram 全文索引。
+- 可选向量：SentenceTransformer 编码 + Chroma 持久化，缺失时保留 MySQL ngram 检索。
 - 检索：词法/向量候选 → Reciprocal Rank Fusion → top_k，并保留来源元数据。
 
 ### D3-4：mcp/server 注册两个示例 tool
@@ -89,7 +89,7 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 | 自实现 MCP client 真连 stdio server | ✅ | `tests/test_mcp.py::test_stdio_client_against_self_hosted_server` |
 | 5 个评估用例 | ✅ mock 5/5；live 5 用例（4 个真实 API + 1 个解析层坏 JSON，依赖 API 可用性） | `python eval.py` / `python eval.py --live` |
 | CLI 知识库演示 | ✅ | `python -m agentkernel --docs <路径>`，`/docs`、`/ingest`、`/logs` |
-| 持久化/增量索引 | ✅ | SQLite 文档 checksum、FTS5、稳定 chunk ID |
+| 持久化/增量索引 | 待迁移验证 | MySQL 文档 checksum、ngram 全文检索、稳定 chunk ID |
 
 ## 明确不做
 

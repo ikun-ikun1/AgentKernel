@@ -10,7 +10,7 @@ source .venv/bin/activate
 export HF_ENDPOINT=https://hf-mirror.com
 ```
 
-向量模型已经下载并缓存后，可以去掉 `HF_ENDPOINT`。如果没有模型或不希望加载模型，使用 `--kb-backend lexical`，数据仍然持久化到 SQLite FTS5。
+向量模型已经下载并缓存后，可以去掉 `HF_ENDPOINT`。如果没有模型或不希望加载模型，使用 `--kb-backend lexical`，数据仍然持久化到 MySQL ngram 全文检索。
 
 ## 1. 自动化验收
 
@@ -19,7 +19,7 @@ python -m pytest -q
 python eval.py
 ```
 
-预期：`57 passed`，以及 `通过 5/5`。
+预期：`60 passed, 2 skipped`（MySQL 集成测试在配置 `AGENTKERNEL_MYSQL_TEST_DSN` 后运行），以及 `通过 5/5`。
 
 这一步展示四类底层能力：
 
@@ -33,8 +33,8 @@ python eval.py
 准备一个 Markdown 文件，例如 `demo-notes.md`，写入几段包含 `ReAct`、`MCP` 和 `AgentKernel` 的内容。
 
 ```bash
+export AGENTKERNEL_KB_DSN=mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel
 python -m agentkernel \
-  --kb-db /tmp/agentkernel-demo-kb \
   --kb-backend hybrid \
   --docs ./demo-notes.md
 ```
@@ -45,7 +45,7 @@ python -m agentkernel \
 知识库：hybrid
 ```
 
-如果向量依赖或模型不可用，系统应明确提示降级为持久化 FTS5，而不是启动失败或丢失索引。
+如果向量依赖或模型不可用，系统应明确提示降级为 MySQL ngram 全文检索，而不是启动失败或丢失索引。
 
 再次启动同一命令，文档 checksum 命中后不会重复重建 Chunk。修改文件后重新启动，只重建该文档的稳定 Chunk ID 和对应向量。
 
@@ -72,7 +72,7 @@ python -m agentkernel \
 
 ```bash
 python -m agentkernel.mcp.server \
-  --kb-db /tmp/agentkernel-demo-kb \
+  --kb-db mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel \
   --backend lexical \
   ./demo-notes.md
 ```
@@ -81,8 +81,8 @@ python -m agentkernel.mcp.server \
 
 ```bash
 python -m agentkernel \
-  --kb-db /tmp/agentkernel-demo-kb \
-  --mcp "python -m agentkernel.mcp.server --kb-db /tmp/agentkernel-demo-kb ./demo-notes.md"
+  --kb-db mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel \
+  --mcp "python -m agentkernel.mcp.server --kb-db mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel ./demo-notes.md"
 ```
 
 代码走读顺序：
@@ -90,7 +90,7 @@ python -m agentkernel \
 1. `mcp/framing.py`：`Content-Length` 帧。
 2. `mcp/client.py`：`initialize → tools/list → tools/call`。
 3. `mcp/server.py`：JSON-RPC 错误映射和只读工具。
-4. `rag/ingest.py`：文档 checksum、SQLite FTS5、可选 Chroma 和 RRF；说明这是检索实验模块，不是业务知识库产品。
+4. `rag/ingest.py`：文档 checksum、MySQL ngram、可选 Chroma 和 RRF；说明这是检索实验模块，不是业务知识库产品。
 
 ## 5. 录屏收尾
 

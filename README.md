@@ -10,7 +10,7 @@
 
 1. 参考 `agent-study` 复现 ReAct、工具注册、观察回灌和记忆等基础机制，建立可解释的 Runtime 基线。
 2. 参考 OpenClaw 的成熟工程思路，针对模型输出不稳定问题增加分层 JSON 修复、工具名 allowlist、payload 上限和纯文本降级。
-3. 针对文档重复入库、内容更新和向量依赖不可用问题，增加 checksum 增量索引、FTS5 持久化基线、可选向量检索和失败回退。
+3. 针对文档重复入库、内容更新和向量依赖不可用问题，增加 checksum 增量索引、MySQL ngram 持久化基线、可选向量检索和失败回退。
 4. 用 fake LLM、故障输入、文档变更和 MCP 子进程场景验证优化，而不是只验证成功路径。
 
 这里的“创新”是面向具体问题的工程改进，不是重新发明 ReAct 或 MCP 协议。
@@ -21,10 +21,10 @@
 |----------|----------|--------|----------|
 | 模型输出非法 JSON，或长文本被误判成工具调用 | 直接 `json.loads`，失败即崩溃或误执行 | 平衡括号提取 → 格式修复 → 工具名 allowlist + payload 上限 → 失败降级纯文本 | 噪声 JSON、单引号、代码围栏、未知工具、超长载荷测试 |
 | 上下文变长后早期约束丢失 | 全量携带历史或简单截断 | 保留首条用户要求；旧消息优先 compact 摘要，摘要失败再 truncate | 超预算历史、摘要失败、MAX_STEPS 测试 |
-| 文档重复入库、修改后索引难维护 | 每次全量重建 | SHA-256 checksum 增量更新，稳定 `doc_id:ordinal` chunk ID，FTS5 持久化基线 | 重复入库返回 0；修改后仅重建该文档 |
-| 向量依赖不可用导致检索失败 | 只依赖向量或退化为内存索引 | 保留 SQLite FTS5 持久化基线；`auto/hybrid` 降级并提示，`semantic` fail-fast | 无 chromadb/sentence-transformers 环境测试 |
+| 文档重复入库、修改后索引难维护 | 每次全量重建 | SHA-256 checksum 增量更新，稳定 `doc_id:ordinal` chunk ID，MySQL ngram 持久化基线 | 重复入库返回 0；修改后仅重建该文档 |
+| 向量依赖不可用导致检索失败 | 只依赖向量或退化为内存索引 | 保留 MySQL ngram 持久化基线；`auto/hybrid` 降级并提示，`semantic` fail-fast | 无 chromadb/sentence-transformers 环境测试 |
 
-当前验证基线：**57 个测试用例全部通过，`python eval.py` mock 模式 5/5**。
+当前验证基线：**60 个测试用例通过（另有 2 个 MySQL 集成测试在配置 DSN 后启用），`python eval.py` mock 模式 5/5**。
 
 ---
 
@@ -37,7 +37,7 @@
 | 工具接入 | 面向业务的 CLI/MCP Adapter、Agent 白名单 | 最小 Tool Registry、调用契约、参数校验 |
 | 失败处理 | SDK/业务层错误处理、审批和审计 | 坏 JSON 修复、非法调用降级、工具错误回灌 |
 | 上下文 | SDK session、跨会话记忆和 Web 会话 | truncate + compact 的策略实验 |
-| 记忆 | 面向用户的会话、审批和审计数据 | 为验证 Runtime 的轻量 SQLite 持久化适配器 |
+| 记忆 | 面向用户的会话、审批和审计数据 | MySQL 主存储；SQLite 仅作为测试适配器 |
 | MCP / RAG | 业务工具接入与制度问答场景 | MCP wire protocol 实验；RAG 作为外部状态接入与引用追踪样例 |
 | 交付形态 | 产品化：Web + 多 Agent + 审批 + 审计 | 教学型：CLI + 单元测试 + eval + 代码走读 |
 
@@ -53,7 +53,7 @@
 - 能调用工具：内置工具 + 外部 MCP 工具
 - 模型输出的非法 JSON 自动修复 / 降级，不崩溃
 - 通过持久化检索模块完成带页码/来源的知识库问答
-- 支持文档指纹、增量入库、删除、SQLite FTS5 词法检索和可选向量混合检索，用于研究文档更新与引用追踪
+- 支持文档指纹、增量入库、删除、MySQL ngram 词法检索和可选向量混合检索，用于研究文档更新与引用追踪
 
 这里不建设 Workbench 的业务知识库产品，检索模块只用于验证持久化索引、增量更新、结果追踪和外部工具接入。
 
@@ -67,8 +67,8 @@
 | 上下文管理 | truncate 固定首条用户要求；compact 调模型摘要压缩（失败降级截断） |
 | 工具注册 | 纯 Python JSON Schema 校验（不引 jsonschema 依赖） |
 | 非法 JSON 修复 | 三层：提取 → 修复 → 降级；借鉴 OpenClaw 的 **工具名允许清单 + payload 上限** |
-| SQLite 记忆 | 会话 + 消息 + **工具调用审计** 持久化，重启不丢（标准库 `sqlite3`） |
-| 检索实验模块 | PDF/MD/TXT → 指纹与增量索引 → SQLite FTS5；可选 Embedding + Chroma 混合检索，结果保留页码与来源 |
+| MySQL 记忆 | 会话 + 消息 + **工具调用审计** 持久化，重启不丢；SQLite 仅作为测试适配器 |
+| 检索实验模块 | PDF/MD/TXT → 指纹与增量索引 → MySQL ngram 全文检索；可选 Embedding + Chroma 混合检索，结果保留页码与来源 |
 | MCP 两端 | server 用官方 SDK（可选）+ 纯 Python stdio 入口；client 自实现 `Content-Length` 帧 + JSON-RPC 2.0，支持初始化协商与 `structuredContent` |
 | LLM 调用 | OpenAI client 复用 + 超时/重试，失败统一 `LLMError` |
 | 外部 MCP | CLI `--mcp` 可接任意 stdio MCP server（工具名自动加前缀，类似 Claude SDK `mcp_servers`） |
@@ -112,13 +112,13 @@ AgentKernel: Runtime 学习与协议层
 |------|------|------|
 | 语言 | Python 3.11+ | — |
 | 模型 | DeepSeek API | OpenAI 兼容接口 |
-| 检索 | SQLite FTS5 + 可选 Chroma 混合检索 | 对比词法/语义召回，并验证增量索引与来源保留 |
+| 检索 | MySQL ngram + 可选 Chroma 混合检索 | 对比词法/语义召回，并验证增量索引与来源保留 |
 | 文档解析 | PyMuPDF（可选）+ 标准库 | PDF 保留页码；MD/TXT 直接读取 |
-| 记忆 | SQLite（标准库 `sqlite3`） | 无外部依赖 |
+| 记忆 | MySQL 8；SQLite 测试适配器 | 连接池、事务、索引和迁移贴近服务端场景 |
 | MCP server | `mcp` Python SDK（可选） | 官方实现，未安装时进程内适配 |
 | MCP client | 自实现 | `initialize` → `tools/list` → `tools/call` |
 
-> 依赖分层：核心 Runtime 只依赖 `openai` + `python-dotenv`；检索实验使用 `.[rag]`，MCP 官方 server 使用 `.[mcp]`。缺少向量依赖时保留持久化 FTS5，不丢数据。
+> 依赖分层：核心 Runtime 使用 MySQL 持久化；检索实验使用 `.[rag]`，MCP 官方 server 使用 `.[mcp]`。缺少向量依赖时回退到 MySQL ngram，不丢失文档事实数据。
 
 ---
 
@@ -137,12 +137,12 @@ AgentKernel: Runtime 学习与协议层
    │            │            │
 ┌──▼────┐  ┌────▼─────┐  ┌───▼────────────┐
 │ llm.py │  │ tools/    │  │ memory/        │
-│DeepSeek│  │ registry  │  │ sqlite_store   │
+│DeepSeek│  │ registry  │  │ MySQL Store    │
 └───────┘  └────┬─────┘  └────────────────┘
                 │ 注册工具
                 ├── 内置工具（当前时间 / 计算器）
                 └── mcp/client.py ──▶ mcp/server.py ──▶ rag/ingest.py
-                                              ├── SQLite 文档目录 + FTS5
+                                               ├── MySQL 文档目录 + ngram
                                               └── Chroma（可选向量）
 ```
 
@@ -153,8 +153,8 @@ AgentKernel: Runtime 学习与协议层
 | `tools/contracts.py` | 工具调用协议契约（允许清单 + 结构分类） |
 | `tools/registry.py` | 工具注册、纯 Python JSON Schema 校验、错误处理 |
 | `tools/json_repair.py` | 非法 JSON 三层修复（提取 → 修复 → 降级） |
-| `memory/sqlite_store.py` | 会话 + 消息 + 工具调用审计（tool_logs）持久化 |
-| `rag/ingest.py` | 文档解析、指纹增量入库、SQLite FTS5、可选向量索引、混合召回和来源元数据 |
+| `memory/` | MySQL 主存储与 SQLite 测试适配器：会话、消息和工具调用审计 |
+| `rag/ingest.py` | 文档解析、指纹增量入库、MySQL ngram、可选向量索引、混合召回和来源元数据 |
 | `mcp/framing.py` | MCP stdio 帧协议（Content-Length + JSON-RPC） |
 | `mcp/server.py` | 知识库 MCP server（官方 SDK 可选 + 纯 Python stdio 入口，2 个 tool） |
 | `mcp/client.py` | 自实现 MCP client（stdio 子进程 / 进程内适配），注册进内核 |
@@ -166,8 +166,8 @@ AgentKernel: Runtime 学习与协议层
 ## 快速开始
 
 ```bash
-# 1. 装核心依赖
-pip install openai python-dotenv
+# 1. 装核心依赖 + MySQL 主存储依赖
+pip install openai python-dotenv "sqlalchemy>=2.0" "pymysql>=1.1" "alembic>=1.13"
 
 # 检索实验（PDF + 可选向量混合检索）
 pip install -e ".[rag]"
@@ -175,11 +175,15 @@ pip install -e ".[rag]"
 # 可选：官方 MCP server SDK
 pip install mcp
 
-# 2. 配环境变量（.env，勿提交）
-cp .env.example .env   # 填 DEEPSEEK_API_KEY=sk-xxx
+# 2. 启动 MySQL 8（ADR-001 主存储）
+docker compose up -d mysql
+# 或使用本地已有 MySQL：在 .env 中设置 AGENTKERNEL_DB_URL / AGENTKERNEL_KB_DSN
 
-# 3. 跑 CLI
-python -m agentkernel --kb-db ~/.agentkernel/knowledge --kb-backend hybrid --docs <文档路径>
+# 3. 配环境变量（.env，勿提交）
+cp .env.example .env   # 填 DEEPSEEK_API_KEY=sk-xxx，并按需调整 MySQL DSN
+
+# 4. 跑 CLI（默认 MySQL；本地无 MySQL 可用 --db sqlite:///:memory: --kb-db :memory:）
+python -m agentkernel --kb-backend hybrid --docs <文档路径>
 
 # 4. 跑评估（mock 模式无需 API Key，验证内核逻辑）
 python eval.py
@@ -217,11 +221,11 @@ AgentKernel/
 │   ├── __main__.py                  # CLI 入口（含 /ingest /docs /logs）
 │   ├── runtime/                     # ReAct 循环 + 模型调用
 │   ├── tools/                       # registry + contracts + json_repair
-│   ├── memory/                      # SQLite 记忆（sessions/messages/tool_logs）
+│   ├── memory/                      # MySQL Store + SQLite 测试适配器
 │   ├── rag/                         # 文档入库与检索
 │   ├── mcp/                         # framing + server + client
 │   └── utils/                       # env + errors
-└── tests/                           # 57 个测试用例
+└── tests/                           # 60 个测试用例（另有 2 个 MySQL 集成测试按需启用）
 ```
 
 ---

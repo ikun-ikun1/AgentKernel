@@ -443,36 +443,60 @@ class KnowledgeBase:
         persist_dir: str | Path | None = None,
         backend: str = "lexical",
         embedding_model: str = "BAAI/bge-small-zh-v1.5",
+        dsn: str | None = None,
+        vector_dir: str | Path | None = None,
     ) -> None:
         if backend not in {"auto", "lexical", "hybrid", "semantic"}:
             raise ValueError("backend 必须是 auto、lexical、hybrid 或 semantic")
 
-        # `:memory:` 显式表示不落盘；用于测试与 eval。
-        if persist_dir is not None and str(persist_dir) == ":memory:":
-            persist_dir = None
+        self.dsn = dsn
+        self.persist_dir = None
+        self._mysql_store: Any = None
 
-        self.persist_dir = Path(persist_dir).expanduser() if persist_dir else None
-        db_path = self.persist_dir / "knowledge.db" if self.persist_dir else ":memory:"
-        if self.persist_dir:
-            self.persist_dir.mkdir(parents=True, exist_ok=True)
-        self._index = SQLiteIndex(db_path)
+        if dsn and (dsn.startswith("mysql://") or dsn.startswith("mysql+pymysql://")):
+            from agentkernel.rag.mysql_store import MySQLKnowledgeStore
+
+            self._mysql_store = MySQLKnowledgeStore(dsn)
+            self._mysql_store.ensure_tables()
+            self._index: Any = self._mysql_store
+        else:
+            # `:memory:` 显式表示不落盘；用于测试与 eval。
+            if persist_dir is not None and str(persist_dir) == ":memory:":
+                persist_dir = None
+            self.persist_dir = Path(persist_dir).expanduser() if persist_dir else None
+            db_path = self.persist_dir / "knowledge.db" if self.persist_dir else ":memory:"
+            if self.persist_dir:
+                self.persist_dir.mkdir(parents=True, exist_ok=True)
+            self._index = SQLiteIndex(db_path)
+
+        # Chroma 向量索引是可选增强：MySQL 持久化时放在独立本地目录，不进入 MySQL。
+        if vector_dir is not None:
+            self._vector_dir = Path(vector_dir).expanduser()
+        elif self.persist_dir:
+            self._vector_dir = self.persist_dir / "vectors"
+        else:
+            self._vector_dir = Path.home() / ".agentkernel" / "vectors"
+
         self._vector: _VectorIndex | None = None
         self.backend_name = "lexical"
         self.backend_warning: str | None = None
 
-        if backend == "semantic" and self.persist_dir is None:
+        if backend == "semantic" and self.persist_dir is None and self._mysql_store is None:
             self._index.close()
-            raise ValueError("semantic 后端需要持久化目录（--kb-db），以便保存向量索引")
+            raise ValueError("semantic 后端需要持久化目录或 MySQL DSN，以便保存向量索引")
 
-        if backend in {"auto", "hybrid", "semantic"} and self.persist_dir:
+        if backend in {"auto", "hybrid", "semantic"} and (
+            self.persist_dir or self._mysql_store is not None
+        ):
             try:
-                self._vector = _VectorIndex(self.persist_dir / "vectors", embedding_model)
+                self._vector_dir.mkdir(parents=True, exist_ok=True)
+                self._vector = _VectorIndex(self._vector_dir, embedding_model)
                 self.backend_name = "hybrid" if backend != "semantic" else "semantic"
             except RAGError as exc:
                 if backend == "semantic":
                     self._index.close()
                     raise
-                self.backend_warning = f"{exc}；已降级为持久化 FTS5"
+                self.backend_warning = f"{exc}；已降级为 MySQL ngram / SQLite FTS5 持久化检索"
 
     def close(self) -> None:
         self._index.close()

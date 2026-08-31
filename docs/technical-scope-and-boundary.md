@@ -2,16 +2,17 @@
 
 ## 1. 推荐技术选型
 
-以下技术栈分为 Runtime 核心和检索实验模块两层。项目不做 Workbench 的业务 UI 和企业治理；检索模块用于验证持久化、增量更新、召回和来源保留，不定位为生产知识库。
+以下技术栈分为 Runtime 核心、MySQL 持久化层和检索实验模块三层。项目不做 Workbench 的业务 UI 和企业治理；检索模块用于验证持久化、增量更新、召回和来源保留，不定位为生产知识库。
 
 | 组件 | 选型 | 选型理由 |
 |------|------|---------|
 | 语言 | Python 3.11+ | 已有 Python 和 Agent 项目经验 |
 | 模型 | DeepSeek API（OpenAI 兼容） | 便宜、接口标准，换模型只改 base_url |
-| 词法检索 | SQLite FTS5 | 持久化、可索引、无额外服务，作为稳定基线 |
+| 词法检索 | MySQL 8 InnoDB `FULLTEXT` + ngram | 主流数据库持久化、可索引，作为中文词法检索基线 |
 | 语义检索 | ChromaDB + sentence-transformers（可选） | 用于对比语义召回；缺失时保留 FTS5，便于实验继续进行 |
+| 主存储 | MySQL 8 | 使用连接池、事务、索引和迁移机制，贴近实际服务端部署 |
+| 测试存储 | SQLite（测试适配器） | 测试快速、零部署；不作为生产主存储 |
 | 文档解析 | PyMuPDF（可选）+ 标准库 | PDF 保留页码，MD/TXT 直接读取 |
-| 记忆 | SQLite（标准库 `sqlite3`） | 零部署，CLI 场景够用 |
 | MCP server | `mcp` Python SDK（可选）+ 纯 Python stdio 入口 | 对比官方 SDK 与最小协议实现 |
 | MCP client | 自实现 | 验证协议底层（`initialize` → `tools/list` → `tools/call`） |
 
@@ -27,7 +28,7 @@
 | Agent Runtime | Claude Agent SDK 提供主循环、tool_use、session | 自己实现最小 ReAct 主循环 |
 | 工具与权限 | 业务 CLI/MCP、manifest 白名单、人工审批 | 固定 Tool Registry、协议分类、Schema 子集校验 |
 | 业务能力 | 工时、考勤、制度问答、项目等业务 Agent | 时间、计算器和检索/MCP 实验样例 |
-| 持久化与观测 | 用户会话、跨会话记忆、审批和审计产品 | SQLite 仅用于 Runtime 恢复和测试观察 |
+| 持久化与观测 | 用户会话、跨会话记忆、审批和审计产品 | MySQL 持久化 Runtime 状态；SQLite 仅用于测试适配 |
 | MCP | 业务工具集成 | stdio/JSON-RPC 协议实验和互操作测试 |
 
 ### AgentKernel 的硬边界
@@ -50,9 +51,17 @@ AgentKernel 不实现以下 Workbench 能力：
 |----------|----------|----------|----------|
 | 模型输出不是合法 JSON，或普通长文本被误识别为工具调用 | 直接解析模型输出 | 平衡结构提取、格式修复、工具名 allowlist、payload 上限，失败降级为文本 | 噪声 JSON、单引号、代码围栏、未知工具和超长载荷 |
 | 对话历史变长后早期约束丢失 | 固定携带全部历史或仅做固定截断 | 保留首条用户要求；旧消息优先 compact，摘要失败再 truncate | 超预算历史、摘要失败和最大步数场景 |
-| 文档重复入库、修改后索引难以维护，向量依赖可能不可用 | 每次重新构建或只依赖向量检索 | checksum 增量更新；FTS5 作为持久化基线，向量检索可选并支持回退 | 重复入库、修改文档、向量依赖缺失 |
+| 文档重复入库、修改后索引难以维护，向量依赖可能不可用 | 每次重新构建或只依赖向量检索 | checksum 增量更新；MySQL ngram 作为持久化基线，向量检索可选并支持回退 | 重复入库、修改文档、向量依赖缺失 |
 
 其中，工具调用可靠性和检索链路可恢复性是本项目的主要优化方向；MCP 协议帧、能力协商和外部 Server 接入属于互操作性验证，不宣称重新发明协议。
+
+### 数据库决策
+
+SQLite 适合实习项目早期快速验证，但无法充分体现服务端场景中的连接池、并发访问、事务边界、索引设计和数据库迁移。因此 AgentKernel 将 MySQL 8 设为主存储，SQLite 仅保留为测试适配器。
+
+MySQL 负责会话、消息、工具日志、文档元数据和文档 Chunk；Chroma 只负责可选向量索引，MySQL 保存文档与 Chunk 的事实数据。中文词法检索使用 MySQL InnoDB `FULLTEXT` 的 ngram parser，向量检索不可用时仍可走 MySQL 词法基线。
+
+数据库访问必须通过 Store/Repository 接口，Runtime 不直接依赖具体数据库驱动。这样既能在测试中使用 SQLite，也能在实际运行中使用 MySQL，而不会把数据库切换逻辑扩散到 Agent 主循环。
 
 ## 3. 系统模块边界
 
@@ -71,12 +80,12 @@ AgentKernel 不实现以下 Workbench 能力：
    │            │            │
 ┌──▼────────┐ ┌──▼────────┐ ┌───▼────────────┐
 │runtime/   │ │ tools/     │ │ memory/        │
-│llm.py     │ │ registry   │ │ sqlite_store   │
+│llm.py     │ │ registry   │ │ store/repo     │
 │DeepSeek   │ └────┬──────┘ └────────────────┘
 └───────────┘     │ 注册工具
                   ├── 内置工具（当前时间 / 计算器）
                    └── mcp/client.py ──▶ mcp/server.py ──▶ rag/ingest.py
-                                                     ├── SQLite FTS5
+                                                      ├── MySQL FULLTEXT + ngram
                                                      └── Chroma（可选）
 ```
 
@@ -87,8 +96,8 @@ AgentKernel 不实现以下 Workbench 能力：
 | `tools/contracts.py` | 工具调用协议契约（结构定义 + 工具名允许清单） |
 | `tools/registry.py` | 工具注册、纯 Python JSON Schema 校验、错误处理 |
 | `tools/json_repair.py` | 非法 JSON 三层修复（提取 → 修复 → 降级 + payload 上限） |
-| `memory/sqlite_store.py` | Runtime 验证用的消息与工具观察持久化，不承担会话产品能力 |
-| `rag/ingest.py` | 文档指纹、增量入库、分块、来源元数据、FTS5 与可选向量混合检索 |
+| `memory/` | Store/Repository 接口及 MySQL 主存储、SQLite 测试适配器 |
+| `rag/ingest.py` | 文档指纹、增量入库、分块、来源元数据、MySQL ngram 与可选向量混合检索 |
 | `mcp/framing.py` | MCP stdio 帧协议（Content-Length + JSON-RPC 2.0） |
 | `mcp/server.py` | 只读示例 MCP server（官方 SDK 可选 + 纯 Python stdio 入口，2 个 tool） |
 | `mcp/client.py` | 自实现 MCP client（stdio 子进程 / 进程内适配），注册进内核 |
@@ -100,6 +109,7 @@ AgentKernel 不实现以下 Workbench 能力：
 > - JSON 修复分层（提取 → 修复 → 降级）：借鉴 OpenClaw tool-call-repair 的 grammar/payload/promote/stream-normalizer 分层思想
 > - 工具名允许清单 + payload 字节上限：借鉴 OpenClaw `scanPlainTextToolCall` 的 `matcher` 与 `maxPayloadBytes`
 > - `src/` 布局 + `pyproject.toml` + ruff/mypy/pytest：标准 Python 工程配置
+> - MySQL 8 + Alembic + Docker Compose：服务端持久化与本地可复现环境
 
 ## 4. 工具调用协议边界
 
@@ -153,8 +163,8 @@ AgentKernel 不实现以下 Workbench 能力：
 
 ### 检索实验能力
 
-1. `memory/sqlite_store.py`：验证 Runtime 消息恢复和工具观察记录。
-2. `rag/ingest.py`：文档 checksum、增量更新、稳定 chunk ID、SQLite FTS5 和可选向量索引。
+1. `memory/`：通过统一 Store/Repository 接口完成 MySQL 消息恢复和工具观察记录，SQLite 仅用于测试。
+2. `rag/ingest.py`：文档 checksum、增量更新、稳定 chunk ID、MySQL ngram 全文检索和可选向量索引。
 3. `rag/ingest.py`：保留 source/page/section 元数据，检索结果可生成可审计引用。
 4. `mcp/server.py`：通过 `knowledge_query` / `knowledge_list` 暴露只读检索能力，验证 Runtime 接入外部状态的方式。
 5. `__main__.py`：CLI 作为运维/开发入口，支持持久化知识库目录。
@@ -162,7 +172,7 @@ AgentKernel 不实现以下 Workbench 能力：
 ### 可降级实现
 
 1. 上下文压缩（compact）可以先用纯截断（truncate）替代。
-2. 向量依赖不可用时降级为持久化 FTS5，不能降级为丢失数据的内存索引。
+2. 向量依赖不可用时降级为 MySQL ngram 全文检索，不能降级为丢失数据的内存索引。
 3. PDF 依赖不可用时只拒绝 PDF，不影响已有 MD/TXT 索引和查询。
 4. MCP server 可使用纯 Python stdio 实现，不要求官方 SDK；官方 SDK 仅作为可选实现方式。
 5. 2 分钟录屏可省，测试、评估和索引一致性验证优先。

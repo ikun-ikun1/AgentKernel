@@ -23,11 +23,13 @@ from pathlib import Path
 
 from agentkernel.mcp.client import InProcessMCPClient, MCPClient, StdioMCPClient, register_mcp_tools
 from agentkernel.mcp.server import KnowledgeMCPServer
-from agentkernel.memory.sqlite_store import SQLiteStore, default_store
+from agentkernel.memory.base import RuntimeStore
+from agentkernel.memory.factory import create_runtime_store
 from agentkernel.rag.ingest import KnowledgeBase
 from agentkernel.runtime.agent import Agent
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
+from agentkernel.utils import env as env_utils
 
 _SUPPORTED_SUFFIXES = {".pdf", ".md", ".markdown", ".txt"}
 
@@ -39,7 +41,7 @@ def _print_help() -> None:
     )
 
 
-def _load_history(store: SQLiteStore, session_id: str) -> list[dict[str, str]]:
+def _load_history(store: RuntimeStore, session_id: str) -> list[dict[str, str]]:
     return store.get_messages(session_id)
 
 
@@ -75,8 +77,10 @@ def _build_agent(
     registry = Registry()
     builtin.register_builtin(registry)
 
-    # CLI 传入持久化目录；测试可省略 kb_db 以获得 :memory: 存储。
-    kb = KnowledgeBase(persist_dir=kb_db, backend=kb_backend)
+    # kb_db 支持 MySQL DSN 或本地路径（SQLite 测试适配器）。
+    kb_dsn = kb_db if kb_db and (kb_db.startswith("mysql://") or kb_db.startswith("mysql+pymysql://")) else None
+    kb_persist_dir = None if kb_dsn else kb_db
+    kb = KnowledgeBase(persist_dir=kb_persist_dir, backend=kb_backend, dsn=kb_dsn)
     if docs:
         for path in docs:
             _ingest_path(kb, path)
@@ -104,7 +108,7 @@ def _build_agent(
     return Agent(registry), registry, kb, external_clients
 
 
-def _repl(store: SQLiteStore, kb: KnowledgeBase, agent: Agent) -> None:
+def _repl(store: RuntimeStore, kb: KnowledgeBase, agent: Agent) -> None:
     session_id = "default"
     store.create_session(session_id)
 
@@ -203,7 +207,7 @@ def main() -> None:
     parser.add_argument(
         "--db",
         default=None,
-        help="SQLite 库文件路径（默认 ~/.agentkernel/agentkernel.db，可用 :memory:）",
+        help="Runtime 存储 DSN：mysql+pymysql://user:pass@host/db 或 sqlite:///:memory: / 本地路径",
     )
     parser.add_argument(
         "--docs",
@@ -215,8 +219,8 @@ def main() -> None:
     parser.add_argument(
         "--kb-db",
         default=None,
-        metavar="PATH",
-        help="知识库持久化目录（默认 ~/.agentkernel/knowledge）",
+        metavar="DSN_OR_PATH",
+        help="知识库存储：mysql+pymysql://... 或本地路径/目录；默认读取 AGENTKERNEL_KB_DSN，否则 ~/.agentkernel/knowledge",
     )
     parser.add_argument(
         "--kb-backend",
@@ -231,20 +235,53 @@ def main() -> None:
         metavar="CMD",
         help="接入外部 stdio MCP server（可多次使用），如 --mcp \"python -m agentkernel.mcp.server /tmp/docs\"",
     )
+    parser.add_argument(
+        "--migrate",
+        action="store_true",
+        help="启动前对 MySQL 主存储执行 Alembic 迁移（upgrade head）",
+    )
     args = parser.parse_args()
 
-    store = default_store() if args.db is None else SQLiteStore(args.db)
+    import os
+
+    env_utils.load_env()
+
+    if args.migrate:
+        from agentkernel.memory.factory import DEFAULT_MYSQL_DSN
+
+        dsn = args.db or os.environ.get("AGENTKERNEL_DB_URL") or DEFAULT_MYSQL_DSN
+        if not (dsn.startswith("mysql://") or dsn.startswith("mysql+pymysql://")):
+            parser.exit(2, "--migrate 需要 MySQL DSN（--db mysql+pymysql://...）\n")
+        try:
+            from alembic import command
+            from alembic.config import Config
+        except ImportError:
+            parser.exit(2, "Alembic 未安装：pip install -e '.[mysql]'\n")
+        os.environ["AGENTKERNEL_DB_URL"] = dsn
+        command.upgrade(Config("alembic.ini"), "head")
+        print(f"MySQL 迁移完成：{dsn}")
+
+    try:
+        store = create_runtime_store(args.db)
+    except Exception as e:
+        parser.exit(2, f"Runtime 存储初始化失败：{type(e).__name__}: {e}\n"
+                      "提示：安装 MySQL 依赖并启动 docker compose，或使用 --db sqlite:///:memory:\n")
+
+    kb_dsn_or_path = args.kb_db or os.environ.get("AGENTKERNEL_KB_DSN") or "~/.agentkernel/knowledge"
     try:
         agent, _, kb, clients = _build_agent(
             args.docs,
-            args.kb_db or "~/.agentkernel/knowledge",
+            kb_dsn_or_path,
             args.mcp,
             args.kb_backend,
         )
     except Exception as e:
         store.close()
         parser.exit(2, f"初始化失败：{type(e).__name__}: {e}\n")
-    print(f"知识库：{kb.backend_name}（持久化目录：{kb.persist_dir or '内存'}）")
+    if kb.dsn:
+        print(f"知识库：{kb.backend_name}（MySQL：{kb.dsn}）")
+    else:
+        print(f"知识库：{kb.backend_name}（持久化目录：{kb.persist_dir or '内存'}）")
     if kb.backend_warning:
         print(f"知识库提示：{kb.backend_warning}")
     try:
