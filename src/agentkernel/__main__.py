@@ -234,12 +234,16 @@ def main() -> None:
     args = parser.parse_args()
 
     store = default_store() if args.db is None else SQLiteStore(args.db)
-    agent, _, kb, clients = _build_agent(
-        args.docs,
-        args.kb_db or "~/.agentkernel/knowledge",
-        args.mcp,
-        args.kb_backend,
-    )
+    try:
+        agent, _, kb, clients = _build_agent(
+            args.docs,
+            args.kb_db or "~/.agentkernel/knowledge",
+            args.mcp,
+            args.kb_backend,
+        )
+    except Exception as e:
+        store.close()
+        parser.exit(2, f"初始化失败：{type(e).__name__}: {e}\n")
     print(f"知识库：{kb.backend_name}（持久化目录：{kb.persist_dir or '内存'}）")
     if kb.backend_warning:
         print(f"知识库提示：{kb.backend_warning}")
