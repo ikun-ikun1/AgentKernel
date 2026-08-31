@@ -137,7 +137,7 @@ AgentKernel 不实现以下 Workbench 能力：
 1. API Key 放 `.env`，用 python-dotenv 读，**不硬编码、不入库**（`.gitignore` 排除 `.env`）。
 2. 不把通用 shell 暴露给模型；内置工具是固定实现，模型只能传参数。
 3. 工具执行异常捕获后作为「观察」回灌，不让异常穿透崩溃。
-4. 知识库检索只读（查询 + 列出），不提供写/删能力给模型。
+4. 模型可见的知识库 MCP 工具只读（查询 + 列出）；写/删只保留在 CLI `/ingest` 与 `KnowledgeBase.delete_document` 运维入口，不暴露给模型。
 
 ## 6. 具体实现范围
 

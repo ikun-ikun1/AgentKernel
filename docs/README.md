@@ -18,8 +18,8 @@
 ## 当前进度
 
 - M1（ReAct 内核）✅ 已实现
-- M2（知识库 MCP）✅ 已实现
-- M3（交付物）🟡 进行中：`eval.py` 与 README 已就绪，架构图/录屏/简历待补
+- M2（MCP 协议与示例工具链）✅ 已实现
+- M3（交付物）✅ 已完成（录屏可选）：`eval.py`、README、架构图、演示脚本、简历与面试材料均已就绪
 
 ## 与实习项目 AI Agent Workbench 互补
 
@@ -69,4 +69,4 @@
 2. 可测试的 Tool Calling 契约、JSON 修复和上下文管理策略。
 3. MCP stdio/JSON-RPC client/server 的协议级测试。
 4. SQLite 文档库和检索模块作为实验样例，验证 Runtime 如何接入持久化外部状态并保留工具结果来源。
-5. `eval.py`、README、架构图、演示录屏和简历描述，能清楚说明与 Workbench 的边界。
+5. `eval.py`、README、架构图、演示脚本和简历描述（录屏可选），能清楚说明与 Workbench 的边界。
