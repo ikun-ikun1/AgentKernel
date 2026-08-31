@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from agentkernel.memory.base import RuntimeStore
@@ -17,7 +17,7 @@ class MySQLStoreError(AgentKernelError):
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class MySQLRuntimeStore(RuntimeStore):
@@ -36,7 +36,7 @@ class MySQLRuntimeStore(RuntimeStore):
         self._create_engine = create_engine
         self._text = text
         self._sqlalchemy_error = SQLAlchemyError
-        self._engine = None
+        self._engine: Any = None
 
     @property
     def engine(self) -> Any:
@@ -57,7 +57,7 @@ class MySQLRuntimeStore(RuntimeStore):
     def _ensure_tables(self) -> None:
         """ADR-001 要求 Alembic 管理迁移；这里仅做开发兜底。"""
         try:
-            from sqlalchemy import MetaData, Table, Column, Integer, String, Text, ForeignKey, Index
+            from sqlalchemy import Column, ForeignKey, Index, Integer, MetaData, String, Table, Text
         except ImportError as exc:
             raise MySQLStoreError(
                 "MySQL 主存储需要 SQLAlchemy/PyMySQL：pip install -e '.[mysql]'"

@@ -1,6 +1,6 @@
 """工具注册与内置工具的测试。"""
 from agentkernel.tools import builtin
-from agentkernel.tools.registry import Registry, Tool, validate_parameters
+from agentkernel.tools.registry import Registry, validate_parameters
 from agentkernel.utils.errors import ToolParamError
 
 

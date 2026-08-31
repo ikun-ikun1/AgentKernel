@@ -24,7 +24,7 @@
 | 文档重复入库、修改后索引难维护 | 每次全量重建 | SHA-256 checksum 增量更新，稳定 `doc_id:ordinal` chunk ID，MySQL ngram 持久化基线 | 重复入库返回 0；修改后仅重建该文档 |
 | 向量依赖不可用导致检索失败 | 只依赖向量或退化为内存索引 | 保留 MySQL ngram 持久化基线；`auto/hybrid` 降级并提示，`semantic` fail-fast | 无 chromadb/sentence-transformers 环境测试 |
 
-当前验证基线：**60 个测试用例通过（另有 2 个 MySQL 集成测试在配置 DSN 后启用），`python eval.py` mock 模式 5/5**。
+当前验证基线：**59 个测试用例通过（另有 2 个 MySQL 集成测试在配置 DSN 后启用），`python eval.py` mock 模式 5/5**。
 
 ---
 
@@ -225,7 +225,7 @@ AgentKernel/
 │   ├── rag/                         # 文档入库与检索
 │   ├── mcp/                         # framing + server + client
 │   └── utils/                       # env + errors
-└── tests/                           # 60 个测试用例（另有 2 个 MySQL 集成测试按需启用）
+└── tests/                           # 59 个测试用例（另有 2 个 MySQL 集成测试按需启用）
 ```
 
 ---

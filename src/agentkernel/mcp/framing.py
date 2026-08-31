@@ -12,7 +12,7 @@ MCP 官方 stdio 传输使用 LSP 风格的帧格式：
 from __future__ import annotations
 
 import json
-from typing import Any, BinaryIO
+from typing import Any
 
 from agentkernel.utils.errors import AgentKernelError
 
@@ -26,7 +26,7 @@ def frame_message(message: bytes) -> bytes:
     return b"Content-Length: " + str(len(message)).encode() + b"\r\n\r\n" + message
 
 
-def read_frame(stream: BinaryIO) -> bytes:
+def read_frame(stream: Any) -> bytes:
     """从二进制流读取一个 Content-Length 帧，返回消息体字节串。"""
     headers: dict[str, str] = {}
     while True:
@@ -56,7 +56,7 @@ def read_frame(stream: BinaryIO) -> bytes:
     return b"".join(chunks)
 
 
-def write_message(stream: BinaryIO, message: dict[str, Any]) -> None:
+def write_message(stream: Any, message: dict[str, Any]) -> None:
     """把 JSON-RPC 消息编码为 JSON 并写入流（含 flush）。"""
     body = json.dumps(message, ensure_ascii=False).encode("utf-8")
     stream.write(frame_message(body))

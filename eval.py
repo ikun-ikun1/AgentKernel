@@ -19,12 +19,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
-from agentkernel.mcp.client import InProcessMCPClient, register_mcp_tools  # noqa: E402
-from agentkernel.mcp.server import KnowledgeMCPServer  # noqa: E402
-from agentkernel.rag.ingest import KnowledgeBase  # noqa: E402
-from agentkernel.runtime.agent import Agent  # noqa: E402
-from agentkernel.tools import builtin, contracts, json_repair  # noqa: E402
-from agentkernel.tools.registry import Registry  # noqa: E402
+from agentkernel.mcp.client import InProcessMCPClient, register_mcp_tools
+from agentkernel.mcp.server import KnowledgeMCPServer
+from agentkernel.rag.ingest import KnowledgeBase
+from agentkernel.runtime.agent import Agent
+from agentkernel.tools import builtin, contracts, json_repair
+from agentkernel.tools.registry import Registry
 
 
 class MockLLM:

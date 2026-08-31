@@ -5,8 +5,10 @@
 - compact：优先调模型做摘要压缩，把旧历史压成一条「对话摘要」；模型不可用时降级为 truncate。
 """
 from __future__ import annotations
+
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from agentkernel.runtime import llm
 from agentkernel.tools import contracts, json_repair

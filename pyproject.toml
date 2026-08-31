@@ -46,5 +46,16 @@ testpaths = ["tests"]
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint]
+ignore = [
+  "BLE001",  # 边界层允许捕获兜底异常并转成可读错误
+  "DTZ005",  # 演示用本地时间，不强制 UTC
+  "ISC004",  # 多行隐式字符串拼接可读性
+  "PIE810",  # 保持多个 startswith 分支清晰
+  "PYI034",  # 兼容旧式 __enter__ 返回类型写法
+  "S110",    # 审计失败等场景允许 try/except/pass
+  "UP007",   # Union 与 X | Y 在 3.11 下等价
+]
+
 [tool.mypy]
 python_version = "3.11"

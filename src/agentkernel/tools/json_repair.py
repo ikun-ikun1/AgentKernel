@@ -11,16 +11,17 @@
 - `repair_action` 一步完成「修复 + 契约分类」，是 OpenClaw `promote` 的 Python 简化版。
 """
 from __future__ import annotations
+
 import json
 import re
-from typing import Any, Optional
+from typing import Any
 
 from agentkernel.tools import contracts
 
 DEFAULT_MAX_PAYLOAD_BYTES = 256_000
 
 
-def _extract_braces(text: str) -> Optional[str]:
+def _extract_braces(text: str) -> str | None:
     """第 1 层：提取第一个平衡的 { ... } 片段（正确处理字符串内的括号）。"""
     start = text.find("{")
     if start == -1:
@@ -71,9 +72,9 @@ def _within_payload_limit(frag: str, max_payload_bytes: int) -> bool:
 def parse_json(
     text: str,
     *,
-    allowed_actions: Optional[set[str] | frozenset[str]] = None,
+    allowed_actions: set[str] | frozenset[str] | None = None,
     max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """三层修复入口。返回解析出的 dict，无法修复返回 None（降级为纯文本）。
 
     allowed_actions 用于在解析成功后立即做名字允许清单过滤；
@@ -124,9 +125,9 @@ def _actions_allowed(
 def repair_action(
     text: str,
     *,
-    allowed_actions: Optional[set[str] | frozenset[str]] = None,
+    allowed_actions: set[str] | frozenset[str] | None = None,
     max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES,
-) -> Optional[contracts.Action]:
+) -> contracts.Action | None:
     """OpenClaw `promote` 的 Python 简化版：修复 + 契约分类一步完成。
 
     失败返回 None，调用方应把原始文本当普通回复展示。

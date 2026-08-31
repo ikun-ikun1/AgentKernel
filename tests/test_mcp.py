@@ -6,7 +6,13 @@ import os
 import sys
 from pathlib import Path
 
-from agentkernel.mcp.client import InProcessMCPClient, StdioMCPClient, _frame_message, _read_frame, register_mcp_tools
+from agentkernel.mcp.client import (
+    InProcessMCPClient,
+    StdioMCPClient,
+    _frame_message,
+    _read_frame,
+    register_mcp_tools,
+)
 from agentkernel.mcp.server import KnowledgeMCPServer, handle_json_rpc
 from agentkernel.rag.ingest import KnowledgeBase
 from agentkernel.tools.registry import Registry

@@ -31,7 +31,7 @@ class MySQLKnowledgeStore:
         self.dsn = dsn
         self._create_engine = create_engine
         self._sqlalchemy_error = SQLAlchemyError
-        self._engine = None
+        self._engine: Any = None
 
     @property
     def engine(self) -> Any:

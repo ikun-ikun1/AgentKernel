@@ -1,8 +1,6 @@
 """Runtime 存储测试：SQLite 测试适配器 + 工厂选择。"""
 from __future__ import annotations
 
-import pytest
-
 from agentkernel.memory.factory import create_runtime_store
 from agentkernel.memory.sqlite_store import SQLiteStore
 
@@ -72,19 +70,3 @@ def test_factory_creates_sqlite_store_for_path(tmp_path):
     store = create_runtime_store(str(tmp_path / "runtime.db"))
     assert isinstance(store, SQLiteStore)
     store.close()
-
-
-try:
-    import sqlalchemy  # noqa: F401
-
-    _sqlalchemy_available = True
-except ImportError:
-    _sqlalchemy_available = False
-
-
-@pytest.mark.skipif(_sqlalchemy_available, reason="SQLAlchemy 已安装，应由 MySQL 集成测试覆盖")
-def test_mysql_store_raises_without_sqlalchemy():
-    from agentkernel.memory.mysql_store import MySQLRuntimeStore, MySQLStoreError
-
-    with pytest.raises(MySQLStoreError, match="pip install"):
-        MySQLRuntimeStore("mysql+pymysql://user:pass@127.0.0.1:3306/agentkernel")

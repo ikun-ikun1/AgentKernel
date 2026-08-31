@@ -4,6 +4,7 @@
 证明懂协议底层；同时提供 InProcessMCPClient 作为无 SDK 环境下的演示/测试适配器。
 """
 from __future__ import annotations
+
 import json
 import subprocess
 from typing import Any
@@ -50,7 +51,7 @@ class StdioMCPClient(MCPClient):
         """是否已完成 initialize 能力协商。"""
         return bool(self.protocol_version)
 
-    def start(self) -> "StdioMCPClient":
+    def start(self) -> StdioMCPClient:
         if self._proc is not None:
             return self
         self._proc = subprocess.Popen(
@@ -159,10 +160,11 @@ class StdioMCPClient(MCPClient):
 
     def close(self) -> None:
         if self._proc is not None:
-            try:
-                self._proc.stdin.close()
-            except Exception:
-                pass
+            if self._proc.stdin is not None:
+                try:
+                    self._proc.stdin.close()
+                except Exception:
+                    pass
             self._proc.terminate()
             try:
                 self._proc.wait(timeout=3)

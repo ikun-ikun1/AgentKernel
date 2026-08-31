@@ -5,8 +5,10 @@
 既能讲清「工具参数为什么可靠」，也符合项目「零框架、少依赖」的定位。
 """
 from __future__ import annotations
+
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from agentkernel.utils.errors import ToolNotFoundError, ToolParamError
 

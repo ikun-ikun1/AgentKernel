@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _SCHEMA = """
@@ -48,7 +48,7 @@ CREATE INDEX IF NOT EXISTS idx_tool_logs_session_id ON tool_logs(session_id, id)
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class SQLiteStore:
@@ -74,7 +74,7 @@ class SQLiteStore:
         with self._lock:
             self._conn.close()
 
-    def __enter__(self) -> "SQLiteStore":
+    def __enter__(self) -> SQLiteStore:
         return self
 
     def __exit__(self, *exc: object) -> None:
@@ -129,7 +129,7 @@ class SQLiteStore:
                 "UPDATE sessions SET updated_at = ? WHERE id = ?", (now, session_id)
             )
             self._conn.commit()
-            return int(cur.lastrowid)
+            return int(cur.lastrowid or 0)
 
     def get_messages(
         self, session_id: str, limit: int | None = None, offset: int = 0
@@ -179,7 +179,7 @@ class SQLiteStore:
                 ),
             )
             self._conn.commit()
-            return int(cur.lastrowid)
+            return int(cur.lastrowid or 0)
 
     def list_tool_logs(self, session_id: str, limit: int = 20) -> list[dict[str, object]]:
         with self._lock:

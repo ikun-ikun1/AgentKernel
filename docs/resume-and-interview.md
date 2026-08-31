@@ -10,7 +10,7 @@
 - 针对模型输出不稳定问题，参考 OpenClaw 的工具调用修复思路，实现“平衡结构提取 → JSON 格式修复 → 工具名 allowlist/payload 上限校验 → 纯文本降级”链路，避免普通文本被误执行或异常输出导致 Agent 崩溃。
 - 针对文档重复入库、内容更新和向量依赖不可用问题，使用 MySQL 8 持久化文档元数据与 Chunk，结合 ngram 全文检索、可选 Chroma 向量检索和 RRF 融合，并保留来源信息作为可验证的检索实验。
 - 自实现 MCP stdio/JSON-RPC 2.0 client，完成 `initialize`、`tools/list`、`tools/call`、错误映射和外部工具注册；server 侧提供官方 SDK 可选适配和纯 Python stdio 实现，将检索样例以只读 MCP 工具接入 Runtime。
-- 通过 60 个测试用例（另有 2 个 MySQL 集成测试按需启用）、5 个 mock 评估用例和故障场景验证，覆盖持久化恢复、增量重建、工具回灌、坏 JSON 降级、上下文压缩回退和 MCP 子进程链路。
+- 通过 59 个测试用例（另有 2 个 MySQL 集成测试按需启用）、5 个 mock 评估用例和故障场景验证，覆盖持久化恢复、增量重建、工具回灌、坏 JSON 降级、上下文压缩回退和 MCP 子进程链路。
 
 ## 30 秒介绍
 

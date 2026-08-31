@@ -181,9 +181,12 @@ def _repl(store: RuntimeStore, kb: KnowledgeBase, agent: Agent) -> None:
                     print("（当前会话暂无工具调用记录）")
                 for log in logs:
                     status = "成功" if log["success"] else "失败"
+                    created = str(log.get("created_at", ""))[:19]
+                    tool_name = str(log.get("tool_name", ""))
                     print(
-                        f"- {log['created_at'][:19]} {log['tool_name']} {status}\n"
-                        f"  入参：{log['input_json']}\n  结果：{str(log['output_json'])[:120]}"
+                        f"- {created} {tool_name} {status}\n"
+                        f"  入参：{log.get('input_json', '')}\n"
+                        f"  结果：{str(log.get('output_json', ''))[:120]}"
                     )
                 continue
             print(f"未知命令 /{cmd}，输入 /help 查看帮助")

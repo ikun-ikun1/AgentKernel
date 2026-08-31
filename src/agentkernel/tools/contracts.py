@@ -12,8 +12,10 @@ payload 是合法对象」的调用才被晋升为结构化工具调用；其余
 工具调用，当前内核按顺序执行（无依赖时也可并行，注释见 runtime/agent.py）。
 """
 from __future__ import annotations
+
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable, Union
+from typing import Any, Union
 
 FINAL_ACTION = "final_answer"
 

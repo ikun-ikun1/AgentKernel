@@ -1,7 +1,9 @@
 """内置工具：当前时间 + 安全计算器。"""
 from __future__ import annotations
+
 import ast
 import operator
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -12,7 +14,7 @@ def _current_time(_: dict[str, Any]) -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-_ALLOWED_OPS = {
+_ALLOWED_OPS: dict[type[ast.AST], Callable[..., Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,

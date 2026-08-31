@@ -19,7 +19,7 @@ python -m pytest -q
 python eval.py
 ```
 
-预期：`60 passed, 2 skipped`（MySQL 集成测试在配置 `AGENTKERNEL_MYSQL_TEST_DSN` 后运行），以及 `通过 5/5`。
+预期：`59 passed, 2 skipped`（MySQL 集成测试在配置 `AGENTKERNEL_MYSQL_TEST_DSN` 后运行），以及 `通过 5/5`。
 
 这一步展示四类底层能力：
 

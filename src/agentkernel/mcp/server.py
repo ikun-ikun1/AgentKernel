@@ -5,6 +5,7 @@
 - server 只暴露「查询 + 列出」两个只读工具，不提供写/删能力（安全边界）。
 """
 from __future__ import annotations
+
 import argparse
 import json
 import os
