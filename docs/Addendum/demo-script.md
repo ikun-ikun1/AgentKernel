@@ -19,7 +19,7 @@ python -m pytest -q
 python eval.py
 ```
 
-预期：`59 passed, 2 skipped`（MySQL 集成测试在配置 `AGENTKERNEL_MYSQL_TEST_DSN` 后运行），以及 `通过 5/5`。
+验收目标：默认测试用例全部通过；配置 `AGENTKERNEL_MYSQL_TEST_DSN` 后再执行 2 个 MySQL 集成测试；`python eval.py` mock 模式达到 `通过 5/5`。具体结果以本次执行输出为准。
 
 这一步展示四类底层能力：
 

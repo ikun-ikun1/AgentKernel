@@ -2,7 +2,7 @@
 
 ## 状态
 
-Accepted，待代码迁移与集成测试完成
+Accepted，代码迁移已完成，MySQL 集成测试和生产式验收仍待完成
 
 ## 背景
 
@@ -36,7 +36,7 @@ Chroma（可选）
 └── chunk_id -> embedding
 ```
 
-MySQL 是文档和 Runtime 状态的唯一事实源。向量索引丢失时，可以根据 MySQL 中的 Chunk 重建，不能反过来只依赖 Chroma 保存业务数据。
+MySQL 是文档和 Runtime 状态的唯一事实源。向量索引丢失时，设计上应根据 MySQL 中的 Chunk 重建；当前版本尚未提供完整的全量重建 CLI 入口，不能把该能力表述为已验收。
 
 ## 实施要求
 

@@ -18,7 +18,7 @@
 | `tools/contracts.py` + `tools/json_repair.py` | Ch11（Tool Calling 底层） | **LLM 不是「调用函数」，只是输出 JSON，代码解析并执行**；脏 JSON 修复 | 工具调用失败/坏 JSON 怎么办？ |
 | `tools/registry.py` | Ch2（工具设计）、Ch11 | 工具注册、JSON Schema 校验、错误回灌 | 工具参数怎么校验？工具报错怎么处理？ |
 | `runtime/llm.py` | Ch11（Token 原理） | 工具定义消耗 token；模型只返回文本 | 工具描述计入 prompt token 吗？ |
-| `memory/` Store/Repository | Ch14（Agent 存储） | 先用 SQLite 理解消息/观察恢复，再迁移 MySQL 验证连接池与事务 | Runtime 为什么需要状态存储？连接池、事务和索引如何设计？ |
+| `memory/` Store/Repository | Ch14（Agent 存储） | MySQL 作为生产主存储，SQLite 作为测试适配器，验证连接池与事务 | Runtime 为什么需要状态存储？连接池、事务和索引如何设计？ |
 | `rag/ingest.py` | Ch9（RAG 深潜） | 文档指纹、增量索引、MySQL ngram、向量召回、混合排序和来源引用 | 如何保证重建幂等？词法/向量如何融合？引用如何可追踪？ |
 | `mcp/client.py` + `mcp/server.py` | Ch10（MCP 协议） | JSON-RPC 2.0；stdio 传输；`initialize → tools/list → tools/call` | MCP 为什么不是 REST？stdio 和 SSE 区别？ |
 | `mcp/framing.py` | Ch10.6（传输层） | Content-Length 帧；日志走 stderr | stdio 生产陷阱？ |
@@ -75,7 +75,7 @@
 ### 第六步：RAG——Ch9 + `rag/ingest.py`
 
 读 `agent-study-main/chapter_09_rag_deepdive/09_rag_deepdive.py`。
-对应代码：`load_document_parts` / `chunk_text` / `SQLiteIndex` / `_VectorIndex` / `KnowledgeBase`。
+对应代码：`load_document_parts` / `chunk_text` / `SQLiteIndex`（测试适配）/ `MySQLKnowledgeStore` / `_VectorIndex` / `KnowledgeBase`。
 
 ## 4. 与实习项目互补的讲述逻辑
 

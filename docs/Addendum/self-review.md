@@ -10,7 +10,7 @@
 - AI Agent Workbench：应用层项目，负责 Web、业务 Agent、CLI/MCP 工具接入、人工审批、审计和用户会话。
 - AgentKernel：Runtime/协议实验，负责解释 ReAct、Tool Calling、上下文策略和 MCP wire protocol。
 
-AgentKernel 中的 SQLite、检索样例和 CLI 属于研究实现与验证入口；它不替代 Workbench 的业务 RAG 编排、会话、审批或审计产品。以下对比只比较底层机制，不比较产品功能数量。
+AgentKernel 中的 MySQL 主存储、SQLite 测试适配器、检索样例和 CLI 属于研究实现与验证入口；它不替代 Workbench 的业务 RAG 编排、会话、审批或审计产品。以下对比只比较底层机制，不比较产品功能数量。
 
 ## 1. 与 Claude Agent SDK 对比
 
@@ -24,7 +24,7 @@ Workbench 实习项目用 `claude_agent_sdk`：主循环/工具调用/权限回�
 | 工具结果自动回灌 | ReAct 观察回灌 | ✅ 已有 |
 | 上下文管理 | truncate + compact | ✅ 已有（SDK 对用户是黑盒） |
 | 流式输出 / 子代理 / 审批卡片 | 不做 | ❌ 超出 CLI 教学原型范围，文档说明即可 |
-| 审计日志 | SQLite `tool_logs` 仅用于观察 Runtime 工具调用 | ⚠️ 不是 Workbench 的审计产品替代品 |
+| 审计日志 | MySQL `tool_logs`（SQLite 仅作测试适配）用于观察 Runtime 工具调用 | ⚠️ 不是 Workbench 的审计产品替代品 |
 
 **本次改进**：CLI `--mcp` 外部 MCP server 接入，用 `mcp<N>_` 前缀避免工具名冲突；该功能用于验证协议互操作，不是建设 MCP 管理平台。
 
@@ -51,10 +51,10 @@ Workbench 实习项目用 `claude_agent_sdk`：主循环/工具调用/权限回�
 
 | agent-study 章节 | 简化设计 | AgentKernel 落地 |
 |-----------------|---------|-----------------|
-| Ch2 组件/记忆 | 短期/长期/工作记忆概念 | 短期=消息列表，工作=观察回灌，长期=SQLite |
+| Ch2 组件/记忆 | 短期/长期/工作记忆概念 | 短期=消息列表，工作=观察回灌，长期=MySQL |
 | Ch10 MCP | `SimulatedMCPServer` 行分隔 JSON | 升级为 Content-Length 帧 + 标准 JSON-RPC |
 | Ch11 Tool Calling | 讲 Parallel/Streaming/Strict | 新增多工具调用；流式/严格模式不实现（非流式 prompt 协议） |
-| Ch14 SQLite | 5 张表 + 连接池 | 精简为 3 张表（sessions/messages/tool_logs），够用且可讲 |
+| Ch14 数据库存储 | 5 张表 + 连接池 | 精简为 3 张 Runtime 表（sessions/messages/tool_logs），MySQL 负责生产持久化，够用且可讲 |
 
 ## 4. 已知差距与取舍
 

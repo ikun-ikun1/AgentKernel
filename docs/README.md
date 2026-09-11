@@ -36,18 +36,29 @@
 
 ## 文档索引
 
+**核心说明**
+
 1. [项目背景说明](./project-background.md)
 2. [技术选型与边界说明](./technical-scope-and-boundary.md)
-3. [教学映射（agent-study ↔ OpenClaw ↔ Workbench）](./learning-map.md)
-4. [自我审查报告（Claude SDK / 高星 MCP 库 / agent-study）](./self-review.md)
-5. [ADR-001：MySQL 主存储](./adr-001-mysql-primary-storage.md)
-6. [架构图源文件](./architecture.mmd)
-7. [架构图 PNG](./architecture.png)
-8. [演示脚本](./demo-script.md)
-9. [简历与面试材料](./resume-and-interview.md)
-10. [里程碑 1：ReAct 内核可跑](./milestone-1-kernel.md)
-11. [里程碑 2：MCP 协议与示例工具链打通](./milestone-2-mcp.md)
-12. [里程碑 3：交付物与缓冲](./milestone-3-deliverables.md)
+
+**阶段技术说明**
+
+3. [里程碑 1：ReAct 内核可跑](./milestone-1-kernel.md)
+4. [里程碑 2：MCP 协议与示例工具链打通](./milestone-2-mcp.md)
+5. [里程碑 3：交付物与缓冲](./milestone-3-deliverables.md)
+
+**研究补充材料（Addendum）**
+
+6. [教学映射（agent-study ↔ OpenClaw ↔ Workbench）](./Addendum/learning-map.md)
+7. [自我审查报告（Claude SDK / 高星 MCP 库 / agent-study）](./Addendum/self-review.md)
+8. [ADR-001：MySQL 主存储](./Addendum/adr-001-mysql-primary-storage.md)
+9. [演示脚本](./Addendum/demo-script.md)
+10. [简历与面试材料](./Addendum/resume-and-interview.md)
+
+**架构图**
+
+11. [架构图源文件](./architecture.mmd)
+12. [架构图 PNG](./architecture.png)
 
 ## 工作节奏说明
 
