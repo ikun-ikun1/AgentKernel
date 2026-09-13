@@ -1,6 +1,6 @@
 """工具注册与内置工具的测试。"""
 from agentkernel.tools import builtin
-from agentkernel.tools.registry import Registry, validate_parameters
+from agentkernel.tools.registry import Registry, Tool, validate_parameters
 from agentkernel.utils.errors import ToolParamError
 
 
@@ -24,6 +24,30 @@ def test_calculator_ok():
 def test_calculator_division_float():
     r = _make_registry()
     assert "2.5" in r.run("calculator", {"expression": "5/2"})
+
+
+def test_tool_result_has_explicit_status_and_duration():
+    r = _make_registry()
+    result = r.run("calculator", {"expression": "1 + 2"})
+    assert result == "3"
+    assert result.success is True
+    assert result.error_type is None
+    assert result.duration_ms >= 0
+
+
+def test_tool_result_marks_business_text_as_success():
+    r = Registry()
+    r.register(
+        Tool(
+            name="normal_prefix",
+            description="test",
+            parameters={"type": "object"},
+            fn=lambda _: "[工具业务数据]",
+        )
+    )
+    result = r.run("normal_prefix", {})
+    assert result == "[工具业务数据]"
+    assert result.success is True
 
 
 def test_calculator_missing_param():

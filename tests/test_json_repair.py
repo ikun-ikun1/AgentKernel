@@ -24,6 +24,11 @@ def test_single_quotes():
     assert json_repair.parse_json(text)["action"] == "get_current_time"
 
 
+def test_single_quotes_preserve_apostrophe_in_value():
+    text = "{'action': 'final_answer', 'action_input': \"it's fine\"}"
+    assert json_repair.parse_json(text)["action_input"] == "it's fine"
+
+
 def test_degrade_to_none():
     text = "我无法回答这个问题"
     assert json_repair.parse_json(text) is None

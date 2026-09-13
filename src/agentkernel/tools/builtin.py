@@ -29,7 +29,16 @@ def _eval_node(node: ast.AST) -> float:
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return node.value
     if isinstance(node, ast.BinOp) and type(node.op) in _ALLOWED_OPS:
-        return _ALLOWED_OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+        left = _eval_node(node.left)
+        right = _eval_node(node.right)
+        if isinstance(node.op, ast.Pow) and (
+            not isinstance(right, (int, float)) or abs(right) > 100
+        ):
+            raise ValueError("幂运算指数绝对值不能超过 100")
+        result = _ALLOWED_OPS[type(node.op)](left, right)
+        if isinstance(result, int) and result.bit_length() > 4096:
+            raise ValueError("计算结果过大")
+        return result
     if isinstance(node, ast.UnaryOp) and type(node.op) in _ALLOWED_OPS:
         return _ALLOWED_OPS[type(node.op)](_eval_node(node.operand))
     raise ValueError(f"不支持的表达式：{ast.dump(node)}")
@@ -37,6 +46,8 @@ def _eval_node(node: ast.AST) -> float:
 
 def _safe_calc(expr: str) -> str:
     """白名单 AST 安全求值，禁止任意代码执行。"""
+    if len(expr) > 200:
+        raise ValueError("表达式过长")
     tree = ast.parse(expr, mode="eval")
     result = _eval_node(tree.body)
     return str(int(result) if float(result).is_integer() else result)

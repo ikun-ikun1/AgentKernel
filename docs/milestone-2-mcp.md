@@ -1,6 +1,6 @@
 # 里程碑 2：MCP 协议与示例工具链打通
 
-> **当前进度**：基础链路已实现；MySQL 数据库迁移待完成。当前代码仍以 SQLite FTS5 为检索实现，迁移后需补 MySQL ngram 词法检索和集成测试。
+> **当前进度**：基础链路和 MySQL 代码迁移已实现；MySQL 集成测试与真实检索验收待完成。SQLite 仅保留为测试和本地开发适配器。
 
 ## 周期与验收要求
 
@@ -21,7 +21,7 @@
 ```
 Agent → mcp/client.py（自实现 tools/list + tools/call）
      → mcp/server.py（官方 SDK 可选，注册 knowledge_query / knowledge_list）
-     → rag/ingest.py（PDF/MD/TXT → 分块 → FTS5 + 可选向量混合检索）
+     → rag/ingest.py（PDF/MD/TXT → 分块 → MySQL ngram + 可选向量混合检索）
      → 检索返回带来源片段
 ```
 
@@ -34,7 +34,7 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 ## 模块与目的
 
 1. `rag/ingest.py`  
-目的：解析 PDF/MD/TXT，按 checksum 增量入库，保存页码与来源，执行 FTS5 和可选向量混合检索。
+目的：解析 PDF/MD/TXT，按 checksum 增量入库，保存页码与来源，执行 MySQL ngram 和可选向量混合检索。
 
 2. `mcp/server.py`  
 目的：用官方 `mcp` SDK 暴露 2 个工具——`knowledge_query(query, top_k)` 检索带来源、`knowledge_list()` 列出已入库文档。
@@ -53,7 +53,7 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 
 ### D1-2：文档解析 + 分块 + 持久化索引
 
-- `rag/ingest.py`：解析、checksum、分块、MySQL 元数据与 ngram 全文索引。
+- `rag/ingest.py`：解析、checksum、分块、MySQL 文档元数据与 ngram 全文索引。
 - 可选向量：SentenceTransformer 编码 + Chroma 持久化，缺失时保留 MySQL ngram 检索。
 - 检索：词法/向量候选 → Reciprocal Rank Fusion → top_k，并保留来源元数据。
 
@@ -89,7 +89,7 @@ Agent → mcp/client.py（自实现 tools/list + tools/call）
 | 自实现 MCP client 真连 stdio server | ✅ | `tests/test_mcp.py::test_stdio_client_against_self_hosted_server` |
 | 5 个评估用例 | ✅ mock 5/5；live 5 用例（4 个真实 API + 1 个解析层坏 JSON，依赖 API 可用性） | `python eval.py` / `python eval.py --live` |
 | CLI 知识库演示 | ✅ | `python -m agentkernel --docs <路径>`，`/docs`、`/ingest`、`/logs` |
-| 持久化/增量索引 | 待迁移验证 | MySQL 文档 checksum、ngram 全文检索、稳定 chunk ID |
+| 持久化/增量索引 | 代码已实现，待真实 MySQL 验证 | MySQL 文档 checksum、ngram 全文检索、稳定 chunk ID |
 
 ## 明确不做
 

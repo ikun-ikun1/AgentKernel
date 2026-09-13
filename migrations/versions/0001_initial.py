@@ -67,7 +67,7 @@ def upgrade() -> None:
         sa.Column("text", sa.Text, nullable=False),
         sa.Column("page", sa.Integer),
         sa.Column("section", sa.String(512), nullable=False, server_default=""),
-        sa.Column("metadata_json", sa.Text, nullable=False, server_default="{}"),
+         sa.Column("metadata_json", sa.Text, nullable=False),
     )
     op.create_index("idx_documents_name", "documents", ["doc_name"])
     op.create_index("idx_chunks_doc", "chunks", ["doc_id", "ordinal"])

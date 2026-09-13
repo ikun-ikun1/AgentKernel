@@ -1,6 +1,6 @@
 # 里程碑 1：ReAct 内核可跑
 
-> **当前进度**：✅ 已实现。ReAct 循环、2 个内置工具、三层 JSON 修复、SQLite 记忆（sessions/messages/tool_logs）、truncate/compact 上下文管理、LLM 客户端超时/重试/连接复用均已落地；`tests/` 覆盖 fake LLM 的主循环、上下文与工具审计用例。
+> **当前进度**：✅ 内核功能已实现。ReAct 循环、2 个内置工具、三层 JSON 修复、Runtime 记忆（MySQL 主存储，SQLite 测试适配器）、truncate/compact 上下文管理、LLM 客户端超时/重试/连接复用均已落地；`tests/` 覆盖 fake LLM 的主循环、上下文与工具审计用例。
 
 ## 周期与验收要求
 
@@ -76,7 +76,7 @@
 - 2 个内置工具（时间 / 计算器），描述注入 system prompt。
 - 解析模型输出的 `{"action": ..., "action_input": ...}`。
 
-### D5-7：非法 JSON 修复 + SQLite 记忆 + 边界
+### D5-7：非法 JSON 修复 + 记忆适配器 + 边界
 
 - `tools/json_repair.py`：三层修复。
 - `memory/sqlite_store.py`：会话 + 消息持久化。

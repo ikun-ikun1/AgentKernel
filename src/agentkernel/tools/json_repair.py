@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import ast
 import json
 import re
 from typing import Any
@@ -60,9 +61,13 @@ def _remove_trailing_commas(s: str) -> str:
     return re.sub(r",\s*([}\]])", r"\1", s)
 
 
-def _swap_quotes(s: str) -> str:
-    """单引号换双引号（简单场景的 last resort）。"""
-    return s.replace("'", '"')
+def _swap_quotes(s: str) -> dict[str, Any] | None:
+    """使用安全的 Python 字面量解析处理单引号 JSON。"""
+    try:
+        obj = ast.literal_eval(s)
+    except (SyntaxError, ValueError, TypeError, MemoryError, RecursionError):
+        return None
+    return obj if isinstance(obj, dict) else None
 
 
 def _within_payload_limit(frag: str, max_payload_bytes: int) -> bool:
@@ -84,11 +89,8 @@ def parse_json(
     if frag is None or not _within_payload_limit(frag, max_payload_bytes):
         return None
 
-    candidates = [
-        frag,
-        _remove_trailing_commas(_strip_fences(frag)),
-        _swap_quotes(_remove_trailing_commas(_strip_fences(frag))),
-    ]
+    cleaned = _remove_trailing_commas(_strip_fences(frag))
+    candidates = [frag, cleaned]
     for candidate in candidates:
         try:
             obj = json.loads(candidate)
@@ -96,6 +98,14 @@ def parse_json(
             continue
         if not isinstance(obj, dict):
             continue
+        if allowed_actions is not None and not _actions_allowed(obj, allowed_actions):
+            return None
+        return obj
+
+    # literal_eval handles single-quoted dictionaries without corrupting
+    # apostrophes inside string values (for example, "it's fine").
+    obj = _swap_quotes(cleaned)
+    if obj is not None:
         if allowed_actions is not None and not _actions_allowed(obj, allowed_actions):
             return None
         return obj

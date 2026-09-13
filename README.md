@@ -24,7 +24,7 @@
 | 文档重复入库、修改后索引难维护 | 每次全量重建 | SHA-256 checksum 增量更新，稳定 `doc_id:ordinal` chunk ID，MySQL ngram 持久化基线 | 重复入库返回 0；修改后仅重建该文档 |
 | 向量依赖不可用导致检索失败 | 只依赖向量或退化为内存索引 | 保留 MySQL ngram 持久化基线；`auto/hybrid` 降级并提示，`semantic` fail-fast | 无 chromadb/sentence-transformers 环境测试 |
 
-当前验证基线：**59 个测试用例通过（另有 2 个 MySQL 集成测试在配置 DSN 后启用），`python eval.py` mock 模式 5/5**。
+当前验证结果：65 个默认测试用例通过，2 个 MySQL 集成测试因未配置 DSN 跳过；`python eval.py` mock 模式 5/5。MySQL 集成测试仍需在真实 MySQL 实例上单独验收。
 
 ---
 
@@ -118,7 +118,7 @@ AgentKernel: Runtime 学习与协议层
 | MCP server | `mcp` Python SDK（可选） | 官方实现，未安装时进程内适配 |
 | MCP client | 自实现 | `initialize` → `tools/list` → `tools/call` |
 
-> 依赖分层：核心 Runtime 使用 MySQL 持久化；检索实验使用 `.[rag]`，MCP 官方 server 使用 `.[mcp]`。缺少向量依赖时回退到 MySQL ngram，不丢失文档事实数据。
+> 依赖分层：生产运行模式使用 MySQL 持久化，SQLite 仅作为测试和本地开发适配器；检索实验使用 `.[rag]`，MCP 官方 server 使用 `.[mcp]`。缺少向量依赖时回退到 MySQL ngram，不丢失文档事实数据。
 
 ---
 
@@ -195,7 +195,7 @@ python -m agentkernel.mcp.server <文档路径>
 python -m agentkernel --mcp "python -m agentkernel.mcp.server <文档路径>"
 ```
 
-CLI 内置命令：`/new [标题]` 新建会话、`/sessions` 列出会话、`/history` 查看历史、`/ingest <路径>` 增量入库 PDF/MD/TXT、`/docs` 列出文档、`/logs` 查看工具调用审计、`/help` 帮助、`/quit` 退出。未安装向量依赖时仍使用持久化 FTS5，不会退化为内存索引。
+CLI 内置命令：`/new [标题]` 新建会话、`/sessions` 列出会话、`/history` 查看历史、`/ingest <路径>` 增量入库 PDF/MD/TXT、`/docs` 列出文档、`/logs` 查看工具调用审计、`/help` 帮助、`/quit` 退出。未安装向量依赖时仍使用持久化 MySQL ngram，不会退化为内存索引。
 
 ---
 
@@ -225,7 +225,7 @@ AgentKernel/
 │   ├── rag/                         # 文档入库与检索
 │   ├── mcp/                         # framing + server + client
 │   └── utils/                       # env + errors
-└── tests/                           # 59 个测试用例（另有 2 个 MySQL 集成测试按需启用）
+└── tests/                           # 65 个默认测试用例（另有 2 个 MySQL 集成测试按需启用）
 ```
 
 ---

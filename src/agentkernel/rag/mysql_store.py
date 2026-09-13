@@ -58,6 +58,7 @@ class MySQLKnowledgeStore:
                 String,
                 Table,
                 Text,
+                text,
             )
         except ImportError as exc:
             raise MySQLKnowledgeError(
@@ -86,13 +87,30 @@ class MySQLKnowledgeStore:
             Column("text", Text, nullable=False),
             Column("page", Integer),
             Column("section", String(512), nullable=False, server_default=""),
-            Column("metadata_json", Text, nullable=False, server_default="{}"),
+            # MySQL 8 does not allow defaults on TEXT columns; callers always
+            # provide the serialized metadata explicitly.
+            Column("metadata_json", Text, nullable=False),
         )
         Index("idx_documents_name", documents.c.doc_name)
         Index("idx_chunks_doc", chunks.c.doc_id, chunks.c.ordinal)
-        # MySQL 8 中文词法基线：ngram 全文索引
-        Index("idx_chunks_ft", chunks.c.text, mysql_with_parser="ngram")
+        # MySQL 的 ngram 全文索引需要显式 FULLTEXT DDL；SQLAlchemy 的普通
+        # Index 编译器会生成不带 FULLTEXT 的 CREATE INDEX，无法附加 parser。
         metadata.create_all(self.engine)
+        with self.engine.begin() as conn:
+            exists = conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.statistics "
+                    "WHERE table_schema = DATABASE() AND table_name = 'chunks' "
+                    "AND index_name = 'idx_chunks_ft' LIMIT 1"
+                )
+            ).first()
+            if not exists:
+                conn.execute(
+                    text(
+                        "CREATE FULLTEXT INDEX idx_chunks_ft ON chunks (text) "
+                        "WITH PARSER ngram"
+                    )
+                )
 
     def get_document(self, doc_id: str) -> dict[str, Any] | None:
         from sqlalchemy import text

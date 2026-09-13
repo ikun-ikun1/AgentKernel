@@ -37,6 +37,7 @@ def mysql_knowledge_store():
 
 def test_runtime_roundtrip(mysql_runtime_store):
     store = mysql_runtime_store
+    store.delete_session("it-session")
     store.create_session("it-session", "集成测试")
     store.append_message("it-session", "user", "hello")
     store.append_message("it-session", "assistant", "hi")

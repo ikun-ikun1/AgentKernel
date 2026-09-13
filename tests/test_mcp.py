@@ -6,6 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 from agentkernel.mcp.client import (
     InProcessMCPClient,
     StdioMCPClient,
@@ -96,6 +98,30 @@ def test_frame_roundtrip():
     body = b'{"jsonrpc":"2.0","id":1}'
     stream = io.BytesIO(_frame_message(body))
     assert _read_frame(stream) == body
+
+
+def test_frame_rejects_missing_length():
+    with pytest.raises(Exception, match="缺少 Content-Length"):
+        _read_frame(io.BytesIO(b"X-Test: 1\r\n\r\n"))
+
+
+def test_frame_rejects_oversized_length():
+    with pytest.raises(Exception, match="超出限制"):
+        _read_frame(
+            io.BytesIO(b"Content-Length: 10\r\n\r\n1234567890"),
+            max_frame_bytes=5,
+        )
+
+
+def test_frame_read_timeout():
+    read_fd, write_fd = os.pipe()
+    stream = os.fdopen(read_fd, "rb")
+    try:
+        with pytest.raises(Exception, match="超时"):
+            _read_frame(stream, timeout=0.01)
+    finally:
+        stream.close()
+        os.close(write_fd)
 
 
 def test_stdio_client_against_self_hosted_server(tmp_path):

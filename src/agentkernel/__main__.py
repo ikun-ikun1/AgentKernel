@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shlex
 import sys
 import uuid
@@ -32,6 +33,11 @@ from agentkernel.tools.registry import Registry
 from agentkernel.utils import env as env_utils
 
 _SUPPORTED_SUFFIXES = {".pdf", ".md", ".markdown", ".txt"}
+
+
+def _redact_dsn(dsn: str) -> str:
+    """隐藏 DSN 中的密码，避免启动日志泄露凭据。"""
+    return re.sub(r"(://[^:/?#]+:)[^@/?#]+(@)", r"\1***\2", dsn)
 
 
 def _print_help() -> None:
@@ -113,7 +119,8 @@ def _repl(store: RuntimeStore, kb: KnowledgeBase, agent: Agent) -> None:
     store.create_session(session_id)
 
     def _log_tool_call(tool_name: str, action_input: dict[str, object], result: str) -> None:
-        ok = not result.startswith("[工具")
+        # Registry returns a str-compatible result carrying explicit status.
+        ok = getattr(result, "success", not result.startswith("[工具"))
         store.log_tool_call(session_id, tool_name, action_input, result, ok)
 
     agent.on_tool_call = _log_tool_call
@@ -262,7 +269,7 @@ def main() -> None:
             parser.exit(2, "Alembic 未安装：pip install -e '.[mysql]'\n")
         os.environ["AGENTKERNEL_DB_URL"] = dsn
         command.upgrade(Config("alembic.ini"), "head")
-        print(f"MySQL 迁移完成：{dsn}")
+        print(f"MySQL 迁移完成：{_redact_dsn(dsn)}")
 
     try:
         store = create_runtime_store(args.db)
@@ -282,7 +289,7 @@ def main() -> None:
         store.close()
         parser.exit(2, f"初始化失败：{type(e).__name__}: {e}\n")
     if kb.dsn:
-        print(f"知识库：{kb.backend_name}（MySQL：{kb.dsn}）")
+        print(f"知识库：{kb.backend_name}（MySQL：{_redact_dsn(kb.dsn)}）")
     else:
         print(f"知识库：{kb.backend_name}（持久化目录：{kb.persist_dir or '内存'}）")
     if kb.backend_warning:

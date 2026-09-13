@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Any
 
 from agentkernel.utils.errors import ToolNotFoundError, ToolParamError
@@ -19,6 +20,28 @@ class Tool:
     description: str
     parameters: dict[str, Any]  # JSON Schema（含 required / properties）
     fn: Callable[[dict[str, Any]], str]
+
+
+class ToolExecutionResult(str):
+    """兼容字符串调用方，同时携带工具执行状态元数据。"""
+
+    success: bool
+    error_type: str | None
+    duration_ms: float
+
+    def __new__(
+        cls,
+        output: str,
+        *,
+        success: bool,
+        error_type: str | None = None,
+        duration_ms: float = 0.0,
+    ) -> ToolExecutionResult:
+        instance = super().__new__(cls, output)
+        instance.success = success
+        instance.error_type = error_type
+        instance.duration_ms = duration_ms
+        return instance
 
 
 def validate_parameters(schema: dict[str, Any], value: Any, path: str = "参数") -> None:
@@ -98,18 +121,37 @@ class Registry:
             lines.append(f"- {t.name}: {t.description}{suffix}")
         return "\n".join(lines)
 
-    def run(self, name: str, action_input: dict[str, Any]) -> str:
+    def run(self, name: str, action_input: dict[str, Any]) -> ToolExecutionResult:
         """执行工具：校验参数 → 调用 → 异常转可读错误（不崩）。"""
+        started = perf_counter()
         try:
             tool = self.get(name)
             self._validate(tool, action_input)
-            return tool.fn(action_input)
+            return ToolExecutionResult(
+                str(tool.fn(action_input)),
+                success=True,
+                duration_ms=(perf_counter() - started) * 1000,
+            )
         except ToolParamError as e:
-            return f"[工具参数错误] {e}"
+            return self._error_result("工具参数错误", e, started)
         except ToolNotFoundError as e:
-            return f"[工具不存在] {e}"
+            return self._error_result("工具不存在", e, started)
         except Exception as e:  # 工具内部异常兜底
-            return f"[工具错误] {type(e).__name__}: {e}"
+            return self._error_result("工具错误", e, started, type(e).__name__)
+
+    @staticmethod
+    def _error_result(
+        prefix: str,
+        error: Exception,
+        started: float,
+        error_type: str | None = None,
+    ) -> ToolExecutionResult:
+        return ToolExecutionResult(
+            f"[{prefix}] {error}" if error_type is None else f"[{prefix}] {error_type}: {error}",
+            success=False,
+            error_type=error_type or type(error).__name__,
+            duration_ms=(perf_counter() - started) * 1000,
+        )
 
     @staticmethod
     def _validate(tool: Tool, action_input: dict[str, Any]) -> None:

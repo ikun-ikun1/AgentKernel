@@ -41,6 +41,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object", "properties": {}},
     },
 ]
+MAX_TOP_K = 20
 
 
 def format_results(results: list[SearchResult]) -> str:
@@ -75,8 +76,8 @@ class KnowledgeMCPServer:
         query = query.strip()
         if not query:
             raise MCPToolError("query 不能为空")
-        if top_k < 1:
-            raise MCPToolError("top_k 必须 >= 1")
+        if not 1 <= top_k <= MAX_TOP_K:
+            raise MCPToolError(f"top_k 必须在 1 到 {MAX_TOP_K} 之间")
         return format_results(self.kb.query(query, top_k=top_k))
 
     def knowledge_list(self) -> str:

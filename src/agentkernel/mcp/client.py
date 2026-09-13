@@ -9,7 +9,7 @@ import json
 import subprocess
 from typing import Any
 
-from agentkernel.mcp.framing import frame_message, read_frame
+from agentkernel.mcp.framing import DEFAULT_MAX_FRAME_BYTES, frame_message, read_frame
 from agentkernel.tools.registry import Registry, Tool
 from agentkernel.utils.errors import AgentKernelError
 
@@ -39,8 +39,18 @@ _read_frame = read_frame
 class StdioMCPClient(MCPClient):
     """手写 MCP stdio 传输 + JSON-RPC 2.0。"""
 
-    def __init__(self, command: list[str]) -> None:
+    def __init__(
+        self,
+        command: list[str],
+        *,
+        timeout: float = 30.0,
+        max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES,
+    ) -> None:
+        if timeout <= 0:
+            raise ValueError("timeout 必须大于 0")
         self.command = command
+        self.timeout = timeout
+        self.max_frame_bytes = max_frame_bytes
         self._proc: subprocess.Popen[bytes] | None = None
         self._next_id = 1
         self.server_info: dict[str, Any] = {}
@@ -59,6 +69,9 @@ class StdioMCPClient(MCPClient):
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
+            # Keep reads unbuffered so select() cannot miss a body prefetched
+            # by BufferedReader while reading the headers.
+            bufsize=0,
         )
         return self
 
@@ -82,7 +95,11 @@ class StdioMCPClient(MCPClient):
             }
         )
         while True:
-            body = _read_frame(self._proc.stdout)
+            body = read_frame(
+                self._proc.stdout,
+                max_frame_bytes=self.max_frame_bytes,
+                timeout=self.timeout,
+            )
             try:
                 message = json.loads(body.decode("utf-8"))
             except json.JSONDecodeError as e:
