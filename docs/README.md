@@ -52,8 +52,9 @@
 6. [教学映射（agent-study ↔ OpenClaw ↔ Workbench）](./Addendum/learning-map.md)
 7. [自我审查报告（Claude SDK / 高星 MCP 库 / agent-study）](./Addendum/self-review.md)
 8. [ADR-001：MySQL 主存储](./Addendum/adr-001-mysql-primary-storage.md)
-9. [演示脚本](./Addendum/demo-script.md)
-10. [简历与面试材料](./Addendum/resume-and-interview.md)
+9. [框架对比：DeepSeek Harness 与 AgentKernel](./Addendum/framework-comparison-deepseek-harness.md)
+10. [演示脚本](./Addendum/demo-script.md)
+11. [简历与面试材料](./Addendum/resume-and-interview.md)
 
 **架构图**
 

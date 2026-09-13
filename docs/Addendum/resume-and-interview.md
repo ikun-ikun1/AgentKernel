@@ -74,3 +74,9 @@ server 端提供官方 SDK 可选实现和纯 Python stdio 入口；client 端�
 Workbench 是应用和治理层：Web、业务 Agent、审批、权限、会话和审计。AgentKernel 是原理研究层：最小 ReAct、Tool Calling、MCP wire protocol，以及用于验证外部状态接入的检索样例。两者互补，不是两个业务产品。
 
 **代码位置**：`docs/technical-scope-and-boundary.md` 第 2 节（系统边界表）、`docs/project-background.md` 1.2（硬边界）。
+
+### 9. DeepSeek Harness 对比延伸是怎么回事？
+
+完成自研 Runtime 后，研读本地 `dsh-handbook` / `deepseek-harness-handbook` 与官方包源码，从应用开发视角对比：dsh 用 Profile/Bundle/Patch 声明式组装、Cordis 扩展点、JSONL 会话投影，AgentKernel 用固定 Runtime 教学实现。收获是理解生产级框架的组装与容错设计，而不是重写一个 dsh。
+
+**代码位置**：`docs/Addendum/framework-comparison-deepseek-harness.md`。
