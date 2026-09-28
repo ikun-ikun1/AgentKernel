@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import json
+import random
+import time
 from typing import Any
 
 from agentkernel.rag.ingest import Chunk, SearchResult
@@ -14,6 +16,13 @@ from agentkernel.utils.errors import AgentKernelError
 
 class MySQLKnowledgeError(AgentKernelError):
     """MySQL 知识库存储错误。"""
+
+
+def _is_deadlock(exc: Exception) -> bool:
+    """MySQL 1213 死锁 / 1205 锁等待超时：生产写入应重试。"""
+    orig = getattr(exc, "orig", None)
+    args = getattr(orig, "args", (None,)) if orig is not None else (None,)
+    return bool(args) and args[0] in (1213, 1205)
 
 
 class MySQLKnowledgeStore:
@@ -123,49 +132,64 @@ class MySQLKnowledgeStore:
 
     def upsert_document(self, document: dict[str, Any], chunks: list[Chunk]) -> None:
         from sqlalchemy import text
+        from sqlalchemy.exc import OperationalError
 
         doc_id = document["doc_id"]
-        with self.engine.begin() as conn:
-            conn.execute(text("DELETE FROM chunks WHERE doc_id = :doc_id"), {"doc_id": doc_id})
-            conn.execute(
-                text(
-                    "INSERT INTO documents "
-                    "(doc_id, doc_name, source, checksum, size_bytes, modified_at, ingested_at, chunk_count) "
-                    "VALUES (:doc_id, :doc_name, :source, :checksum, :size_bytes, :modified_at, "
-                    ":ingested_at, :chunk_count) "
-                    "ON DUPLICATE KEY UPDATE doc_name=VALUES(doc_name), source=VALUES(source), "
-                    "checksum=VALUES(checksum), size_bytes=VALUES(size_bytes), "
-                    "modified_at=VALUES(modified_at), ingested_at=VALUES(ingested_at), "
-                    "chunk_count=VALUES(chunk_count)"
-                ),
-                {
-                    "doc_id": doc_id,
-                    "doc_name": document["doc_name"],
-                    "source": document["source"],
-                    "checksum": document["checksum"],
-                    "size_bytes": document["size_bytes"],
-                    "modified_at": document["modified_at"],
-                    "ingested_at": document["ingested_at"],
-                    "chunk_count": len(chunks),
-                },
-            )
-            for chunk in chunks:
-                conn.execute(
-                    text(
-                        "INSERT INTO chunks "
-                        "(chunk_id, doc_id, ordinal, text, page, section, metadata_json) "
-                        "VALUES (:chunk_id, :doc_id, :ordinal, :text, :page, :section, :metadata_json)"
-                    ),
-                    {
-                        "chunk_id": chunk.chunk_id,
-                        "doc_id": doc_id,
-                        "ordinal": int(chunk.metadata.get("ordinal", 0)),
-                        "text": chunk.text,
-                        "page": chunk.page,
-                        "section": chunk.section,
-                        "metadata_json": json.dumps(chunk.metadata, ensure_ascii=False),
-                    },
-                )
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                with self.engine.begin() as conn:
+                    conn.execute(
+                        text("DELETE FROM chunks WHERE doc_id = :doc_id"), {"doc_id": doc_id}
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO documents "
+                            "(doc_id, doc_name, source, checksum, size_bytes, modified_at, ingested_at, chunk_count) "
+                            "VALUES (:doc_id, :doc_name, :source, :checksum, :size_bytes, :modified_at, "
+                            ":ingested_at, :chunk_count) "
+                            "ON DUPLICATE KEY UPDATE doc_name=VALUES(doc_name), source=VALUES(source), "
+                            "checksum=VALUES(checksum), size_bytes=VALUES(size_bytes), "
+                            "modified_at=VALUES(modified_at), ingested_at=VALUES(ingested_at), "
+                            "chunk_count=VALUES(chunk_count)"
+                        ),
+                        {
+                            "doc_id": doc_id,
+                            "doc_name": document["doc_name"],
+                            "source": document["source"],
+                            "checksum": document["checksum"],
+                            "size_bytes": document["size_bytes"],
+                            "modified_at": document["modified_at"],
+                            "ingested_at": document["ingested_at"],
+                            "chunk_count": len(chunks),
+                        },
+                    )
+                    for chunk in chunks:
+                        conn.execute(
+                            text(
+                                "INSERT INTO chunks "
+                                "(chunk_id, doc_id, ordinal, text, page, section, metadata_json) "
+                                "VALUES (:chunk_id, :doc_id, :ordinal, :text, :page, :section, :metadata_json)"
+                            ),
+                            {
+                                "chunk_id": chunk.chunk_id,
+                                "doc_id": doc_id,
+                                "ordinal": int(chunk.metadata.get("ordinal", 0)),
+                                "text": chunk.text,
+                                "page": chunk.page,
+                                "section": chunk.section,
+                                "metadata_json": json.dumps(chunk.metadata, ensure_ascii=False),
+                            },
+                        )
+                    return
+            except OperationalError as exc:
+                if _is_deadlock(exc) and attempt < 2:
+                    last_exc = exc
+                    time.sleep(0.05 * (attempt + 1) + random.random() * 0.05)
+                    continue
+                raise
+        assert last_exc is not None
+        raise last_exc
 
     def delete_document(self, doc_id: str) -> bool:
         from sqlalchemy import text

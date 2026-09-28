@@ -80,3 +80,28 @@ def test_knowledge_roundtrip_and_lexical(mysql_knowledge_store):
     assert results
     assert "来源" in results[0].to_citation()
     assert store.delete_document(doc_id) is True
+
+
+def test_concurrent_message_writes(mysql_runtime_store):
+    """同一会话并发写消息不应出现死锁或丢失（回归测试）。"""
+    import threading
+
+    store = mysql_runtime_store
+    store.create_session("it-concurrent", "并发写入")
+    errors: list[Exception] = []
+
+    def worker(i: int) -> None:
+        try:
+            store.append_message("it-concurrent", "user", f"msg-{i}")
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(20)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors, f"并发写入出现异常: {errors}"
+    messages = store.get_messages("it-concurrent")
+    assert len(messages) >= 20

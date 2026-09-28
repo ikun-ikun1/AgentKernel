@@ -5,6 +5,9 @@
 """
 from __future__ import annotations
 
+import random
+import threading
+import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -18,6 +21,13 @@ class MySQLStoreError(AgentKernelError):
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _is_deadlock(exc: Exception) -> bool:
+    """MySQL 1213 死锁 / 1205 锁等待超时：生产写入应重试。"""
+    orig = getattr(exc, "orig", None)
+    args = getattr(orig, "args", (None,)) if orig is not None else (None,)
+    return bool(args) and args[0] in (1213, 1205)
 
 
 class MySQLRuntimeStore(RuntimeStore):
@@ -37,6 +47,17 @@ class MySQLRuntimeStore(RuntimeStore):
         self._text = text
         self._sqlalchemy_error = SQLAlchemyError
         self._engine: Any = None
+        self._session_locks: dict[str, threading.Lock] = {}
+        self._session_locks_guard = threading.Lock()
+
+    def _session_lock(self, session_id: str) -> threading.Lock:
+        """同一会话的写操作在本进程内串行，避免并发 UPDATE 同一行导致死锁。"""
+        with self._session_locks_guard:
+            lock = self._session_locks.get(session_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._session_locks[session_id] = lock
+            return lock
 
     @property
     def engine(self) -> Any:
@@ -144,22 +165,40 @@ class MySQLRuntimeStore(RuntimeStore):
         now = _now()
         try:
             from sqlalchemy import text
+            from sqlalchemy.exc import OperationalError
         except ImportError as exc:
             raise MySQLStoreError("MySQL 主存储需要 SQLAlchemy：pip install -e '.[mysql]'") from exc
 
-        with self.engine.begin() as conn:
-            cursor = conn.execute(
-                text(
-                    "INSERT INTO messages (session_id, role, content, created_at) "
-                    "VALUES (:session_id, :role, :content, :created_at)"
-                ),
-                {"session_id": session_id, "role": role, "content": content, "created_at": now},
-            )
-            conn.execute(
-                text("UPDATE sessions SET updated_at = :now WHERE id = :id"),
-                {"now": now, "id": session_id},
-            )
-            return int(cursor.lastrowid or 0)
+        last_exc: Exception | None = None
+        with self._session_lock(session_id):
+            for attempt in range(3):
+                try:
+                    with self.engine.begin() as conn:
+                        cursor = conn.execute(
+                            text(
+                                "INSERT INTO messages (session_id, role, content, created_at) "
+                                "VALUES (:session_id, :role, :content, :created_at)"
+                            ),
+                            {
+                                "session_id": session_id,
+                                "role": role,
+                                "content": content,
+                                "created_at": now,
+                            },
+                        )
+                        conn.execute(
+                            text("UPDATE sessions SET updated_at = :now WHERE id = :id"),
+                            {"now": now, "id": session_id},
+                        )
+                        return int(cursor.lastrowid or 0)
+                except OperationalError as exc:
+                    if _is_deadlock(exc) and attempt < 2:
+                        last_exc = exc
+                        time.sleep(0.05 * (attempt + 1) + random.random() * 0.05)
+                        continue
+                    raise
+        assert last_exc is not None
+        raise last_exc
 
     def get_messages(
         self, session_id: str, limit: int | None = None, offset: int = 0
@@ -195,26 +234,39 @@ class MySQLRuntimeStore(RuntimeStore):
         now = _now()
         try:
             from sqlalchemy import text
+            from sqlalchemy.exc import OperationalError
         except ImportError as exc:
             raise MySQLStoreError("MySQL 主存储需要 SQLAlchemy：pip install -e '.[mysql]'") from exc
 
-        with self.engine.begin() as conn:
-            cursor = conn.execute(
-                text(
-                    "INSERT INTO tool_logs "
-                    "(session_id, tool_name, input_json, output_json, success, created_at) "
-                    "VALUES (:session_id, :tool_name, :input_json, :output_json, :success, :created_at)"
-                ),
-                {
-                    "session_id": session_id,
-                    "tool_name": tool_name,
-                    "input_json": _json.dumps(action_input, ensure_ascii=False),
-                    "output_json": result,
-                    "success": 1 if success else 0,
-                    "created_at": now,
-                },
-            )
-            return int(cursor.lastrowid or 0)
+        last_exc: Exception | None = None
+        with self._session_lock(session_id):
+            for attempt in range(3):
+                try:
+                    with self.engine.begin() as conn:
+                        cursor = conn.execute(
+                            text(
+                                "INSERT INTO tool_logs "
+                                "(session_id, tool_name, input_json, output_json, success, created_at) "
+                                "VALUES (:session_id, :tool_name, :input_json, :output_json, :success, :created_at)"
+                            ),
+                            {
+                                "session_id": session_id,
+                                "tool_name": tool_name,
+                                "input_json": _json.dumps(action_input, ensure_ascii=False),
+                                "output_json": result,
+                                "success": 1 if success else 0,
+                                "created_at": now,
+                            },
+                        )
+                        return int(cursor.lastrowid or 0)
+                except OperationalError as exc:
+                    if _is_deadlock(exc) and attempt < 2:
+                        last_exc = exc
+                        time.sleep(0.05 * (attempt + 1) + random.random() * 0.05)
+                        continue
+                    raise
+        assert last_exc is not None
+        raise last_exc
 
     def list_tool_logs(self, session_id: str, limit: int = 20) -> list[dict[str, object]]:
         try:
