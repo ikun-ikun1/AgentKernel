@@ -41,7 +41,7 @@
 | MCP / RAG | 业务工具接入与制度问答场景 | MCP wire protocol 实验；RAG 作为外部状态接入与引用追踪样例 |
 | 交付形态 | 产品化：Web + 多 Agent + 审批 + 审计 | 教学型：CLI + 单元测试 + eval + 代码走读 |
 
-面试主线：**「会用 → 会理解」**——实习证明我能直接使用框架交付业务，个人项目证明我能拆解并验证框架隐藏的底层机制。
+面试主线：**「会用 → 会学习底层」**——实习证明我能直接使用框架交付业务，个人项目证明我能复现并验证框架隐藏的底层机制。
 
 ---
 
@@ -207,7 +207,7 @@ AgentKernel/
 ├── eval.py                          # 5 用例评估脚本（mock / live）
 ├── docs/
 │   ├── README.md                    # 里程碑文档索引
-│   ├── project-background.md        # 项目背景说明（会用 → 会理解）
+│   ├── project-background.md        # 项目背景说明（会用 → 会学习底层）
 │   ├── technical-scope-and-boundary.md
 │   ├── learning-map.md              # 教学映射：agent-study ↔ OpenClaw ↔ Workbench
 │   ├── milestone-1-kernel.md
