@@ -56,10 +56,11 @@
 10. [演示脚本](./Addendum/demo-script.md)
 11. [简历与面试材料](./Addendum/resume-and-interview.md)
 
-**架构图**
+**架构图与面试蓝图**
 
 11. [架构图源文件](./architecture.mmd)
 12. [架构图 PNG](./architecture.png)
+13. [面试蓝图 HTML](./agentkernel-interview-blueprint.html)
 
 ## 工作节奏说明
 
