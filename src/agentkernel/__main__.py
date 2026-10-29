@@ -131,7 +131,14 @@ def _repl(store: RuntimeStore, kb: KnowledgeBase, agent: Agent) -> None:
     def _log_tool_call(tool_name: str, action_input: dict[str, object], result: str) -> None:
         # Registry returns a str-compatible result carrying explicit status.
         ok = getattr(result, "success", not result.startswith("[工具"))
-        store.log_tool_call(session_id, tool_name, action_input, result, ok)
+        store.log_tool_call(
+            session_id,
+            tool_name,
+            action_input,
+            result,
+            ok,
+            duration_ms=getattr(result, "duration_ms", None),
+        )
 
     agent.on_tool_call = _log_tool_call
     agent.session_id = session_id
@@ -205,8 +212,12 @@ def _repl(store: RuntimeStore, kb: KnowledgeBase, agent: Agent) -> None:
                     status = "成功" if log["success"] else "失败"
                     created = str(log.get("created_at", ""))[:19]
                     tool_name = str(log.get("tool_name", ""))
+                    duration = log.get("duration_ms")
+                    duration_text = (
+                        f" {duration:.1f}ms" if isinstance(duration, (int, float)) else ""
+                    )
                     print(
-                        f"- {created} {tool_name} {status}\n"
+                        f"- {created} {tool_name} {status}{duration_text}\n"
                         f"  入参：{log.get('input_json', '')}\n"
                         f"  结果：{str(log.get('output_json', ''))[:120]}"
                     )

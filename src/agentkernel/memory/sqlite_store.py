@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from agentkernel.utils.observability import redact, truncate
@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS tool_logs (
     input_json TEXT NOT NULL,
     output_json TEXT NOT NULL,
     success INTEGER NOT NULL DEFAULT 1,
+    duration_ms REAL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
@@ -71,7 +72,14 @@ class SQLiteStore:
         self._conn.execute("PRAGMA foreign_keys=ON")
         with self._lock:
             self._conn.executescript(_SCHEMA)
+            self._ensure_columns()
             self._conn.commit()
+
+    def _ensure_columns(self) -> None:
+        """轻量向前兼容：老库缺 duration_ms 时补列（与 Alembic 0002 等价）。"""
+        columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(tool_logs)")}
+        if "duration_ms" not in columns:
+            self._conn.execute("ALTER TABLE tool_logs ADD COLUMN duration_ms REAL")
 
     def close(self) -> None:
         with self._lock:
@@ -160,6 +168,7 @@ class SQLiteStore:
         action_input: dict[str, object],
         result: str,
         success: bool,
+        duration_ms: float | None = None,
     ) -> int:
         import json as _json
 
@@ -167,14 +176,15 @@ class SQLiteStore:
         with self._lock:
             cur = self._conn.execute(
                 "INSERT INTO tool_logs "
-                "(session_id, tool_name, input_json, output_json, success, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "(session_id, tool_name, input_json, output_json, success, duration_ms, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     session_id,
                     tool_name,
                     truncate(redact(_json.dumps(action_input, ensure_ascii=False))),
                     truncate(redact(result)),
                     1 if success else 0,
+                    duration_ms,
                     now,
                 ),
             )
@@ -184,11 +194,26 @@ class SQLiteStore:
     def list_tool_logs(self, session_id: str, limit: int = 20) -> list[dict[str, object]]:
         with self._lock:
             rows = self._conn.execute(
-                "SELECT tool_name, input_json, output_json, success, created_at "
+                "SELECT tool_name, input_json, output_json, success, duration_ms, created_at "
                 "FROM tool_logs WHERE session_id = ? ORDER BY id DESC LIMIT ?",
                 (session_id, limit),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def prune_before(self, days: int) -> dict[str, int]:
+        """删除 N 天前的消息与工具日志（保留会话壳，便于 /sessions 仍可见标题）。"""
+        if days < 0:
+            raise ValueError("days 不能为负数")
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        with self._lock:
+            messages = self._conn.execute(
+                "DELETE FROM messages WHERE created_at < ?", (cutoff,)
+            ).rowcount
+            tool_logs = self._conn.execute(
+                "DELETE FROM tool_logs WHERE created_at < ?", (cutoff,)
+            ).rowcount
+            self._conn.commit()
+        return {"messages": int(messages or 0), "tool_logs": int(tool_logs or 0)}
 
 
 def default_store() -> SQLiteStore:

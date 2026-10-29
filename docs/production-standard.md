@@ -199,15 +199,15 @@
 | 要求 | 阈值 / 做法 | 现状证据 |
 |---|---|---|
 | 结构化日志 | JSONL，一行一条；每轮 1 条 `turn`、每次工具 1 条 `tool` | ✅ `utils/observability.py` + `runtime/agent.py`；9 个测试覆盖字段表/脱敏/成本/审计失败 |
-| 字段表 | **14 字段 = 12 核心 + 2 条件**。核心（恒有）：`ts, level, event, trace_id, session_id_hash, turn_id, step, latency_ms, model, tokens{in,out}, success, error_type`；条件：`tool_name`（仅 tool 事件）、`cost_usd`（仅 turn/llm 事件） | ❌ 无（`llm.py:60-61` 丢弃 `resp.usage`） |
-| Trace | 每轮一个 `trace_id`；span：`turn` → `llm.chat` / `tool.run` / `store.*`；本地 100% 采样，落 `traces.jsonl`；OTLP 导出默认关闭 | ⚠️ turn/tool 共享 `trace_id`+`turn_id`；无独立 span 与 OTLP 导出（批二） |
-| 指标 | 计数器：turns、tool_calls、tool_errors、json_repair_layers、budget_exceeded；直方图：turn_latency、tool_latency、tokens | ⚠️ `make report` 从 JSONL 聚合成功率/p50/p95/tokens/成本；无导出式直方图；`tool_logs` 仍无耗时列 |
+| 字段表 | **16 字段 = 12 核心 + 4 条件**。核心（恒有）：`ts, level, event, trace_id, session_id_hash, turn_id, step, latency_ms, model, tokens{in,out}, success, error_type`；条件：`tool_name`（仅 tool）、`cost_usd`（仅 turn）、`span{id,parent_id,name}`（turn/tool/audit）、`pricing_table_version`（仅 turn 且有用量） | ✅ 已实现并被测试断言 |
+| Trace | 每轮一个 `trace_id`；span：`turn` → `llm.chat` / `tool.run` / `store.*`；本地 100% 采样；OTLP 导出默认关闭 | ✅ `trace_id`（32 hex）+ `span.id`（16 hex，W3C 兼容）+ `parent_id` 父子关系；`make trace TRACE_ID=...` 打印 span 树；仍无 OTLP 导出（G-47） |
+| 指标 | 计数器：turns、tool_calls、tool_errors、json_repair_layers、budget_exceeded；直方图：turn_latency、tool_latency、tokens | ✅ `make report` 聚合成功率/p50/p95/tokens/成本并维护 `docs/reports/index.md`；`tool_logs.duration_ms` 已落库（迁移 0002）；无 Prometheus 导出 |
 | 脱敏 | 日志默认不落消息正文；debug 级别落正文也必须先过 secret 正则；`tool_logs` 落库前 redact + 截断 4KB | ✅ 入库前 `redact+truncate`（SQLite/MySQL 两处）；日志字段同样过 redact；`/history` 仍按设计展示正文 |
 | 审计失败可见 | 观察者异常必须计数 + 告警，不得静默 `pass` | ✅ `audit_failures` 计数 + `audit_failed` 事件 |
-| 保留期 | 日志 14 天滚动；`tool_logs`/`messages` 90 天；eval 报告永久（入 git） | ❌ 仍无清理/滚动机制（P1） |
-| 看板 | `make report` 生成 `docs/reports/YYYY-Www.md`（SLO 达成、成本、失败用例） | ✅ `scripts/report.py` + `make report`；已本地验证生成周报 |
+| 保留期 | 日志 14 天；`tool_logs`/`messages` 90 天；eval 报告永久（入 git） | ⚠️ `scripts/prune.py` + `make prune` 可执行（支持 dry-run、DB 不可用降级）；未做定时调度（依赖 cron/手工） |
+| 看板 | `make report` 生成 `docs/reports/YYYY-Www.md`（SLO 达成、成本、失败用例） | ✅ 周报 + `docs/reports/index.md` 趋势索引；`2026-W44.md` 已用真实 API 调用生成（tokens/cost 非空） |
 
-**成本口径（必须版本化）**：定价表带版本号 `PRICING_TABLE_VERSION`（单位 USD / 1M tokens，来源与快照写入 `docs/pricing.md`，本版基线 2026-10-29）；模型不在表中 → `cost_usd=null` + 一条 `pricing_unknown` 告警事件（每个未知模型只报一次；不塞进 turn 的 14 字段表，避免字段膨胀），**禁止静默算 0**（0 与「不知道」必须可区分，否则 S8 与预算告警全部失真）。
+**成本口径（必须版本化）**：定价表带版本号 `PRICING_TABLE_VERSION`（单位 USD / 1M tokens，本版基线 2026-10-29，随每条 turn 事件写入 `pricing_table_version`）；模型不在表中 → `cost_usd=null` + 一条 `pricing_unknown` 告警事件（每个未知模型只报一次；不塞进 turn 的 14 字段表，避免字段膨胀），**禁止静默算 0**（0 与「不知道」必须可区分，否则 S8 与预算告警全部失真）。
 
 **加严点**：基线要求「trace + 结构化日志 + 指标 + 告警」，本项目在单机场景下**不引入** Langfuse/Grafana 作为前置条件，但要求同等信息的本地 JSONL + 周报；一旦接入在线服务，OTLP 导出即转为必需。
 

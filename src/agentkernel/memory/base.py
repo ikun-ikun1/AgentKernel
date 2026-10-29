@@ -41,12 +41,17 @@ class RuntimeStore(Protocol):
         action_input: dict[str, object],
         result: str,
         success: bool,
+        duration_ms: float | None = None,
     ) -> int:
-        """写入一条工具调用审计记录。"""
+        """写入一条工具调用审计记录（duration_ms 可空，老数据不计耗时）。"""
         ...
 
     def list_tool_logs(self, session_id: str, limit: int = 20) -> list[dict[str, object]]:
         """按时间倒序返回工具调用日志。"""
+        ...
+
+    def prune_before(self, days: int) -> dict[str, int]:
+        """删除 `days` 天前的消息与工具日志，返回删除行数（保留会话壳）。"""
         ...
 
     def close(self) -> None:

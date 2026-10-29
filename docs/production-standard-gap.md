@@ -13,7 +13,7 @@
 | # | 门禁 | 结论 | 一句话理由 | 阻断项 |
 |---|---|---|---|---|
 | 1 | 可重复 | **FAIL** | 无锁文件、无 CI、无 `make check`、镜像浮动 tag、代码内硬编码默认口令；`ruff check` 当前退出码 1 | G-01…G-06 |
-| 2 | 可观测 | **PARTIAL** | 已实现 JSONL 14 字段、trace/turn 关联、token/成本、写库脱敏、审计失败可见、`make report`；仍缺直方图/OTLP、保留期滚动、`tool_logs` 耗时列 | G-07…G-13 |
+| 2 | 可观测 | **PARTIAL（接近完成）** | 已实现 JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`；仍缺 OTLP 导出与定时调度 | G-07…G-13、G-47 |
 | 3 | 可回滚 | **PARTIAL** | 0001 迁移有对称 downgrade；但无迁移测试、无备份/恢复演练、DDL 双轨（启动 `create_all`）、无 tag/wheel | G-14…G-19 |
 | 4 | 可控制 | **PARTIAL** | 工具白名单、无 shell/eval、AST 计算器、只读 KB 已达标；但外部 MCP 任意命令继承 key、`/ingest` 无根目录、无 token 预算、base_url 无 allowlist | G-20…G-27 |
 | 5 | 可验证 | **PARTIAL** | CI 已全绿（68 passed / 0 skipped，MySQL 与 PDF 用例真跑）+ mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、无 fuzz/扫描 | G-30…G-34 |
@@ -35,6 +35,7 @@
 | G-06 | 代码中不得有真实默认口令 | `agentkernel:agentkernel` 硬编码两处 | `src/agentkernel/memory/factory.py:20`；`alembic.ini:4` | 中：默认弱口令被复制到真实部署 | **P0** | 两处改为「必须由环境变量提供，否则报错」；`grep -r "agentkernel:agentkernel"` 为空 |
 | G-42 | 应用镜像：多阶段、非 root、可构建（D1 新增） | **本地已实现并验证**（CI build job 待首次运行） | `Dockerfile` 多阶段，基础镜像 `python:3.11.15-slim`（Debian trixie）；`docker images` **310MB**（未压缩），`inspect .Size` **69MB**（压缩层）；`id -u` → `10001`；smoke `printf '/quit\n' \| docker run -i --rm agentkernel:local python -m agentkernel --db :memory: --kb-db :memory: --kb-backend lexical` → EXIT=0 + 启动横幅；镜像内 `chromadb` 不可导入（rag 未装）、`/app` 无 `.env`；`docker compose --profile app config` 通过（app 不默认启动） | 低：本地 build 用 daocloud 镜像源（`--build-arg`），CI 用 docker.io，默认路径由 CI 首次 build 证明；体积门禁用 `docker images` 口径（inspect 是压缩层，不能混用） | **P0（收尾）** | CI `docker` job 首次绿（含 <400MB 门禁）；smoke 只宣称「能启动」，不宣称 MySQL/运行态已验证 |
 | G-46 | Python 基础镜像未 pin digest（P0-3 新增） | 已从浮动 `python:3.11-slim` 改为精确 `python:3.11.15-slim`，**仍无 digest** | `Dockerfile` `ARG PYTHON_IMAGE=python:3.11.15-slim`；`Makefile` `DOCKER_BASE` 同值；本机无法访问 `registry-1.docker.io` | 中：上游重推 tag 会静默改变基础镜像内容 | **P0（短）** | 改为 `python:3.11.15-slim@sha256:...`；digest 必须在 docker.io 侧取得（daocloud 的 digest 不能直接信任） |
+| G-47 | OTLP/外部看板未接（P0-4b 遗留） | 只有本地 JSONL + `make trace`/`make report`；无 OTLP exporter、无 Prometheus/Grafana | `scripts/trace.py`、`scripts/report.py`；`pyproject.toml` 无 opentelemetry 依赖 | 低：单机 CLI 够用；接在线服务前必须补 | P2 | 需要时加 `opentelemetry-sdk`（可选 extra）+ `OTEL_EXPORTER_OTLP_ENDPOINT` 开关，并用本地假 collector 验证 |
 | G-45 | MySQL 镜像未固定 digest（P0-2 引入的临时状态） | 两处已统一为精确 tag `8.0.46`，**仍无 digest** | `.github/workflows/ci.yml` service image `mysql:8.0.46`；`docker-compose.yml:3` `docker.m.daocloud.io/library/mysql:8.0.46`；本机无法访问 `registry-1.docker.io` 取 digest | 中：上游重推 tag 会静默改变行为 | **P0（短）** | 两处都改成 `image@sha256:...`，并在 CI 里验证可拉取 |
 | G-43 | 格式化门禁无法直接启用（新发现） | `ruff format --check .` → **32 个文件待格式化**（20 已格式化） | `.venv/bin/python -m ruff format --check .` 实测输出 | 中：直接加 gate 会让 P0-1 变成 32 文件大 diff，掩盖真实变更 | **P0**（跟随 P0-2） | 单独一个「纯格式化」提交（`git diff -w` 为空、pytest 结果不变），然后 `format --check` 进入 `make check`/CI |
 
@@ -47,10 +48,10 @@
 | G-07 | 结构化 JSONL 日志 | ✅ **已实现** | `src/agentkernel/utils/observability.py`（JsonlFormatter/emit）；`runtime/agent.py` 每轮 1 条 `turn`、每次工具 1 条 `tool`；`tests/test_observability.py` 9 例 | — | — | 14 字段（12 核心 + 2 条件）由测试断言；日志默认 stderr，`AGENTKERNEL_LOG` 可落文件 |
 | G-08 | `trace_id` 贯穿 LLM→工具→DB | ✅ **已实现** | `agent.run` 生成 trace_id/turn_id，`tool` 与 `turn` 事件共享（`tests/test_observability.py` 断言）；`session_id` 只以 12 位 sha256 出现 | — | — | 跨进程/OTLP span 仍属批二 |
 | G-09 | token / 成本记账 | ✅ **已实现** | `runtime/llm.py` 用 ContextVar 捕获 usage（`pop_usage()`，chat 签名不变）；`observability.PRICING_TABLE_VERSION=2026-10-29`；未知模型 `cost_usd=null` + 单次 `pricing_unknown` 告警（有测试） | — | — | mock/假 LLM 下 tokens/cost 为 null 是预期，只有 live 调用才有真实 usage |
-| G-10 | 指标（计数器/直方图） | ⚠️ **部分**：`make report` 从 JSONL 聚合成功率/p50/p95/tokens/成本；无导出式直方图 | `scripts/report.py`；`Makefile` `report` 目标 | 中：S4 可回归但无外部看板 | P1 | 需要时再接 OTLP/直方图导出；当前以周报代替 |
-| G-11 | 工具耗时落库 | 算了但丢弃 | `src/agentkernel/tools/registry.py:126-133` 产出 `duration_ms`；`memory/base.py:36-45` 与 `__main__.py:121-124` 无该字段 | 中：审计无耗时，性能问题不可追溯 | P1 | `tool_logs` 增加 `duration_ms` 列（迁移） |
+| G-10 | 指标（计数器/直方图） | ⚠️ **部分**：`make report` 聚合成功率/p50/p95/tokens/成本并维护索引；`make trace` 输出 span 树；无 Prometheus/OTLP 导出 | `scripts/report.py`、`scripts/trace.py`、`docs/reports/index.md` | 中：S4 可回归，但没有外部看板与告警联动 | P1 | 需要时接 OTLP 导出（G-47）；当前以周报 + trace 树代替 |
+| G-11 | 工具耗时落库 | ✅ **已实现** | 迁移 `0002_tool_log_duration`（只加可空列，可回滚）；`sqlite_store` 老库自动补列；`mysql_store` 写库带 `duration_ms`；`/logs` 显示耗时；测试 `test_duration_roundtrip` | — | — | 迁移往返由 `tests/test_migrations.py` 在 CI（有 DSN）验证 |
 | G-12 | 审计失败可见 | ✅ **已实现** | `agent.audit_failures` 计数 + `audit_failed` 事件（`runtime/agent.py`）；测试 `test_audit_failure_is_visible` | — | — | 主流程仍不因审计失败中断（按设计） |
-| G-13 | 日志/DB 脱敏与截断 | ✅ **已实现（写库与日志字段）** | `observability.redact/truncate`；`memory/sqlite_store.py` 与 `memory/mysql_store.py` 写库前都过一遍；测试覆盖 `sk-`/`password=`/DSN 口令 | 低：`/history` 仍按设计展示消息正文 | — | 保留期滚动仍缺（P1） |
+| G-13 | 日志/DB 脱敏与截断 | ✅ **已实现（写库与日志字段）** | `observability.redact/truncate`；写库前都过一遍；`scripts/prune.py` + `make prune`（`LOG_DAYS=14`/`DB_DAYS=90`，支持 dry-run） | 低：`/history` 仍按设计展示消息正文；prune 需 cron/手工触发 | — | 自动调度留给运维侧；不阻塞门禁 |
 
 ---
 
@@ -59,7 +60,7 @@
 | # | 标准要求（§4.3） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
 | G-14 | 迁移必须有 downgrade | ✅ 0001 有对称 downgrade | `migrations/versions/0001_initial.py:78-88` 反序删表/索引 | — | — | 保持；新增迁移同规则 |
-| G-15 | 迁移往返测试 | 无任何迁移测试 | `grep -r downgrade tests/` 0 命中 | 高：降级失败只在灾难时发现 | **P0** | `test_migrations.py` upgrade→downgrade→upgrade 3 次通过 |
+| G-15 | 迁移往返测试 | ✅ **已实现**（本地无 DSN 跳过，CI 真跑） | `tests/test_migrations.py`：清表 → upgrade head → 断言 `duration_ms` → downgrade base → 断言表已删 → upgrade head；CI service 提供 DSN 时 0 skip | — | — | CI 首次带该用例的全绿为最终证据 |
 | G-16 | DDL 单一来源 | 启动时 `create_all` 与 Alembic 双轨 | `src/agentkernel/memory/factory.py:36`；`memory/mysql_store.py:78-118`；`rag/mysql_store.py:58-122` | 高：schema 漂移、迁移回滚后又被自动建回 | **P0** | 删除 `create_all`，仅 `--migrate`/Alembic 建表 |
 | G-17 | 备份策略（RPO ≤24h） | 无脚本、无记录 | 仓库无 `backup*`/`mysqldump` 引用 | 高：误删/迁移失败即丢数据 | **P0** | `make backup`；至少一次真实备份产物 |
 | G-18 | 恢复演练（≤30 天） | 从未演练 | 无 runbook、无演练记录 | 高：备份没验证等于没有 | **P0** | 首次演练记录写入 `docs/runbook.md`（含耗时） |

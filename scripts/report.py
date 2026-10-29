@@ -75,6 +75,37 @@ def summarize(events: list[dict]) -> dict:
     }
 
 
+def update_index(out_dir: Path, week: str, summary: dict) -> Path:
+    """维护 docs/reports/index.md：每周一行，便于一眼看趋势。"""
+    index = out_dir / "index.md"
+    rows: dict[str, list[str]] = {}
+    if index.exists():
+        for line in index.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("| ") or line.startswith("| 周 "):
+                continue
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if len(cells) == 5 and cells[0] and cells[0] != "---":
+                rows[cells[0]] = cells
+    success = summary["success_rate"]
+    rows[week] = [
+        week,
+        str(summary["turns"]),
+        "n/a" if success is None else f"{success:.2%}",
+        "n/a" if summary["latency_p95"] is None else f"{summary['latency_p95']}ms",
+        f"{summary['cost_usd']}",
+    ]
+    lines = [
+        "# SLO 周报索引",
+        "",
+        "| 周 | turn 数 | 成功率 | p95 | 成本(USD) |",
+        "|---|---|---|---|---|",
+    ]
+    for key in sorted(rows, reverse=True):
+        lines.append("| " + " | ".join(rows[key]) + " |")
+    index.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return index
+
+
 def render(week: str, path: Path, summary: dict, malformed: int) -> str:
     def fmt(value: object, suffix: str = "") -> str:
         return "n/a" if value is None else f"{value}{suffix}"
@@ -125,7 +156,8 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{week}.md"
     out_path.write_text(render(week, log_path, summary, malformed), encoding="utf-8")
-    print(f"报告已写入 {out_path}")
+    index_path = update_index(out_dir, week, summary)
+    print(f"报告已写入 {out_path}（索引：{index_path}）")
     print(
         f"turns={summary['turns']} success={summary['success_rate']} "
         f"p95={summary['latency_p95']}ms cost_usd={summary['cost_usd']}"
