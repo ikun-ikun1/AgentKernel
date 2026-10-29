@@ -121,7 +121,19 @@ jobs:
       - name: 运行用户非 root
         run: test "$(docker run --rm agentkernel:ci id -u)" != "0"
 
-      - name: 记录镜像体积
+      # 口径：与 `docker images` 显示的未压缩体积一致（inspect .Size 是压缩层大小，不能用）
+      - name: 体积门禁（< 400MB）
+        shell: bash
         run: |
-          docker image inspect agentkernel:ci --format '{{.Size}}' \
-            | awk '{printf "image size: %.1f MB\n", $1/1024/1024}'
+          set -euo pipefail
+          raw=$(docker images agentkernel:ci --format '{{.Size}}')
+          case "$raw" in
+            *GB) mb=$(awk -v v="${raw%GB}" 'BEGIN{printf "%d", v*1024}') ;;
+            *MB) mb=${raw%MB} ;;
+            *)   mb=0 ;;
+          esac
+          echo "image size: ${raw} (${mb}MB, budget 400MB)"
+          if [ "${mb}" -gt 400 ]; then
+            echo "::error::镜像体积 ${raw} 超过 400MB 预算（依赖膨胀？）"
+            exit 1
+          fi

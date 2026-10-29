@@ -19,5 +19,26 @@ services:
       timeout: 5s
       retries: 20
 
+  # 不默认启动：docker compose --profile app up
+  # 镜像只装 core + mysql（不含 rag）；AGENTKERNEL_DB_URL 必须指向 compose 内的 mysql
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11.15-slim}
+    image: agentkernel:local
+    depends_on:
+      mysql:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    environment:
+      AGENTKERNEL_DB_URL: ${AGENTKERNEL_DB_URL:?请设置 AGENTKERNEL_DB_URL（指向 compose 内的 mysql）}
+      AGENTKERNEL_KB_DSN: ${AGENTKERNEL_DB_URL}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?请设置 DEEPSEEK_API_KEY}
+    command: ["python", "-m", "agentkernel", "--migrate"]
+    restart: "no"
+
 volumes:
   mysql_data:

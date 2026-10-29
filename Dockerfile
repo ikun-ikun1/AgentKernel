@@ -1,12 +1,14 @@
 # AgentKernel CLI 镜像（P0-3）
 # - 多阶段构建；运行阶段非 root（uid/gid 10001）
+# - 基础镜像固定到精确 patch tag；digest 待补（G-46：本机无法访问 registry-1.docker.io）
+#   HEALTHCHECK 只证明进程能起来（--help），不代表运行态健康；运行态由 smoke 与 CI 测试覆盖
 # - 只装 core + mysql extras；rag（chromadb/sentence-transformers/torch）不进默认镜像，
 #   需要时本地 `uv sync --extra rag`（见 docs/production-standard.md §4.1）
 # - smoke 只证明「能启动 + /quit」；MySQL 行为由 CI 的 MySQL service 测试覆盖，本镜像不宣称已验证 MySQL
 #
 # 本地若 docker.io 不可达，可用国内镜像覆盖基础镜像：
 #   docker build --build-arg PYTHON_IMAGE=docker.m.daocloud.io/library/python:3.11-slim -t agentkernel:local .
-ARG PYTHON_IMAGE=python:3.11-slim
+ARG PYTHON_IMAGE=python:3.11.15-slim
 
 FROM ${PYTHON_IMAGE} AS builder
 ENV UV_LINK_MODE=copy \

@@ -16,7 +16,7 @@ EXTRAS ?= --extra dev --extra mysql --extra pdf
 PYTEST_ARGS ?=
 DOCKER_IMAGE ?= agentkernel:local
 # 本地 docker.io 不可达时可覆盖，例如 make docker-build DOCKER_BASE=docker.m.daocloud.io/library/python:3.11-slim
-DOCKER_BASE ?= python:3.11-slim
+DOCKER_BASE ?= python:3.11.15-slim
 
 .PHONY: help require-env sync sync-all format format-check lint type test eval check docker-build docker-smoke docker-nonroot docker-size
 
@@ -74,4 +74,5 @@ docker-nonroot: docker-build
 	@uid=$$(docker run --rm $(DOCKER_IMAGE) id -u); test "$$uid" != "0"; echo "non-root uid=$$uid"
 
 docker-size: docker-build
-	@docker image inspect $(DOCKER_IMAGE) --format '{{.Size}}' | awk '{printf "image size: %.1f MB\n", $$1/1024/1024}'
+	@docker images $(DOCKER_IMAGE) --format 'image size (docker images): {{.Size}}'
+	@docker image inspect $(DOCKER_IMAGE) --format 'compressed layers: {{.Size}} bytes'
