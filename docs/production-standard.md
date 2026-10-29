@@ -243,7 +243,7 @@
 
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
-| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：MySQL 3 例由 service container 提供 DSN 真跑；PDF 用例由轻量 `pdf` extra（仅 pymupdf，不引入 torch）真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制失败（pytest 有 skip 仍 EXIT=0） | ⚠️ 本地 `65 passed, 3 skipped`；无 DSN 时 3 个 MySQL 用例跳过（`tests/test_mysql_integration.py:13-15`）；缺 pymupdf 时 `tests/test_rag.py:102` 多 1 个 skip |
+| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：MySQL 3 例由 service container 提供 DSN 真跑；PDF 用例由轻量 `pdf` extra（仅 pymupdf，不引入 torch）真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制失败（pytest 有 skip 仍 EXIT=0） | ✅ 本地 `94 passed, 4 skipped`；CI `98 passed / 0 skipped`（3 个集成 + 1 个迁移往返）；4 个 MySQL 用例在无 DSN 时跳过 |
 | 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ❌ 无 pytest-cov/coverage（`ModuleNotFoundError`）；**pytest-cov 明确排在批二**，批一不装、不声称达标；3 个模块在测试进程从未被 import |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ❌ `ruff check .` → `Found 1 error`（I001，`docs/render_architecture.py:2`），退出码 1；✅ mypy `Success: no issues found in 25 source files` |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
@@ -388,7 +388,7 @@ OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval �
 | 命令 | 输出 |
 |---|---|
 | `.venv/bin/python -V` / `python3 -V` | 3.11.15 / 3.14.4 |
-| `.venv/bin/python -m pytest -q` | `65 passed, 3 skipped in 0.19s` |
+| `.venv/bin/python -m pytest -q` | `94 passed, 4 skipped`（无 DSN）；有 DSN `98 passed` |
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `Found 1 error`（I001，`docs/render_architecture.py:2`），退出码 1 |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 25 source files` |

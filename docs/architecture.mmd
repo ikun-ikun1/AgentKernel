@@ -3,26 +3,30 @@ flowchart LR
     Agent[Agent Runtime\nReAct Loop + Context Policy]
     LLM[LLM Adapter\nOpenAI-compatible]
     Registry[Tool Registry\nContract + Schema + Errors]
-    MCPClient[MCP Client\nJSON-RPC + stdio framing]
+    MCPClient[MCP Client\nJSON-RPC + stdio]
+    Profiles[MCP Profiles\nnamed argv + env allowlist]
     MCPServer[MCP Server\nRead-only knowledge tools]
     RAG[RAG Infrastructure\nIngestion + Retrieval]
-    Catalog[(SQLite Catalog\nDocuments + Chunks + FTS5)]
+    Catalog[(MySQL 8\nDocuments + Chunks + ngram)]
     Vector[(Chroma\nOptional vectors)]
     Source[PDF / Markdown / TXT]
-    Memory[(SQLite Runtime Store\nSessions + Messages + Tool Logs)]
+    Memory[(MySQL Runtime Store\nSessions + Messages + Tool Logs)]
+    Obs[Observability\nJSONL spans + report / trace]
 
     User --> Agent
     Agent --> LLM
     Agent --> Registry
+    Agent --> Memory
+    Agent --> Obs
     Registry --> MCPClient
-    MCPClient --> MCPServer
+    MCPClient --> Profiles
+    Profiles --> MCPServer
     MCPServer --> RAG
     Source --> RAG
     RAG --> Catalog
     RAG -. optional semantic index .-> Vector
-    Agent --> Memory
 
     classDef core fill:#e8f0fe,stroke:#315ea8,stroke-width:1px;
     classDef storage fill:#fff4d6,stroke:#a36b00,stroke-width:1px;
-    class Agent,LLM,Registry,MCPClient,MCPServer,RAG core;
+    class Agent,LLM,Registry,MCPClient,Profiles,MCPServer,RAG,Obs core;
     class Catalog,Vector,Memory storage;

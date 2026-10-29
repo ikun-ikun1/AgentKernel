@@ -1,5 +1,7 @@
 # AgentKernel 自我审查报告
 
+> **历史文档（2026 年快照）**：命令与数字为当时状态；当前状态见 [../status.md](../status.md)。
+
 > 对比对象：Claude Agent SDK（以本地 `ai-agent-workbench` 用法为样本）、GitHub 高星 MCP 库（`modelcontextprotocol/python-sdk`、`mark3labs/mcp-go`、官方 `modelcontextprotocol/servers`）、本地 `agent-study` 的简化教学设计。
 > 目的：找出「教学版内核」与工业级实现的差距，能落地的落地，不能落地的说清楚为什么不。
 
