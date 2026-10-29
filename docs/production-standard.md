@@ -243,7 +243,7 @@
 
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
-| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：MySQL 3 例由 service container 提供 DSN 真跑；PDF 用例由轻量 `pdf` extra（仅 pymupdf，不引入 torch）真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制失败（pytest 有 skip 仍 EXIT=0） | ⚠️ 本地 `65 passed, 3 skipped`；无 DSN 时 3 个 MySQL 用例跳过（`tests/test_mysql_integration.py:13-15`）；缺 pymupdf 时 `tests/test_rag.py:102` 多 1 个 skip |
+| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：MySQL 3 例由 service container 提供 DSN 真跑；PDF 用例由轻量 `pdf` extra（仅 pymupdf，不引入 torch）真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制失败（pytest 有 skip 仍 EXIT=0） | ✅ 本地 `95 passed, 4 skipped`；CI `99 passed / 0 skipped`（3 个集成 + 1 个迁移往返）；4 个 MySQL 用例在无 DSN 时跳过 |
 | 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ❌ 无 pytest-cov/coverage（`ModuleNotFoundError`）；**pytest-cov 明确排在批二**，批一不装、不声称达标；3 个模块在测试进程从未被 import |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ❌ `ruff check .` → `Found 1 error`（I001，`docs/render_architecture.py:2`），退出码 1；✅ mypy `Success: no issues found in 25 source files` |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
@@ -329,8 +329,8 @@
 | P0-1 | 无 CI / 无 `make check` / ruff 当前失败 | 可重复 + 可验证 | 建 `Makefile` + GitHub Actions；修 `docs/render_architecture.py:2` 的 I001 | `make check` 本地 0 退出；CI 首次全绿（含 MySQL service，0 skip） |
 | P0-2 | 无锁文件、镜像浮动、解释器不固定、硬编码口令 | 可重复 + 可控制 | `uv lock`；`.python-version`=3.11；MySQL pin digest；删 `factory.py:20`/`alembic.ini:4` 默认口令并改 `.env.example` | `uv sync --frozen` 在空环境成功；`grep -r agentkernel:agentkernel` 为空 |
 | P0-3 | 覆盖率不可测、golden set 只有 5 条 | 可验证 | 装 pytest-cov、设 `fail_under=80`、核心模块 `--cov-fail-under`；mock golden set 扩到 50 条并进 `make check` | 覆盖率报告 ≥80%；eval 50 条 ≥98%；两者都在 CI |
-| P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已实现（待 PR）**：每轮 1 条 turn 含 14 字段；`make report` 能出周报；9 个测试覆盖 |
-| P0-5 | 三个高危控制缺口：MCP 任意命令+继承 key、文档任意路径、DSN 异常未脱敏 | 可控制 | env 白名单 + `AGENTKERNEL_MCP_ALLOW`；`AGENTKERNEL_DOC_ROOTS` + 大小/数量/深度限制；异常路径过 `_redact_dsn`；3306 绑 `127.0.0.1` | **已实现（待 PR）**：profile 精确 argv + env 白名单；realpath 文档根（含 symlink 逃逸）；异常脱敏；compose 绑回环；14 个安全测试 |
+| P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已合并**：每轮 1 条 turn 含 16 字段（12 核心 + 4 条件）；`make report/trace`；9 个观测测试 |
+| P0-5 | 三个高危控制缺口：MCP 任意命令+继承 key、文档任意路径、DSN 异常未脱敏 | 可控制 | env 白名单 + `AGENTKERNEL_MCP_ALLOW`；`AGENTKERNEL_DOC_ROOTS` + 大小/数量/深度限制；异常路径过 `_redact_dsn`；3306 绑 `127.0.0.1` | **已合并（PR #5）**：profile 精确 argv + env 白名单；realpath 文档根（含 symlink 逃逸）；异常脱敏；compose 绑回环；15 个安全测试 |
 
 ### 8.2 P1（P0 完成后 1–2 个迭代）
 
@@ -388,7 +388,7 @@ OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval �
 | 命令 | 输出 |
 |---|---|
 | `.venv/bin/python -V` / `python3 -V` | 3.11.15 / 3.14.4 |
-| `.venv/bin/python -m pytest -q` | `65 passed, 3 skipped in 0.19s` |
+| `.venv/bin/python -m pytest -q` | `95 passed, 4 skipped`（无 DSN）；有 DSN `99 passed` |
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `Found 1 error`（I001，`docs/render_architecture.py:2`），退出码 1 |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 25 source files` |

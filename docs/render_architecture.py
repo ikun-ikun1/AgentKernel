@@ -85,16 +85,17 @@ def main() -> None:
         "registry": (350, 675, 650, 800, "Tool Registry\nContract + Schema", CORE, EDGE),
         "client": (760, 675, 1060, 800, "MCP Client\nJSON-RPC + stdio", CORE, EDGE),
         "server": (1170, 675, 1470, 800, "MCP Server\nRead-only tools", CORE, EDGE),
-        "rag": (1170, 370, 1470, 550, "RAG Pipeline\nIngest + Hybrid Search", CORE, EDGE),
-        "catalog": (1540, 265, 1740, 390, "SQLite\nCatalog + FTS5", STORAGE, STORAGE_EDGE),
-        "vector": (1540, 465, 1740, 590, "Chroma\nOptional vectors", STORAGE, STORAGE_EDGE),
-        "source": (1540, 680, 1740, 805, "PDF / MD / TXT", STORAGE, STORAGE_EDGE),
+        "rag": (1140, 370, 1470, 550, "RAG Pipeline\nIngest + Hybrid", CORE, EDGE),
+        "catalog": (1540, 265, 1740, 390, "MySQL 8\nDocs + Chunks\n(ngram)", STORAGE, STORAGE_EDGE),
+        "vector": (1540, 465, 1740, 590, "Chroma\nOptional", STORAGE, STORAGE_EDGE),
+        "source": (1540, 680, 1740, 805, "PDF/MD/TXT", STORAGE, STORAGE_EDGE),
+        "obs": (1170, 120, 1470, 245, "Observability\nJSONL spans / report", CORE, EDGE),
         "memory": (
-            760,
+            720,
             120,
-            1060,
+            1080,
             245,
-            "SQLite Runtime Store\nSessions + Logs",
+            "MySQL Runtime Store\nSessions · Messages · Logs",
             STORAGE,
             STORAGE_EDGE,
         ),
@@ -112,11 +113,12 @@ def main() -> None:
     _arrow(draw, (1470, 420), (1540, 330))
     _arrow(draw, (1470, 500), (1540, 525), dashed=True)
     _arrow(draw, (650, 250), (760, 180), dashed=True)
+    _arrow(draw, (650, 400), (1170, 180), dashed=True)
 
     note_font = _font(18)
     draw.text(
         (620, 880),
-        "Durable lexical baseline | Optional semantic index | Citations retain source/page metadata",
+        "MySQL 8 is source of truth | JSONL spans + SLO report | MCP profiles: exact argv + env allowlist",
         fill=INK,
         font=note_font,
     )

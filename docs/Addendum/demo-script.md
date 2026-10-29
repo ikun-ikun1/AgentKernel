@@ -1,5 +1,7 @@
 # AgentKernel 演示脚本
 
+> **历史文档（2026 年快照）**：命令与数字为当时状态；当前状态见 [../status.md](../status.md)。
+
 本脚本用于 M3 录屏和现场演示。完整演示约 3 分钟；没有 API Key 时可以只演示自动化验收和 RAG 检索。
 
 ## 0. 环境
@@ -19,7 +21,7 @@ python -m pytest -q
 python eval.py
 ```
 
-验收目标：默认测试用例全部通过；配置 `AGENTKERNEL_MYSQL_TEST_DSN` 后再执行 2 个 MySQL 集成测试；`python eval.py` mock 模式达到 `通过 5/5`。具体结果以本次执行输出为准。
+验收目标：默认测试用例全部通过；配置 `AGENTKERNEL_MYSQL_TEST_DSN` 后再执行 4 个 MySQL 用例（3 个集成 + 1 个迁移往返）；`python eval.py` mock 模式达到 `通过 5/5`。具体结果以本次执行输出为准。
 
 这一步展示四类底层能力：
 
@@ -82,7 +84,7 @@ python -m agentkernel.mcp.server \
 ```bash
 python -m agentkernel \
   --kb-db mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel \
-  --mcp "python -m agentkernel.mcp.server --kb-db mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel ./demo-notes.md"
+  --mcp-profile kb-server   # 命令与参数在 mcp_profiles.toml 中声明（P0-5 起不再接受任意命令）
 ```
 
 代码走读顺序：
