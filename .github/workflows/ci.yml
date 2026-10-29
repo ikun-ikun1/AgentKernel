@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# 最小权限：只读仓库内容；upload-artifact 不需要额外写权限
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
