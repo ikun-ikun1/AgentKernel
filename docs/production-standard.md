@@ -156,7 +156,7 @@
 | R4 | 数据泄露（本地明文） | `tool_logs`/`messages` 明文存对话与工具入参；`/logs` 打印 | 同机其他进程/备份可读；误发截图泄露 | `.env` 权限 600、`.gitignore:7`、DSN 打印脱敏（`__main__.py:38-40`） | **低（P0-4b/P0-5 后）**：写库前已 redact + 4KB 截断；compose 3306 已只绑 `127.0.0.1`；`/history` 仍按设计展示正文 |
 | R5 | 越权 / 会话隔离 | 任意 session_id 可读写；`list_sessions` 返回全库 | 单机下影响有限；若多人共用一库则互相可读 | CLI 不提供 `--session`（`__main__.py:118,151`） | **低**（A2 单用户）；多人场景需重做 |
 | R6 | 模型/供应商故障 | DeepSeek 超时、返回非 JSON、限流 | 单轮失败、CLI 卡住 | timeout 60s + max_retries 2（`env.py:40-47`、`llm.py:35-40`）；解析失败降级纯文本（`agent.py:93-95`）；`LLMError` 统一（`llm.py:62-65`） | **中**：无 fallback 模型；compact 调用失败静默降级（`agent.py:168-178`） |
-| R7 | 迁移/数据损坏 | 双轨 DDL（`create_all` + Alembic）；downgrade 无测试；时间字段是字符串 | schema 漂移、降级失败、排序错乱 | 0001 有对称 downgrade（`migrations/versions/0001_initial.py:78-88`）；事务边界显式（`memory/mysql_store.py:129-136`） | **中**：`memory/factory.py:36` 启动即 `create_all`；无迁移测试；`created_at` 为 `String(64)`（`0001_initial.py:26-27`） |
+| R7 | 迁移/数据损坏 | 双轨 DDL（`create_all` + Alembic）；downgrade 无测试；时间字段是字符串 | schema 漂移、降级失败、排序错乱 | 0001 有对称 downgrade（`migrations/versions/0001_initial.py:78-88`）；事务边界显式（`memory/mysql_store.py:129-136`） | **中**：迁移往返已有测试；仍存 `create_all` 双轨（G-16）与 `created_at` 字符串时间（`0001_initial.py:26-27`） |
 | R8 | 依赖漂移 | `>= ` 版本范围、无锁文件、镜像 tag `8.0` | 「昨天能跑今天不能跑」 | 无 | **高**：`pyproject.toml:11-34`、`docker-compose.yml:3` |
 | R9 | 成本失控 | 无 token 统计；模型可能循环调用工具 | 账单超支 | `MAX_STEPS`=10（`agent.py:59,72`）、payload 256KB 上限（`json_repair.py:22`） | **中**：无 token/成本计数，无会话级预算 |
 | R10 | 跨进程并发写（D4） | 多进程写同一会话 | 死锁/丢失更新/updated_at 回退 | 事务内 `SELECT … FOR UPDATE` 锁会话行 + 有界 LRU 进程内锁 + 指数退避重试（`memory/mysql_store.py`）；ADR-002 | **低**：多进程 20×20 用例在 CI 通过；进程内锁仅作优化 |
@@ -217,10 +217,10 @@
 |---|---|---|
 | 发布单元 | git tag `vX.Y.Z` + wheel 产物；回滚 = 切 tag + `uv sync --frozen` | ❌ 无 tag、无 wheel；版本固定 `0.1.0`（`pyproject.toml:7`） |
 | 迁移策略 | 只 expand/contract；单版本不得删列/改类型；删除延后一版 | ⚠️ 0001 有对称 `downgrade`（`0001_initial.py:78-88`），但无迁移测试 |
-| 迁移测试 | `test_migrations.py`：`upgrade head → downgrade base → upgrade head` 三次成功，且行数不变 | ❌ 0 覆盖 |
+| 迁移测试 | `test_migrations.py`：`upgrade head → downgrade base → upgrade head`，断言 `duration_ms` 列 | ✅ 已实现（CI 有 DSN 真跑） |
 | DDL 单一来源 | 删除启动时 `create_all`，只走 Alembic | ❌ `memory/factory.py:36`、`mysql_store.py:78-118`、`rag/mysql_store.py:58-122` 双轨 |
-| 备份 | 每次迁移/打 tag 前 `mysqldump`，保留 7 份；**RPO ≤ 24h、RTO ≤ 30min** | ❌ 无备份脚本/记录 |
-| 恢复演练 | **每月 1 次**真实恢复（与基线「最近 30 天内」一致），记录到 `docs/runbook.md` | ❌ 无 |
+| 备份 | 每次迁移/打 tag 前 `mysqldump`，保留 7 份；**RPO ≤ 24h、RTO ≤ 30min** | ✅ `make backup`（`scripts/backup.py`，口令走 env，sha256，保留 7 份） |
+| 恢复演练 | **每月 1 次**真实恢复（与基线「最近 30 天内」一致），记录报告 | ✅ 首次演练 PASS：恢复 0.9s、5 张表行数全对，[reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
 | Kill switch | `AGENTKERNEL_DISABLE_MCP=1` 禁用外部 MCP；`--kb-backend lexical` 降级检索；`AGENTKERNEL_MAX_STEPS` 降步数 | ⚠️ 只有 `--kb-backend` 与 `--mcp` 不传即不启用（`__main__.py:96-112,235-240`），无环境级开关 |
 
 ### 4.4 可控制（Controllable）
@@ -243,7 +243,7 @@
 
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
-| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `95 passed, 5 skipped`；CI `100 passed / 0 skipped` |
+| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `100 passed, 5 skipped`；CI `105 passed / 0 skipped` |
 | 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ❌ 无 pytest-cov/coverage（`ModuleNotFoundError`）；**pytest-cov 明确排在批二**，批一不装、不声称达标；3 个模块在测试进程从未被 import |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy `Success: no issues found in 28 source files` |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
@@ -388,14 +388,14 @@ OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval �
 | 命令 | 输出 |
 |---|---|
 | `.venv/bin/python -V` / `python3 -V` | 3.11.15 / 3.14.4 |
-| `.venv/bin/python -m pytest -q` | `95 passed, 5 skipped`（无 DSN）；有 DSN `100 passed` |
+| `.venv/bin/python -m pytest -q` | `100 passed, 5 skipped`（无 DSN）；有 DSN `105 passed` |
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `All checks passed!`（EXIT=0） |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 28 source files` |
 | `.venv/bin/python eval.py` | `通过 5/5`，退出码 0 |
 | `git ls-files \| wc -l` | 59 |
 | `find src/agentkernel -name '*.py' \| xargs wc -l` | 3,317 行 / 25 文件 |
-| `wc -l tests/*.py` | 1,557 行 / 100 个 test 函数 |
+| `wc -l tests/*.py` | 1,686 行 / 106 个 test 函数 |
 | `ls .github/workflows/ci.yml` / `ls uv.lock Makefile` | 均存在（P0-1/P0-2 交付） |
 | `docker ps` | `agentkernel-mysql  docker.m.daocloud.io/library/mysql:8.0  Up (healthy)`；compose 已改 `8.0.46`（digest 待补 G-45） |
 | `git log -10 --date=short` | 最近 10 次提交 2026-08-31 ~ 2026-09-28，最后一次 `73537e9` |

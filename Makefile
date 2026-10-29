@@ -16,11 +16,12 @@ EXTRAS ?= --extra dev --extra mysql --extra pdf
 PYTEST_ARGS ?=
 LOG_DAYS ?= 14
 DB_DAYS ?= 90
+BACKUP_DIR ?= backups
 DOCKER_IMAGE ?= agentkernel:local
 # 本地 docker.io 不可达时可覆盖，例如 make docker-build DOCKER_BASE=docker.m.daocloud.io/library/python:3.11-slim
 DOCKER_BASE ?= python:3.11.15-slim
 
-.PHONY: help require-env sync sync-all format format-check lint type test test-live eval report trace prune check docker-build docker-smoke docker-nonroot docker-size
+.PHONY: help require-env sync sync-all format format-check lint type test test-live eval report trace prune backup restore-drill check docker-build docker-smoke docker-nonroot docker-size
 
 help:
 	@echo "make sync         安装锁定依赖（uv sync --frozen $(EXTRAS)）"
@@ -36,6 +37,8 @@ help:
 	@echo "make report       从 JSONL 日志生成 SLO 周报（AGENTKERNEL_LOG 指向日志文件）"
 	@echo "make trace        按 trace_id 打印 span 树（TRACE_ID 可选）"
 	@echo "make prune        清理旧日志（LOG_DAYS=14）与旧 DB 行（DB_DAYS=90）"
+	@echo "make backup       MySQL 逻辑备份到 $(BACKUP_DIR)/（保留 7 份）"
+	@echo "make restore-drill 把最新备份恢复到临时库并校验行数（产报告）"
 	@echo "make check        lint + format-check + type + test + eval"
 	@echo "make docker-smoke 构建镜像并跑启动 smoke（--db :memory:，只证明能启动）"
 
@@ -77,6 +80,12 @@ trace:
 
 prune:
 	$(PY) scripts/prune.py --log-days $(LOG_DAYS) --db-days $(DB_DAYS)
+
+backup:
+	$(PY) scripts/backup.py --out-dir $(BACKUP_DIR) --keep 7
+
+restore-drill:
+	$(PY) scripts/restore_drill.py --out docs/reports
 
 check: require-env lint format-check type test eval
 	@echo "make check: OK"
