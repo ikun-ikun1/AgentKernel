@@ -9,7 +9,7 @@
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **98 个**：本地 `94 passed / 4 skipped`（无 MySQL DSN），CI `98 passed / 0 skipped` |
+| 测试 | **99 个**：本地 `95 passed / 4 skipped`（无 MySQL DSN），CI `99 passed / 0 skipped` |
 | 评测 | `python eval.py` → 5/5（mock，无需 API Key） |
 | 真实模型 | 6 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
@@ -99,7 +99,7 @@ AgentKernel/
 ├── src/agentkernel/         # runtime / tools / memory / rag / mcp / utils
 ├── migrations/versions/     # 0001 初始 schema、0002 tool_logs.duration_ms
 ├── scripts/                 # report / trace / prune
-├── tests/                   # 98 个测试（含 MySQL 集成与迁移往返）
+├── tests/                   # 99 个测试（含 MySQL 集成与迁移往返）
 └── docs/                    # status、production-standard(-gap)、架构、历史里程碑、附录
 ```
 

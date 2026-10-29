@@ -8,7 +8,7 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 测试 | **98 个测试**；本地 `94 passed / 4 skipped`（无 DSN），CI `98 passed / 0 skipped` | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 测试 | **99 个测试**；本地 `95 passed / 4 skipped`（无 DSN），CI `99 passed / 0 skipped` | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `python eval.py` → 5/5 | 本机实测 |
 | 真实模型 | 6 次 live API 调用，tokens/cost 均非空 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 3 个 job：`test`（MySQL 8 service）、`eval-minimal`、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
@@ -31,7 +31,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 可重复 | `uv.lock` + `.python-version` + `make sync` | ✅ |
 | 可观测 | JSONL 16 字段 + span + 成本 + 周报 | ✅（缺 OTLP，G-47） |
 | 可回滚 | 迁移 expand-only + downgrade 往返测试 | ✅ |
-| 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 | ✅（P0-5 PR 待合并） |
+| 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 | ✅（P0-5 已合并） |
 | 可验证 | 0 skip、迁移往返、真实 MySQL | ✅ |
 | 可运维 | runbook / doctor / 定期恢复演练 | ❌ 批二（G-35/G-36/G-17） |
 
@@ -44,7 +44,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | P0-3 | 多阶段 Dockerfile、非 root、体积门禁 | ✅ 已合并 |
 | P0-4 | JSONL 日志、trace/turn、token/成本、写库脱敏 | ✅ 已合并 |
 | P0-4b | span 树、`duration_ms` 迁移、prune、周报索引、真实 API 验证 | ✅ 已合并 |
-| P0-5 | MCP profile、文档根 realpath、DSN 脱敏、MySQL 绑回环 | 🟡 已实现，PR 待开 |
+| P0-5 | MCP profile、文档根 realpath、DSN 脱敏、MySQL 绑回环 | ✅ 已合并（PR #5） |
 
 ## 4. 未完成与风险（Top）
 
@@ -77,5 +77,5 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 make check
 AGENTKERNEL_MYSQL_TEST_DSN='mysql+pymysql://agentkernel:***@127.0.0.1:3306/agentkernel_test' \
-  .venv/bin/python -m pytest -q      # 98 passed / 0 skipped
+  .venv/bin/python -m pytest -q      # 99 passed / 0 skipped
 ```
