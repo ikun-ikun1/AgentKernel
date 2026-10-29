@@ -31,8 +31,12 @@ mcp = [
 ]
 mysql = [
     { name = "alembic" },
+    { name = "cryptography" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
+]
+pdf = [
+    { name = "pymupdf" },
 ]
 rag = [
     { name = "chromadb" },
@@ -44,9 +48,11 @@ rag = [
 requires-dist = [
     { name = "alembic", marker = "extra == 'mysql'", specifier = ">=1.13" },
     { name = "chromadb", marker = "extra == 'rag'", specifier = ">=0.4" },
+    { name = "cryptography", marker = "extra == 'mysql'", specifier = ">=42" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8" },
     { name = "openai", specifier = ">=1.0" },
+    { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.23" },
     { name = "pymupdf", marker = "extra == 'rag'", specifier = ">=1.23" },
     { name = "pymysql", marker = "extra == 'mysql'", specifier = ">=1.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
@@ -55,7 +61,7 @@ requires-dist = [
     { name = "sentence-transformers", marker = "extra == 'rag'", specifier = ">=2.2" },
     { name = "sqlalchemy", marker = "extra == 'mysql'", specifier = ">=2.0" },
 ]
-provides-extras = ["mysql", "rag", "mcp", "dev"]
+provides-extras = ["mysql", "rag", "pdf", "mcp", "dev"]
 
 [[package]]
 name = "aiohappyeyeballs"
