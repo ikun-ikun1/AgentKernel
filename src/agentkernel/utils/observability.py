@@ -46,7 +46,7 @@ CORE_FIELDS = (
     "success",
     "error_type",
 )
-CONDITIONAL_FIELDS = ("tool_name", "cost_usd")
+CONDITIONAL_FIELDS = ("tool_name", "cost_usd", "span", "pricing_table_version")
 
 _REDACTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"sk-[A-Za-z0-9_\-]{6,}"), "sk-***"),
@@ -91,6 +91,11 @@ def new_trace_id() -> str:
 
 def new_turn_id() -> str:
     return uuid.uuid4().hex[:8]
+
+
+def new_span_id() -> str:
+    """W3C 兼容的 64-bit span id（16 hex）；trace_id 是 32 hex（128-bit）。"""
+    return uuid.uuid4().hex[:16]
 
 
 _warned_models: set[str] = set()

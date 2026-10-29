@@ -85,6 +85,7 @@ class Agent:
         """
         trace_id = observability.new_trace_id()
         turn_id = observability.new_turn_id()
+        turn_span_id = observability.new_span_id()
         started = time.perf_counter()
         stats: dict[str, Any] = {
             "steps": 0,
@@ -114,13 +115,19 @@ class Agent:
                 if isinstance(action, contracts.FinalAnswer):
                     history.append({"role": "assistant", "content": action.text})
                     self._emit_turn(
-                        trace_id, turn_id, stats, started, success=True, error_type=None
+                        trace_id,
+                        turn_id,
+                        turn_span_id,
+                        stats,
+                        started,
+                        success=True,
+                        error_type=None,
                     )
                     return action.text
 
                 if isinstance(action, contracts.ToolCall):
                     history.append({"role": "assistant", "content": raw})
-                    self._execute_tool_call(action, history, trace_id, turn_id)
+                    self._execute_tool_call(action, history, trace_id, turn_id, turn_span_id)
                     continue  # 回到循环，让模型基于观察结果继续
 
                 if isinstance(action, contracts.ToolCalls):
@@ -128,7 +135,7 @@ class Agent:
                     # 若要做真并行，可在无依赖时用线程池；教学版保持串行以便解释观察回灌顺序。
                     history.append({"role": "assistant", "content": raw})
                     for call in action.calls:
-                        self._execute_tool_call(call, history, trace_id, turn_id)
+                        self._execute_tool_call(call, history, trace_id, turn_id, turn_span_id)
                     continue
 
                 # 解析失败 → 降级为纯文本回答（OpenClaw：不能晋升为工具调用就当普通文本）
@@ -136,6 +143,7 @@ class Agent:
                 self._emit_turn(
                     trace_id,
                     turn_id,
+                    turn_span_id,
                     stats,
                     started,
                     success=True,
@@ -146,6 +154,7 @@ class Agent:
             self._emit_turn(
                 trace_id,
                 turn_id,
+                turn_span_id,
                 stats,
                 started,
                 success=False,
@@ -153,7 +162,9 @@ class Agent:
             )
             raise
 
-        self._emit_turn(trace_id, turn_id, stats, started, success=False, error_type="MaxSteps")
+        self._emit_turn(
+            trace_id, turn_id, turn_span_id, stats, started, success=False, error_type="MaxSteps"
+        )
         return "（达到最大步数上限，未完成）"
 
     def _execute_tool_call(
@@ -162,6 +173,7 @@ class Agent:
         history: list[dict[str, str]],
         trace_id: str,
         turn_id: str,
+        turn_span_id: str,
     ) -> None:
         """执行单个工具调用，观察结果回灌历史，并触发审计观察者与 tool 事件。"""
         started = time.perf_counter()
@@ -183,6 +195,9 @@ class Agent:
                         tokens=None,
                         success=False,
                         error_type="AuditError",
+                        span_id=observability.new_span_id(),
+                        parent_span_id=turn_span_id,
+                        span_name="audit.log",
                     )
                 )
         self._emit(
@@ -196,6 +211,9 @@ class Agent:
                 success=bool(getattr(result, "success", True)),
                 error_type=getattr(result, "error_type", None),
                 tool_name=call.action,
+                span_id=observability.new_span_id(),
+                parent_span_id=turn_span_id,
+                span_name=f"tool.{call.action}",
             )
         )
         history.append({"role": "user", "content": f"工具 {call.action} 返回：{result}"})
@@ -213,6 +231,9 @@ class Agent:
         tokens: dict[str, int] | None,
         success: bool,
         error_type: str | None,
+        span_id: str,
+        parent_span_id: str | None,
+        span_name: str,
         tool_name: str | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -226,6 +247,7 @@ class Agent:
             "tokens": tokens,
             "success": success,
             "error_type": error_type,
+            "span": {"id": span_id, "parent_id": parent_span_id, "name": span_name},
         }
         if tool_name is not None:
             payload["tool_name"] = tool_name
@@ -235,6 +257,7 @@ class Agent:
         self,
         trace_id: str,
         turn_id: str,
+        turn_span_id: str,
         stats: dict[str, Any],
         started: float,
         *,
@@ -259,8 +282,13 @@ class Agent:
             tokens=tokens,
             success=success,
             error_type=error_type,
+            span_id=turn_span_id,
+            parent_span_id=None,
+            span_name="turn",
         )
         payload["cost_usd"] = observability.cost_usd(stats["model"], usage)
+        if usage is not None:
+            payload["pricing_table_version"] = observability.PRICING_TABLE_VERSION
         self._emit(payload)
 
     def _emit(self, payload: dict[str, Any]) -> None:

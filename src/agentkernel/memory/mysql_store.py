@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from agentkernel.memory.base import RuntimeStore
@@ -80,7 +80,17 @@ class MySQLRuntimeStore(RuntimeStore):
     def _ensure_tables(self) -> None:
         """ADR-001 要求 Alembic 管理迁移；这里仅做开发兜底。"""
         try:
-            from sqlalchemy import Column, ForeignKey, Index, Integer, MetaData, String, Table, Text
+            from sqlalchemy import (
+                Column,
+                Float,
+                ForeignKey,
+                Index,
+                Integer,
+                MetaData,
+                String,
+                Table,
+                Text,
+            )
         except ImportError as exc:
             raise MySQLStoreError(
                 "MySQL 主存储需要 SQLAlchemy/PyMySQL：pip install -e '.[mysql]'"
@@ -123,11 +133,22 @@ class MySQLRuntimeStore(RuntimeStore):
             Column("input_json", Text, nullable=False),
             Column("output_json", Text, nullable=False),
             Column("success", Integer, nullable=False, server_default="1"),
+            Column("duration_ms", Float(), nullable=True),
             Column("created_at", String(64), nullable=False),
         )
         Index("idx_messages_session_id", metadata.tables["messages"].c.session_id)
         Index("idx_tool_logs_session_id", metadata.tables["tool_logs"].c.session_id)
         metadata.create_all(self.engine)
+        # 向前兼容：老库已存在 tool_logs 但没有 duration_ms 时补列（与迁移 0002 等价）。
+        # 这是 G-16「DDL 双轨」的过渡措施；最终收口是只走 Alembic。
+        try:
+            from sqlalchemy import inspect, text
+        except ImportError:  # pragma: no cover - 上面已保证可导入
+            return
+        with self.engine.begin() as conn:
+            columns = {col["name"] for col in inspect(conn).get_columns("tool_logs")}
+            if "duration_ms" not in columns:
+                conn.execute(text("ALTER TABLE tool_logs ADD COLUMN duration_ms FLOAT NULL"))
 
     # ---- 会话 ----
 
@@ -245,6 +266,7 @@ class MySQLRuntimeStore(RuntimeStore):
         action_input: dict[str, object],
         result: str,
         success: bool,
+        duration_ms: float | None = None,
     ) -> int:
         import json as _json
 
@@ -263,8 +285,10 @@ class MySQLRuntimeStore(RuntimeStore):
                         cursor = conn.execute(
                             text(
                                 "INSERT INTO tool_logs "
-                                "(session_id, tool_name, input_json, output_json, success, created_at) "
-                                "VALUES (:session_id, :tool_name, :input_json, :output_json, :success, :created_at)"
+                                "(session_id, tool_name, input_json, output_json, success, "
+                                "duration_ms, created_at) "
+                                "VALUES (:session_id, :tool_name, :input_json, :output_json, "
+                                ":success, :duration_ms, :created_at)"
                             ),
                             {
                                 "session_id": session_id,
@@ -274,6 +298,7 @@ class MySQLRuntimeStore(RuntimeStore):
                                 ),
                                 "output_json": truncate(redact(result)),
                                 "success": 1 if success else 0,
+                                "duration_ms": duration_ms,
                                 "created_at": now,
                             },
                         )
@@ -296,10 +321,38 @@ class MySQLRuntimeStore(RuntimeStore):
         with self.engine.connect() as conn:
             rows = conn.execute(
                 text(
-                    "SELECT tool_name, input_json, output_json, success, created_at "
+                    "SELECT tool_name, input_json, output_json, success, duration_ms, created_at "
                     "FROM tool_logs WHERE session_id = :session_id "
                     "ORDER BY id DESC LIMIT :limit"
                 ),
                 {"session_id": session_id, "limit": limit},
             ).mappings()
         return [dict(row) for row in rows]
+
+    def prune_before(self, days: int) -> dict[str, int]:
+        """删除 N 天前的消息与工具日志（保留会话壳）。时间列是 ISO 字符串，按字符串比较。"""
+        if days < 0:
+            raise ValueError("days 不能为负数")
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        try:
+            from sqlalchemy import text
+        except ImportError as exc:
+            raise MySQLStoreError("MySQL 主存储需要 SQLAlchemy：pip install -e '.[mysql]'") from exc
+
+        counts: dict[str, int] = {}
+        with self.engine.begin() as conn:
+            counts["messages"] = int(
+                conn.execute(
+                    text("DELETE FROM messages WHERE created_at < :cutoff"),
+                    {"cutoff": cutoff},
+                ).rowcount
+                or 0
+            )
+            counts["tool_logs"] = int(
+                conn.execute(
+                    text("DELETE FROM tool_logs WHERE created_at < :cutoff"),
+                    {"cutoff": cutoff},
+                ).rowcount
+                or 0
+            )
+        return counts

@@ -77,6 +77,8 @@ def test_emit_writes_core_fields_jsonl(tmp_path: Path) -> None:
         success=True,
         error_type=None,
         cost_usd=0.1,
+        span={"id": "sp1", "parent_id": None, "name": "turn"},
+        pricing_table_version=obs.PRICING_TABLE_VERSION,
     )
     obs.emit(
         "tool",
@@ -90,13 +92,14 @@ def test_emit_writes_core_fields_jsonl(tmp_path: Path) -> None:
         success=True,
         error_type=None,
         tool_name="calculator",
+        span={"id": "sp2", "parent_id": "sp1", "name": "tool.calculator"},
     )
     obs.reset_for_tests()
     lines = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
     assert len(lines) == 2
     turn, tool = lines
-    assert set(turn) == set(obs.CORE_FIELDS) | {"cost_usd"}
-    assert set(tool) == set(obs.CORE_FIELDS) | {"tool_name"}
+    assert set(turn) == set(obs.CORE_FIELDS) | {"cost_usd", "span", "pricing_table_version"}
+    assert set(tool) == set(obs.CORE_FIELDS) | {"tool_name", "span"}
     assert turn["tokens"] == {"in": 10, "out": 5}
     assert tool["tool_name"] == "calculator"
 
@@ -122,6 +125,10 @@ def test_agent_emits_turn_and_tool_events(monkeypatch: pytest.MonkeyPatch) -> No
     assert turn["tokens"] is None  # 假 LLM 没有 usage
     assert turn["cost_usd"] is None
     assert turn["trace_id"] == tool["trace_id"]
+    assert turn["span"]["name"] == "turn"
+    assert turn["span"]["parent_id"] is None
+    assert tool["span"]["name"] == "tool.calculator"
+    assert tool["span"]["parent_id"] == turn["span"]["id"]
 
 
 def test_audit_failure_is_visible(monkeypatch: pytest.MonkeyPatch) -> None:

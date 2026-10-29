@@ -14,11 +14,13 @@ PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo 
 UV ?= uv
 EXTRAS ?= --extra dev --extra mysql --extra pdf
 PYTEST_ARGS ?=
+LOG_DAYS ?= 14
+DB_DAYS ?= 90
 DOCKER_IMAGE ?= agentkernel:local
 # 本地 docker.io 不可达时可覆盖，例如 make docker-build DOCKER_BASE=docker.m.daocloud.io/library/python:3.11-slim
 DOCKER_BASE ?= python:3.11.15-slim
 
-.PHONY: help require-env sync sync-all format format-check lint type test eval report check docker-build docker-smoke docker-nonroot docker-size
+.PHONY: help require-env sync sync-all format format-check lint type test eval report trace prune check docker-build docker-smoke docker-nonroot docker-size
 
 help:
 	@echo "make sync         安装锁定依赖（uv sync --frozen $(EXTRAS)）"
@@ -31,6 +33,8 @@ help:
 	@echo "make test         pytest -q -rs $(PYTEST_ARGS)"
 	@echo "make eval         eval.py（mock，无需 API Key）"
 	@echo "make report       从 JSONL 日志生成 SLO 周报（AGENTKERNEL_LOG 指向日志文件）"
+	@echo "make trace        按 trace_id 打印 span 树（TRACE_ID 可选）"
+	@echo "make prune        清理旧日志（LOG_DAYS=14）与旧 DB 行（DB_DAYS=90）"
 	@echo "make check        lint + format-check + type + test + eval"
 	@echo "make docker-smoke 构建镜像并跑启动 smoke（--db :memory:，只证明能启动）"
 
@@ -63,6 +67,12 @@ eval:
 
 report:
 	$(PY) scripts/report.py $(if $(AGENTKERNEL_LOG),--log $(AGENTKERNEL_LOG),)
+
+trace:
+	$(PY) scripts/trace.py --log $(if $(AGENTKERNEL_LOG),$(AGENTKERNEL_LOG),$$HOME/.agentkernel/logs/agentkernel.jsonl) $(if $(TRACE_ID),--trace-id $(TRACE_ID),)
+
+prune:
+	$(PY) scripts/prune.py --log-days $(LOG_DAYS) --db-days $(DB_DAYS)
 
 check: require-env lint format-check type test eval
 	@echo "make check: OK"
