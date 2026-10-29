@@ -2,7 +2,7 @@
 
 > **历史文档（2026 年快照）**：命令与数字为当时状态；当前状态见 [../status.md](../status.md)。
 
-> 以下表述已通过本机 MySQL 测试（pytest 98 passed，含 3 个 MySQL 集成 + 1 个迁移往返）和 mock 评估（5/5）验证。
+> 以下表述已通过本机 MySQL 测试（pytest 99 passed，含 3 个 MySQL 集成 + 1 个迁移往返）和 mock 评估（5/5）验证。
 
 ## 项目描述（简历版）
 
@@ -14,7 +14,7 @@
   - 模型输出五层兜底（参考 OpenClaw）：提取 JSON、规范格式、工具名白名单、256KB 上限、降级纯文本；truncate/compact 防上下文超限。
   - RAG：MySQL ngram 关键词检索 + 可选 Chroma 语义检索，RRF 融合；向量不可用退回关键词，SHA-256 指纹增量更新。
   - MCP：自研 Client（初始化、工具列表、调用）；Server 支持官方 SDK 或纯 stdio。
-- **验证**：按「成功路径、失败路径、边界条件」设计测试，用假 LLM 固定模型输出；98 个用例（含 MySQL 集成与迁移往返；本地无 DSN 时 94 passed / 4 skipped）、5 个 mock eval 通过；CLI 跑通多轮对话、工具调用、知识库带来源、坏 JSON 不崩。
+- **验证**：按「成功路径、失败路径、边界条件」设计测试，用假 LLM 固定模型输出；99 个用例（含 MySQL 集成与迁移往返；本地无 DSN 时 95 passed / 4 skipped）、5 个 mock eval 通过；CLI 跑通多轮对话、工具调用、知识库带来源、坏 JSON 不崩。
 - **学习延伸**：学习 DeepSeek Harness 的 Profile/Bundle 声明式组装与 JSONL 会话事件日志/投影，思考可借鉴点。
 - **成果**：个人研究原型，未投入生产，与实习互补。
 

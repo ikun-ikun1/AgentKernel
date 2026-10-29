@@ -12,11 +12,11 @@
 
 | # | 门禁 | 结论 | 一句话理由 | 阻断项 |
 |---|---|---|---|---|
-| 1 | 可重复 | **FAIL** | 无锁文件、无 CI、无 `make check`、镜像浮动 tag、代码内硬编码默认口令；`ruff check` 当前退出码 1 | G-01…G-06 |
+| 1 | 可重复 | **PARTIAL** | 锁文件/解释器/`make check`/CI/格式化门禁已就绪；仍缺镜像 digest（G-04/G-45/G-46）与默认口令清理（G-06） | G-04, G-06, G-45, G-46 |
 | 2 | 可观测 | **PARTIAL（接近完成）** | 已实现 JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`；仍缺 OTLP 导出与定时调度 | G-07…G-13、G-47 |
 | 3 | 可回滚 | **PARTIAL** | 0001 迁移有对称 downgrade；但无迁移测试、无备份/恢复演练、DDL 双轨（启动 `create_all`）、无 tag/wheel | G-14…G-19 |
 | 4 | 可控制 | **PARTIAL** | 工具白名单、无 shell/eval、AST 计算器、只读 KB 已达标；但外部 MCP 任意命令继承 key、`/ingest` 无根目录、无 token 预算、base_url 无 allowlist | G-20…G-27 |
-| 5 | 可验证 | **PARTIAL** | CI 已全绿（99 passed / 0 skipped，MySQL 与 PDF 用例真跑）+ mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、无 fuzz/扫描 | G-30…G-34 |
+| 5 | 可验证 | **PARTIAL** | CI 已全绿（99 passed + 1 xfailed / 0 skipped；xfail 为 D4 复现）+ mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、无 fuzz/扫描 | G-30…G-34 |
 | 6 | 可运维 | **PARTIAL** | 有 ADR、有降级路径；但无 runbook、无 `make doctor`、无 SLO 周报、无事故模板、无 CHANGELOG/tag | G-35…G-40 |
 
 > 说明：`PARTIAL` 不等于「差不多可以上线」，只表示该门禁已有可复用的实现或文档，缺的是证据链与自动化。
@@ -27,17 +27,17 @@
 
 | # | 标准要求（§4.1） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
-| G-01 | 提交 `uv.lock`，`uv sync --frozen` | **无任何锁文件** | `find . -maxdepth 3` 只命中 `pyproject.toml`/`alembic.ini`/`docker-compose.yml`；`ls uv.lock` → 不存在 | 高：换机/换时间装出不同依赖，面试现场复现失败 | **P0** | 空环境 `uv sync --frozen` 成功且 `pytest` 全绿 |
-| G-02 | 解释器固定 + `.python-version` | 声明 `>=3.11`，本机 3.11.15 与 3.14.4 并存 | `pyproject.toml:10`；`.venv/bin/python -V`=3.11.15；`python3 -V`=3.14.4；仓库同时有 `__pycache__/*.cpython-314.pyc` | 中：双解释器缓存/行为差异 | **P0** | `.python-version`=3.11；CI 单版本；README 注明 |
-| G-03 | 无应用容器也可，但依赖必须可重建 | `.venv` 无 pip 模块，130 个包靠 editable 安装 | `.venv/bin/python -m pip --version` → `No module named pip` | 中：无法从仓库重建环境 | **P0** | 与 G-01 同批解决 |
-| G-04 | MySQL 镜像固定 digest | `mysql:8.0` 浮动 tag + 第三方镜像源 | `docker-compose.yml:3`；`docker ps` 显示 `docker.m.daocloud.io/library/mysql:8.0` | 中：上游更新导致行为漂移 | **P0** | compose 用 `@sha256:` 固定 |
-| G-05 | `make check` 单入口且 0 退出 | 无 Makefile；`ruff check .` 当前失败 | 无 `Makefile`/`makefile`；`.venv/bin/python -m ruff check .` → `Found 1 error`（I001，`docs/render_architecture.py:2`），退出码 1 | 高：门禁不可执行，「全绿」无从判断 | **P0** | `make check` 本地 0 退出 |
-| G-06 | 代码中不得有真实默认口令 | `agentkernel:agentkernel` 硬编码两处 | `src/agentkernel/memory/factory.py:20`；`alembic.ini:4` | 中：默认弱口令被复制到真实部署 | **P0** | 两处改为「必须由环境变量提供，否则报错」；`grep -r "agentkernel:agentkernel"` 为空 |
+| G-01 | 提交 `uv.lock`，`uv sync --frozen` | ✅ **已实现** | `uv.lock`（158 包）；CI `uv lock --check` + `uv sync --frozen`；PR #1 干净 runner 首次全绿 | — | — | 空环境 `uv sync --frozen` 成功且 pytest 全绿（CI 已证） |
+| G-02 | 解释器固定 + `.python-version` | ✅ **已实现** | `.python-version`=`3.11.15`；CI `setup-uv` 读取该文件；README/status 注明 | — | — | 保持 |
+| G-03 | 依赖必须可重建 | ✅ **已实现** | 干净 runner 由 `uv sync --frozen` 建环境（CI 三次全绿：PR #1/#2/#5） | — | — | 保持 |
+| G-04 | MySQL 镜像固定 digest | ⚠️ **部分**：已从浮动 `8.0` 改为精确 `8.0.46`（compose + CI），**digest 未固定** | `docker-compose.yml`、`.github/workflows/ci.yml`；本机无法访问 `registry-1.docker.io` | 中：上游重推 tag 会静默变内容 | **P0（短）** | 两处改 `image@sha256:...`（并入 G-45） |
+| G-05 | `make check` 单入口且 0 退出 | ✅ **已实现** | `Makefile`（sync/check/report/trace/prune/docker-*）；`make check` EXIT=0；CI 三个 job 复用同一入口 | — | — | 保持 |
+| G-06 | 代码中不得有真实默认口令 | ❌ **仍未处理**：`factory.py` 的 `DEFAULT_MYSQL_DSN` 与 `alembic.ini` 仍是 `agentkernel:agentkernel` | `src/agentkernel/memory/factory.py:21`；`alembic.ini:5`；`tests/test_mysql_integration.py:5`（文档示例） | 中：默认弱口令会被复制到真实部署 | **P0（批二）** | 两处改为「必须由环境变量提供，否则报错」；`grep -r agentkernel:agentkernel` 为空 |
 | G-42 | 应用镜像：多阶段、非 root、可构建（D1 新增） | **本地已实现并验证**（CI build job 待首次运行） | `Dockerfile` 多阶段，基础镜像 `python:3.11.15-slim`（Debian trixie）；`docker images` **310MB**（未压缩），`inspect .Size` **69MB**（压缩层）；`id -u` → `10001`；smoke `printf '/quit\n' \| docker run -i --rm agentkernel:local python -m agentkernel --db :memory: --kb-db :memory: --kb-backend lexical` → EXIT=0 + 启动横幅；镜像内 `chromadb` 不可导入（rag 未装）、`/app` 无 `.env`；`docker compose --profile app config` 通过（app 不默认启动） | 低：本地 build 用 daocloud 镜像源（`--build-arg`），CI 用 docker.io，默认路径由 CI 首次 build 证明；体积门禁用 `docker images` 口径（inspect 是压缩层，不能混用） | **P0（收尾）** | CI `docker` job 首次绿（含 <400MB 门禁）；smoke 只宣称「能启动」，不宣称 MySQL/运行态已验证 |
 | G-46 | Python 基础镜像未 pin digest（P0-3 新增） | 已从浮动 `python:3.11-slim` 改为精确 `python:3.11.15-slim`，**仍无 digest** | `Dockerfile` `ARG PYTHON_IMAGE=python:3.11.15-slim`；`Makefile` `DOCKER_BASE` 同值；本机无法访问 `registry-1.docker.io` | 中：上游重推 tag 会静默改变基础镜像内容 | **P0（短）** | 改为 `python:3.11.15-slim@sha256:...`；digest 必须在 docker.io 侧取得（daocloud 的 digest 不能直接信任） |
 | G-47 | OTLP/外部看板未接（P0-4b 遗留） | 只有本地 JSONL + `make trace`/`make report`；无 OTLP exporter、无 Prometheus/Grafana | `scripts/trace.py`、`scripts/report.py`；`pyproject.toml` 无 opentelemetry 依赖 | 低：单机 CLI 够用；接在线服务前必须补 | P2 | 需要时加 `opentelemetry-sdk`（可选 extra）+ `OTEL_EXPORTER_OTLP_ENDPOINT` 开关，并用本地假 collector 验证 |
 | G-45 | MySQL 镜像未固定 digest（P0-2 引入的临时状态） | 两处已统一为精确 tag `8.0.46`，**仍无 digest** | `.github/workflows/ci.yml` service image `mysql:8.0.46`；`docker-compose.yml:3` `docker.m.daocloud.io/library/mysql:8.0.46`；本机无法访问 `registry-1.docker.io` 取 digest | 中：上游重推 tag 会静默改变行为 | **P0（短）** | 两处都改成 `image@sha256:...`，并在 CI 里验证可拉取 |
-| G-43 | 格式化门禁无法直接启用（新发现） | `ruff format --check .` → **32 个文件待格式化**（20 已格式化） | `.venv/bin/python -m ruff format --check .` 实测输出 | 中：直接加 gate 会让 P0-1 变成 32 文件大 diff，掩盖真实变更 | **P0**（跟随 P0-2） | 单独一个「纯格式化」提交（`git diff -w` 为空、pytest 结果不变），然后 `format --check` 进入 `make check`/CI |
+| G-43 | 格式化门禁 | ✅ **已实现** | `style` 提交（32 文件，AST 等价校验）+ `format --check` 进入 `make check`/CI；`.git-blame-ignore-revs` 已加 | — | — | 保持 |
 
 ---
 
@@ -87,15 +87,15 @@
 
 | # | 标准要求（§4.5） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
-| G-28 | 测试全绿 | ✅ 本地 95 passed/4 skipped；**CI 99 passed / 0 skipped**（99 个测试函数） | 本地 `.venv/bin/python -m pytest -q`；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
+| G-28 | 测试全绿 | ✅ 本地 95 passed/5 skipped；**CI 99 passed + 1 xfailed / 0 skipped**（100 个测试函数；xfail 是 D4 复现，PR 2 转绿） | 本地 `.venv/bin/python -m pytest -q`；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
 | G-29 | MySQL 集成测试必须真跑 | ✅ CI 已真跑（MySQL 8.0.46 service + DSN，0 skip） | `.github/workflows/ci.yml` test job；PR #1 全绿合并 `20f2b0c`（用户确认；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 保持；PDF 用例由 `pdf` extra 真跑，`grep -q SKIPPED` 强制 0 skip |
 | G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | 无覆盖率工具、无阈值；**P0-1 未包含 pytest-cov，明确延后批二**（不要当成已装） | `pytest --cov` → `unrecognized arguments`；`pyproject.toml` 无 `[tool.coverage]`；`uv.lock` 中无 pytest-cov；3 个模块从未被 import（`__main__.py`、`memory/mysql_store.py`、`rag/mysql_store.py`） | 高：改坏关键路径无人知 | **P0（批二）** | 补 `pytest-cov` + 覆盖率报告 + `fail_under=80` 进 `make check`；在批二开工前不得声称「覆盖率已达标」 |
 | G-44 | 干净环境安装验收（P0-1 遗留） | ✅ **已关闭**：PR #1 CI 首次全绿（`uv sync --frozen --extra dev --extra mysql --extra pdf` 在干净 runner 完成；当时 68 passed / 0 skipped，当前 99/0） | PR #1 → merge commit `20f2b0c`；workflow `.github/workflows/ci.yml`（权限 `contents: read`）；用户确认 2026-10-29（CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 已关闭；后续干净环境验收复用 CI，不再用本地 worktree |
-| G-31 | 静态检查 0 退出 | ruff 1 error（I001）；mypy ✅ | `ruff check .` → `Found 1 error`，`docs/render_architecture.py:2`；`mypy src` → `Success: no issues found in 25 source files` | 中：门禁红着就没人当真 | **P0** | `ruff check`/`format --check` 0 退出 |
+| G-31 | 静态检查 0 退出 | ✅ **已实现** | `ruff check` → `All checks passed!`；`ruff format --check` → 全部已格式化；`mypy src` → 28 文件 0 错误；均在 `make check` 内 | — | — | 保持 |
 | G-32 | golden set ≥50（mock）/≥20（live） | 5 条 mock + 4 条 live | `eval.py:59-171,174-223` | 高：S1/S2 无统计意义 | **P0** | 50/20 条，进 `make check` 与 CI |
 | G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |
 | G-34 | 安全扫描（gitleaks/semgrep/pip-audit） | 均未接入 | `ls .pre-commit-config.yaml`/`.gitleaks.toml`/`semgrep.yml` → 不存在 | 高：密钥与高危依赖靠人眼 | **P0** | 三类扫描 0 high，进 `make check` |
-| G-41 | 文档与实测一致 | ✅ **已修复**：README 重写为「99 个测试；本地 95/4、CI 99/0」双口径；里程碑/面试材料加历史标注 | `README.md`、`docs/status.md`、`docs/README.md`；一致性由 `status.md` 单点维护 | — | — | 后续数字只改 `status.md`，其他文档引用它 |
+| G-41 | 文档与实测一致 | ✅ **已修复**：README 重写为「100 个测试；本地 95/5、CI 99+1xfail」双口径；里程碑/面试材料加历史标注 | `README.md`、`docs/status.md`、`docs/README.md`；一致性由 `status.md` 单点维护 | — | — | 后续数字只改 `status.md`，其他文档引用它 |
 
 ---
 
@@ -132,7 +132,7 @@
 
 ## 8. 路线图（P0 / P1 / P2）
 
-### 8.1 P0（批一 5 项，未完成不得宣称「按生产标准」）
+### 8.1 P0（批一已执行；1/2/4/5 已完成，3 已改为 Dockerfile，覆盖率与 golden set 移入批二）
 
 > 批一范围 = 下表 5 项。覆盖率门槛 + golden set 50 条、跨进程并发（D4）排在**批二**；`pytest-cov` 随批二补，批一不装。
 
@@ -162,8 +162,8 @@ G-26（schema 长度/格式）、G-38（事故模板）、OTLP 导出、mypy `--
 cd /home/ikun/AgentKernel
 
 # 测试与静态检查
-.venv/bin/python -m pytest -q              # 95 passed, 4 skipped（有 DSN 时 99 passed）
-.venv/bin/python -m ruff check .           # Found 1 error（I001，docs/render_architecture.py:2），EXIT=1
+.venv/bin/python -m pytest -q              # 95 passed, 5 skipped（有 DSN 时 99 passed + 1 xfailed）
+.venv/bin/python -m ruff check .           # All checks passed!（EXIT=0）
 .venv/bin/python -m mypy src               # Success: no issues found in 25 source files
 .venv/bin/python -m pytest --cov=agentkernel --cov-report=term-missing -q   # 不支持 --cov（pytest-cov 未装）
 .venv/bin/python -c "import coverage"      # ModuleNotFoundError
