@@ -8,7 +8,7 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 测试 | **99 个测试**；本地 `95 passed / 4 skipped`（无 DSN），CI `99 passed / 0 skipped` | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 测试 | **100 个测试**；本地 `95 passed / 5 skipped`（无 DSN），CI `99 passed + 1 xfailed / 0 skipped`（xfail 是 D4 复现，PR 2 转绿） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `python eval.py` → 5/5 | 本机实测 |
 | 真实模型 | 6 次 live API 调用，tokens/cost 均非空 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 3 个 job：`test`（MySQL 8 service）、`eval-minimal`、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
@@ -79,5 +79,5 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 make check
 AGENTKERNEL_MYSQL_TEST_DSN='mysql+pymysql://agentkernel:***@127.0.0.1:3306/agentkernel_test' \
-  .venv/bin/python -m pytest -q      # 99 passed / 0 skipped
+  .venv/bin/python -m pytest -q      # 99 passed + 1 xfailed（D4 复现）/ 0 skipped
 ```
