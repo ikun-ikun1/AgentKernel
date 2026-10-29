@@ -139,6 +139,16 @@ class MySQLRuntimeStore(RuntimeStore):
         Index("idx_messages_session_id", metadata.tables["messages"].c.session_id)
         Index("idx_tool_logs_session_id", metadata.tables["tool_logs"].c.session_id)
         metadata.create_all(self.engine)
+        # 向前兼容：老库已存在 tool_logs 但没有 duration_ms 时补列（与迁移 0002 等价）。
+        # 这是 G-16「DDL 双轨」的过渡措施；最终收口是只走 Alembic。
+        try:
+            from sqlalchemy import inspect, text
+        except ImportError:  # pragma: no cover - 上面已保证可导入
+            return
+        with self.engine.begin() as conn:
+            columns = {col["name"] for col in inspect(conn).get_columns("tool_logs")}
+            if "duration_ms" not in columns:
+                conn.execute(text("ALTER TABLE tool_logs ADD COLUMN duration_ms FLOAT NULL"))
 
     # ---- 会话 ----
 

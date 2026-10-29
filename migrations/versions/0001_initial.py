@@ -92,13 +92,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("idx_chunks_ft", table_name="chunks")
-    op.drop_index("idx_chunks_doc", table_name="chunks")
-    op.drop_index("idx_documents_name", table_name="documents")
+    # 先删子表（chunks 引用 documents，且 chunks 上的 FULLTEXT/普通索引随表一起删）；
+    # 不要在删表前单独 DROP INDEX —— MySQL 会报 1553（索引被外键依赖）。
     op.drop_table("chunks")
     op.drop_table("documents")
-    op.drop_index("idx_tool_logs_session_id", table_name="tool_logs")
-    op.drop_index("idx_messages_session_id", table_name="messages")
     op.drop_table("tool_logs")
     op.drop_table("messages")
     op.drop_table("sessions")

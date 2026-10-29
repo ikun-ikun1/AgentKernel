@@ -60,7 +60,7 @@
 | # | 标准要求（§4.3） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
 | G-14 | 迁移必须有 downgrade | ✅ 0001 有对称 downgrade | `migrations/versions/0001_initial.py:78-88` 反序删表/索引 | — | — | 保持；新增迁移同规则 |
-| G-15 | 迁移往返测试 | ✅ **已实现**（本地无 DSN 跳过，CI 真跑） | `tests/test_migrations.py`：清表 → upgrade head → 断言 `duration_ms` → downgrade base → 断言表已删 → upgrade head；CI service 提供 DSN 时 0 skip | — | — | CI 首次带该用例的全绿为最终证据 |
+| G-15 | 迁移往返测试 | ✅ **已实现**（本地无 DSN 跳过，CI 真跑） | `tests/test_migrations.py`：清表 → upgrade head → 断言 `duration_ms` → downgrade base → 断言表已删 → upgrade head；CI service 提供 DSN 时 0 skip；**该测试当场暴露并修掉两个真实缺陷**：0001 downgrade 先 DROP INDEX 触发 MySQL 1553（已改为先删子表）、老库 create_all 不补 duration_ms（已加等价 ALTER 兜底） | — | — | CI 首次带该用例的全绿为最终证据 |
 | G-16 | DDL 单一来源 | 启动时 `create_all` 与 Alembic 双轨 | `src/agentkernel/memory/factory.py:36`；`memory/mysql_store.py:78-118`；`rag/mysql_store.py:58-122` | 高：schema 漂移、迁移回滚后又被自动建回 | **P0** | 删除 `create_all`，仅 `--migrate`/Alembic 建表 |
 | G-17 | 备份策略（RPO ≤24h） | 无脚本、无记录 | 仓库无 `backup*`/`mysqldump` 引用 | 高：误删/迁移失败即丢数据 | **P0** | `make backup`；至少一次真实备份产物 |
 | G-18 | 恢复演练（≤30 天） | 从未演练 | 无 runbook、无演练记录 | 高：备份没验证等于没有 | **P0** | 首次演练记录写入 `docs/runbook.md`（含耗时） |
