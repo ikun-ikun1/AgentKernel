@@ -13,7 +13,7 @@
 | # | 门禁 | 结论 | 一句话理由 | 阻断项 |
 |---|---|---|---|---|
 | 1 | 可重复 | **FAIL** | 无锁文件、无 CI、无 `make check`、镜像浮动 tag、代码内硬编码默认口令；`ruff check` 当前退出码 1 | G-01…G-06 |
-| 2 | 可观测 | **FAIL** | 无日志框架/trace id/指标/token 成本；`tool_logs` 明文存储无脱敏；审计异常被静默吞掉 | G-07…G-13 |
+| 2 | 可观测 | **PARTIAL** | 已实现 JSONL 14 字段、trace/turn 关联、token/成本、写库脱敏、审计失败可见、`make report`；仍缺直方图/OTLP、保留期滚动、`tool_logs` 耗时列 | G-07…G-13 |
 | 3 | 可回滚 | **PARTIAL** | 0001 迁移有对称 downgrade；但无迁移测试、无备份/恢复演练、DDL 双轨（启动 `create_all`）、无 tag/wheel | G-14…G-19 |
 | 4 | 可控制 | **PARTIAL** | 工具白名单、无 shell/eval、AST 计算器、只读 KB 已达标；但外部 MCP 任意命令继承 key、`/ingest` 无根目录、无 token 预算、base_url 无 allowlist | G-20…G-27 |
 | 5 | 可验证 | **PARTIAL** | CI 已全绿（68 passed / 0 skipped，MySQL 与 PDF 用例真跑）+ mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、无 fuzz/扫描 | G-30…G-34 |
@@ -44,13 +44,13 @@
 
 | # | 标准要求（§4.2） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
-| G-07 | 结构化 JSONL 日志 | 全部 `print()`，无 `logging` | 全仓 `grep "import logging"` 0 命中；`__main__.py` 17 处 print | 中：无法机器解析、无法按轮聚合 | **P0** | 每轮输出 1 条 JSON，含 **14 字段 = 12 核心 + 2 条件**（核心恒有；`tool_name` 仅 tool 事件、`cost_usd` 仅 turn 事件且未知模型为 `null`） |
-| G-08 | `trace_id` 贯穿 LLM→工具→DB | 无 trace id | `mcp/client.py:87-92` 只有 JSON-RPC 自增 id | 中：排障只能靠猜 | **P0** | 一次 `agent.run` 的日志共享同一 trace_id |
-| G-09 | token / 成本记账 | `resp.usage` 被丢弃 | `src/agentkernel/runtime/llm.py:60-61` 只返回 `content` | 高：S8 无法测量，预算不可控 | **P0** | 日志含 prompt/completion tokens 与 cost_usd |
-| G-10 | 指标（计数器/直方图） | 无 | 全仓 grep `prometheus` / `statsd` / `metrics` 0 命中 | 中：S4 无法回归 | P1 | `metrics.jsonl` + `make report` |
+| G-07 | 结构化 JSONL 日志 | ✅ **已实现** | `src/agentkernel/utils/observability.py`（JsonlFormatter/emit）；`runtime/agent.py` 每轮 1 条 `turn`、每次工具 1 条 `tool`；`tests/test_observability.py` 9 例 | — | — | 14 字段（12 核心 + 2 条件）由测试断言；日志默认 stderr，`AGENTKERNEL_LOG` 可落文件 |
+| G-08 | `trace_id` 贯穿 LLM→工具→DB | ✅ **已实现** | `agent.run` 生成 trace_id/turn_id，`tool` 与 `turn` 事件共享（`tests/test_observability.py` 断言）；`session_id` 只以 12 位 sha256 出现 | — | — | 跨进程/OTLP span 仍属批二 |
+| G-09 | token / 成本记账 | ✅ **已实现** | `runtime/llm.py` 用 ContextVar 捕获 usage（`pop_usage()`，chat 签名不变）；`observability.PRICING_TABLE_VERSION=2026-10-29`；未知模型 `cost_usd=null` + 单次 `pricing_unknown` 告警（有测试） | — | — | mock/假 LLM 下 tokens/cost 为 null 是预期，只有 live 调用才有真实 usage |
+| G-10 | 指标（计数器/直方图） | ⚠️ **部分**：`make report` 从 JSONL 聚合成功率/p50/p95/tokens/成本；无导出式直方图 | `scripts/report.py`；`Makefile` `report` 目标 | 中：S4 可回归但无外部看板 | P1 | 需要时再接 OTLP/直方图导出；当前以周报代替 |
 | G-11 | 工具耗时落库 | 算了但丢弃 | `src/agentkernel/tools/registry.py:126-133` 产出 `duration_ms`；`memory/base.py:36-45` 与 `__main__.py:121-124` 无该字段 | 中：审计无耗时，性能问题不可追溯 | P1 | `tool_logs` 增加 `duration_ms` 列（迁移） |
-| G-12 | 审计失败可见 | 静默 `except: pass` | `src/agentkernel/runtime/agent.py:102-106` | 中：审计静默丢失，安全事件无痕迹 | **P0** | 失败计数 + 告警日志 |
-| G-13 | 日志/DB 脱敏与截断 | `tool_logs` 存完整入参与结果，`/logs` 打印 | `memory/mysql_store.py:246-260`；`__main__.py:193-197` | 中：参数含凭据即落库 | **P0** | redact 规则 + 4KB 截断；抽查无 `sk-` |
+| G-12 | 审计失败可见 | ✅ **已实现** | `agent.audit_failures` 计数 + `audit_failed` 事件（`runtime/agent.py`）；测试 `test_audit_failure_is_visible` | — | — | 主流程仍不因审计失败中断（按设计） |
+| G-13 | 日志/DB 脱敏与截断 | ✅ **已实现（写库与日志字段）** | `observability.redact/truncate`；`memory/sqlite_store.py` 与 `memory/mysql_store.py` 写库前都过一遍；测试覆盖 `sk-`/`password=`/DSN 口令 | 低：`/history` 仍按设计展示消息正文 | — | 保留期滚动仍缺（P1） |
 
 ---
 
@@ -86,10 +86,10 @@
 
 | # | 标准要求（§4.5） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
-| G-28 | 测试全绿 | ✅ 本地 65 passed/3 skipped；**CI 68 passed / 0 skipped** | 本地 `.venv/bin/python -m pytest -q`；CI：PR #1（`ci/p0-2-github-actions`）全绿后合并为 `20f2b0c`（用户确认 2026-10-29；run 链接待补） | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
-| G-29 | MySQL 集成测试必须真跑 | ✅ CI 已真跑（MySQL 8.0.46 service + DSN，0 skip） | `.github/workflows/ci.yml` test job；PR #1 全绿合并 `20f2b0c`（用户确认；run 链接待补） | — | — | 保持；PDF 用例由 `pdf` extra 真跑，`grep -q SKIPPED` 强制 0 skip |
+| G-28 | 测试全绿 | ✅ 本地 65 passed/3 skipped；**CI 68 passed / 0 skipped** | 本地 `.venv/bin/python -m pytest -q`；CI：PR #1（`ci/p0-2-github-actions`）全绿后合并为 `20f2b0c`（用户确认 2026-10-29；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
+| G-29 | MySQL 集成测试必须真跑 | ✅ CI 已真跑（MySQL 8.0.46 service + DSN，0 skip） | `.github/workflows/ci.yml` test job；PR #1 全绿合并 `20f2b0c`（用户确认；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 保持；PDF 用例由 `pdf` extra 真跑，`grep -q SKIPPED` 强制 0 skip |
 | G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | 无覆盖率工具、无阈值；**P0-1 未包含 pytest-cov，明确延后批二**（不要当成已装） | `pytest --cov` → `unrecognized arguments`；`pyproject.toml` 无 `[tool.coverage]`；`uv.lock` 中无 pytest-cov；3 个模块从未被 import（`__main__.py`、`memory/mysql_store.py`、`rag/mysql_store.py`） | 高：改坏关键路径无人知 | **P0（批二）** | 补 `pytest-cov` + 覆盖率报告 + `fail_under=80` 进 `make check`；在批二开工前不得声称「覆盖率已达标」 |
-| G-44 | 干净环境安装验收（P0-1 遗留） | ✅ **已关闭**：PR #1 CI 首次全绿（`uv sync --frozen --extra dev --extra mysql --extra pdf` 在干净 runner 完成，68 passed / 0 skipped） | PR #1 → merge commit `20f2b0c`；workflow `.github/workflows/ci.yml`（权限 `contents: read`）；用户确认 2026-10-29（run 链接待补） | — | — | 已关闭；后续干净环境验收复用 CI，不再用本地 worktree |
+| G-44 | 干净环境安装验收（P0-1 遗留） | ✅ **已关闭**：PR #1 CI 首次全绿（`uv sync --frozen --extra dev --extra mysql --extra pdf` 在干净 runner 完成，68 passed / 0 skipped） | PR #1 → merge commit `20f2b0c`；workflow `.github/workflows/ci.yml`（权限 `contents: read`）；用户确认 2026-10-29（CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 已关闭；后续干净环境验收复用 CI，不再用本地 worktree |
 | G-31 | 静态检查 0 退出 | ruff 1 error（I001）；mypy ✅ | `ruff check .` → `Found 1 error`，`docs/render_architecture.py:2`；`mypy src` → `Success: no issues found in 25 source files` | 中：门禁红着就没人当真 | **P0** | `ruff check`/`format --check` 0 退出 |
 | G-32 | golden set ≥50（mock）/≥20（live） | 5 条 mock + 4 条 live | `eval.py:59-171,174-223` | 高：S1/S2 无统计意义 | **P0** | 50/20 条，进 `make check` 与 CI |
 | G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |
