@@ -14,8 +14,11 @@ PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo 
 UV ?= uv
 EXTRAS ?= --extra dev --extra mysql --extra pdf
 PYTEST_ARGS ?=
+DOCKER_IMAGE ?= agentkernel:local
+# 本地 docker.io 不可达时可覆盖，例如 make docker-build DOCKER_BASE=docker.m.daocloud.io/library/python:3.11-slim
+DOCKER_BASE ?= python:3.11.15-slim
 
-.PHONY: help require-env sync sync-all format format-check lint type test eval check
+.PHONY: help require-env sync sync-all format format-check lint type test eval check docker-build docker-smoke docker-nonroot docker-size
 
 help:
 	@echo "make sync         安装锁定依赖（uv sync --frozen $(EXTRAS)）"
@@ -28,6 +31,7 @@ help:
 	@echo "make test         pytest -q -rs $(PYTEST_ARGS)"
 	@echo "make eval         eval.py（mock，无需 API Key）"
 	@echo "make check        lint + format-check + type + test + eval"
+	@echo "make docker-smoke 构建镜像并跑启动 smoke（--db :memory:，只证明能启动）"
 
 require-env:
 	@command -v $(PY) >/dev/null 2>&1 || { echo "缺少 Python 解释器：$(PY)；先执行 make sync 或激活 .venv"; exit 1; }
@@ -58,3 +62,17 @@ eval:
 
 check: require-env lint format-check type test eval
 	@echo "make check: OK"
+
+docker-build:
+	docker build --build-arg PYTHON_IMAGE=$(DOCKER_BASE) -t $(DOCKER_IMAGE) .
+
+docker-smoke: docker-build
+	printf '/quit\n' | docker run -i --rm $(DOCKER_IMAGE) python -m agentkernel --db :memory: --kb-db :memory: --kb-backend lexical | tee /tmp/agentkernel-smoke.log
+	grep -q 'AgentKernel 已启动' /tmp/agentkernel-smoke.log
+
+docker-nonroot: docker-build
+	@uid=$$(docker run --rm $(DOCKER_IMAGE) id -u); test "$$uid" != "0"; echo "non-root uid=$$uid"
+
+docker-size: docker-build
+	@docker images $(DOCKER_IMAGE) --format 'image size (docker images): {{.Size}}'
+	@docker image inspect $(DOCKER_IMAGE) --format 'compressed layers: {{.Size}} bytes'

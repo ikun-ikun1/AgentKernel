@@ -16,7 +16,7 @@
 | 2 | 可观测 | **FAIL** | 无日志框架/trace id/指标/token 成本；`tool_logs` 明文存储无脱敏；审计异常被静默吞掉 | G-07…G-13 |
 | 3 | 可回滚 | **PARTIAL** | 0001 迁移有对称 downgrade；但无迁移测试、无备份/恢复演练、DDL 双轨（启动 `create_all`）、无 tag/wheel | G-14…G-19 |
 | 4 | 可控制 | **PARTIAL** | 工具白名单、无 shell/eval、AST 计算器、只读 KB 已达标；但外部 MCP 任意命令继承 key、`/ingest` 无根目录、无 token 预算、base_url 无 allowlist | G-20…G-27 |
-| 5 | 可验证 | **PARTIAL** | 65 用例全绿 + mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、MySQL 集成默认 skip、无 fuzz/扫描 | G-28…G-34 |
+| 5 | 可验证 | **PARTIAL** | CI 已全绿（68 passed / 0 skipped，MySQL 与 PDF 用例真跑）+ mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、无 fuzz/扫描 | G-30…G-34 |
 | 6 | 可运维 | **PARTIAL** | 有 ADR、有降级路径；但无 runbook、无 `make doctor`、无 SLO 周报、无事故模板、无 CHANGELOG/tag | G-35…G-40 |
 
 > 说明：`PARTIAL` 不等于「差不多可以上线」，只表示该门禁已有可复用的实现或文档，缺的是证据链与自动化。
@@ -33,8 +33,9 @@
 | G-04 | MySQL 镜像固定 digest | `mysql:8.0` 浮动 tag + 第三方镜像源 | `docker-compose.yml:3`；`docker ps` 显示 `docker.m.daocloud.io/library/mysql:8.0` | 中：上游更新导致行为漂移 | **P0** | compose 用 `@sha256:` 固定 |
 | G-05 | `make check` 单入口且 0 退出 | 无 Makefile；`ruff check .` 当前失败 | 无 `Makefile`/`makefile`；`.venv/bin/python -m ruff check .` → `Found 1 error`（I001，`docs/render_architecture.py:2`），退出码 1 | 高：门禁不可执行，「全绿」无从判断 | **P0** | `make check` 本地 0 退出 |
 | G-06 | 代码中不得有真实默认口令 | `agentkernel:agentkernel` 硬编码两处 | `src/agentkernel/memory/factory.py:20`；`alembic.ini:4` | 中：默认弱口令被复制到真实部署 | **P0** | 两处改为「必须由环境变量提供，否则报错」；`grep -r "agentkernel:agentkernel"` 为空 |
-| G-42 | 应用镜像：多阶段、非 root、可构建（D1 新增） | **无 Dockerfile** | `find . -maxdepth 2 -name 'Dockerfile*'` → 空；只有 MySQL 的 compose 服务（`docker-compose.yml:1-20`） | 中：「只差一个变更即可上线」缺少镜像证据 | **P0** | `docker build` 成功；容器内 `id -u`≠0；smoke = `printf '/quit\n' \| python -m agentkernel --db :memory: --kb-db :memory:` 退出 0（只用 `--help` 太弱）；CI 有 build job |
-| G-45 | MySQL 镜像未固定 digest（P0-2 引入的临时状态） | CI 与 compose 都用 tag：CI `mysql:8.0.46`，compose `mysql:8.0` | `.github/workflows/ci.yml` service image；`docker-compose.yml:3`；本机无法访问 `registry-1.docker.io` 取 digest | 中：上游重推 tag 会静默改变行为 | **P0（短）** | 两处都改成 `image@sha256:...`，并在 CI 里验证可拉取 |
+| G-42 | 应用镜像：多阶段、非 root、可构建（D1 新增） | **本地已实现并验证**（CI build job 待首次运行） | `Dockerfile` 多阶段，基础镜像 `python:3.11.15-slim`（Debian trixie）；`docker images` **310MB**（未压缩），`inspect .Size` **69MB**（压缩层）；`id -u` → `10001`；smoke `printf '/quit\n' \| docker run -i --rm agentkernel:local python -m agentkernel --db :memory: --kb-db :memory: --kb-backend lexical` → EXIT=0 + 启动横幅；镜像内 `chromadb` 不可导入（rag 未装）、`/app` 无 `.env`；`docker compose --profile app config` 通过（app 不默认启动） | 低：本地 build 用 daocloud 镜像源（`--build-arg`），CI 用 docker.io，默认路径由 CI 首次 build 证明；体积门禁用 `docker images` 口径（inspect 是压缩层，不能混用） | **P0（收尾）** | CI `docker` job 首次绿（含 <400MB 门禁）；smoke 只宣称「能启动」，不宣称 MySQL/运行态已验证 |
+| G-46 | Python 基础镜像未 pin digest（P0-3 新增） | 已从浮动 `python:3.11-slim` 改为精确 `python:3.11.15-slim`，**仍无 digest** | `Dockerfile` `ARG PYTHON_IMAGE=python:3.11.15-slim`；`Makefile` `DOCKER_BASE` 同值；本机无法访问 `registry-1.docker.io` | 中：上游重推 tag 会静默改变基础镜像内容 | **P0（短）** | 改为 `python:3.11.15-slim@sha256:...`；digest 必须在 docker.io 侧取得（daocloud 的 digest 不能直接信任） |
+| G-45 | MySQL 镜像未固定 digest（P0-2 引入的临时状态） | 两处已统一为精确 tag `8.0.46`，**仍无 digest** | `.github/workflows/ci.yml` service image `mysql:8.0.46`；`docker-compose.yml:3` `docker.m.daocloud.io/library/mysql:8.0.46`；本机无法访问 `registry-1.docker.io` 取 digest | 中：上游重推 tag 会静默改变行为 | **P0（短）** | 两处都改成 `image@sha256:...`，并在 CI 里验证可拉取 |
 | G-43 | 格式化门禁无法直接启用（新发现） | `ruff format --check .` → **32 个文件待格式化**（20 已格式化） | `.venv/bin/python -m ruff format --check .` 实测输出 | 中：直接加 gate 会让 P0-1 变成 32 文件大 diff，掩盖真实变更 | **P0**（跟随 P0-2） | 单独一个「纯格式化」提交（`git diff -w` 为空、pytest 结果不变），然后 `format --check` 进入 `make check`/CI |
 
 ---
@@ -85,10 +86,10 @@
 
 | # | 标准要求（§4.5） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
-| G-28 | 测试全绿 | ✅ 65 passed, 3 skipped | `.venv/bin/python -m pytest -q` → `65 passed, 3 skipped in 0.19s` | — | — | 保持；CI 中 0 skip |
-| G-29 | MySQL 集成测试必须真跑 | 默认 skip（需 `AGENTKERNEL_MYSQL_TEST_DSN`） | `tests/test_mysql_integration.py:13-15,85-107` | 高：MySQL 路径常态无验证（含并发写） | **P0** | CI service container 提供 DSN，3 个用例必跑；PDF 用例用轻量 `pdf` extra（仅 pymupdf，不装 torch）真跑；`grep -q SKIPPED` 命令级强制 0 skip |
+| G-28 | 测试全绿 | ✅ 本地 65 passed/3 skipped；**CI 68 passed / 0 skipped** | 本地 `.venv/bin/python -m pytest -q`；CI：PR #1（`ci/p0-2-github-actions`）全绿后合并为 `20f2b0c`（用户确认 2026-10-29；run 链接待补） | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
+| G-29 | MySQL 集成测试必须真跑 | ✅ CI 已真跑（MySQL 8.0.46 service + DSN，0 skip） | `.github/workflows/ci.yml` test job；PR #1 全绿合并 `20f2b0c`（用户确认；run 链接待补） | — | — | 保持；PDF 用例由 `pdf` extra 真跑，`grep -q SKIPPED` 强制 0 skip |
 | G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | 无覆盖率工具、无阈值；**P0-1 未包含 pytest-cov，明确延后批二**（不要当成已装） | `pytest --cov` → `unrecognized arguments`；`pyproject.toml` 无 `[tool.coverage]`；`uv.lock` 中无 pytest-cov；3 个模块从未被 import（`__main__.py`、`memory/mysql_store.py`、`rag/mysql_store.py`） | 高：改坏关键路径无人知 | **P0（批二）** | 补 `pytest-cov` + 覆盖率报告 + `fail_under=80` 进 `make check`；在批二开工前不得声称「覆盖率已达标」 |
-| G-44 | 干净环境安装验收（P0-1 遗留） | **未完成**：临时 worktree 中 `uv sync --frozen --extra dev --extra mysql` 600s 超时（PyPI ~78KB/s），`.venv` 不完整，不能据此判断代码问题 | review 记录（2026-10-29，用户本地复核） | 中：lock 与安装树尚未被干净环境证明 | **P0**（由 P0-2 CI 首次绿关闭） | CI 首次全绿即关闭；关闭前所有报告必须写「干净环境未验证」 |
+| G-44 | 干净环境安装验收（P0-1 遗留） | ✅ **已关闭**：PR #1 CI 首次全绿（`uv sync --frozen --extra dev --extra mysql --extra pdf` 在干净 runner 完成，68 passed / 0 skipped） | PR #1 → merge commit `20f2b0c`；workflow `.github/workflows/ci.yml`（权限 `contents: read`）；用户确认 2026-10-29（run 链接待补） | — | — | 已关闭；后续干净环境验收复用 CI，不再用本地 worktree |
 | G-31 | 静态检查 0 退出 | ruff 1 error（I001）；mypy ✅ | `ruff check .` → `Found 1 error`，`docs/render_architecture.py:2`；`mypy src` → `Success: no issues found in 25 source files` | 中：门禁红着就没人当真 | **P0** | `ruff check`/`format --check` 0 退出 |
 | G-32 | golden set ≥50（mock）/≥20（live） | 5 条 mock + 4 条 live | `eval.py:59-171,174-223` | 高：S1/S2 无统计意义 | **P0** | 50/20 条，进 `make check` 与 CI |
 | G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |

@@ -1,0 +1,21 @@
+# 构建上下文最小化（镜像只需要 pyproject/lock/README/src/migrations）
+.git
+.gitignore
+.github
+.venv
+.venv-lock
+**/__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+docs
+tests
+data
+.env
+.env.*
+!.env.example
+check.log
+*.db
+*.sqlite3
