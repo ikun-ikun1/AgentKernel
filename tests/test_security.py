@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,11 @@ def _exe(name: str) -> Path:
     found = shutil.which(name)
     assert found, f"环境缺少 {name}"
     return Path(found).resolve()
+
+
+def _current_interpreter() -> Path:
+    """用当前解释器测解释器白名单：CI 上不一定有 python3.11 这个命令名。"""
+    return Path(sys.executable).resolve()
 
 
 def _profile_file(tmp_path: Path, body: str) -> Path:
@@ -45,8 +51,16 @@ env_allowlist = ["PATH"]
     assert env == {"PATH": "/bin"}
 
 
+def test_versioned_python_counts_as_interpreter() -> None:
+    assert prof.is_interpreter_command("python3.11")
+    assert prof.is_interpreter_command("python3.12")
+    assert prof.is_interpreter_command("python")
+    assert prof.is_interpreter_command("pypy3")
+    assert not prof.is_interpreter_command("echo")
+
+
 def test_interpreter_requires_explicit_flag(tmp_path: Path) -> None:
-    python = _exe("python3.11")
+    python = _current_interpreter()
     cfg = _profile_file(
         tmp_path,
         f"""[[mcp_profiles]]
@@ -60,7 +74,7 @@ args = ["-c", "print(1)"]
 
 
 def test_interpreter_allowed_when_declared(tmp_path: Path) -> None:
-    python = _exe("python3.11")
+    python = _current_interpreter()
     cfg = _profile_file(
         tmp_path,
         f"""[[mcp_profiles]]

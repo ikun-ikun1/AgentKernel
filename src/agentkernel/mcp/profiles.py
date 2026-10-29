@@ -9,12 +9,38 @@
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 BASE_ENV_ALLOWLIST = ("PATH", "HOME", "LANG", "LC_ALL", "PYTHONPATH", "TMPDIR")
-INTERPRETERS = {"sh", "bash", "zsh", "dash", "python", "python3", "node", "perl", "ruby"}
+_INTERPRETER_NAMES = {
+    "sh",
+    "bash",
+    "zsh",
+    "dash",
+    "ksh",
+    "node",
+    "nodejs",
+    "perl",
+    "ruby",
+    "php",
+    "lua",
+}
+_INTERPRETER_PATTERNS = (
+    re.compile(r"python(3(\.\d+)?)?"),
+    re.compile(r"pypy3?(\.\d+)?"),
+)
+
+
+def is_interpreter_command(name: str) -> bool:
+    """按 basename 判断是否解释器：python3.11 / python3.12 / pypy3 都要覆盖。"""
+    return name in _INTERPRETER_NAMES or any(
+        pattern.fullmatch(name) for pattern in _INTERPRETER_PATTERNS
+    )
+
+
 SECRET_ENV_PREFIXES = ("DEEPSEEK_", "AGENTKERNEL_", "OPENAI_", "AWS_", "ANTHROPIC_")
 
 
@@ -50,7 +76,7 @@ def validate_profile(profile: McpProfile) -> None:
         )
     if not os.access(resolved, os.X_OK):
         raise McpProfileError(f"profile {profile.name}: command 不可执行：{resolved}")
-    if command.name in INTERPRETERS and not profile.allow_interpreter:
+    if is_interpreter_command(command.name) and not profile.allow_interpreter:
         raise McpProfileError(
             f"profile {profile.name}: 解释器 {command.name} 需显式 allow_interpreter = true"
         )
