@@ -46,12 +46,14 @@ class StdioMCPClient(MCPClient):
         *,
         timeout: float = 30.0,
         max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES,
+        env: dict[str, str] | None = None,
     ) -> None:
         if timeout <= 0:
             raise ValueError("timeout 必须大于 0")
         self.command = command
         self.timeout = timeout
         self.max_frame_bytes = max_frame_bytes
+        self.env = env
         self._proc: subprocess.Popen[bytes] | None = None
         self._next_id = 1
         self.server_info: dict[str, Any] = {}
@@ -70,6 +72,7 @@ class StdioMCPClient(MCPClient):
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
+            env=self.env,
             # Keep reads unbuffered so select() cannot miss a body prefetched
             # by BufferedReader while reading the headers.
             bufsize=0,

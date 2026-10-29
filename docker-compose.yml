@@ -9,8 +9,9 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-agentkernel}
       MYSQL_USER: ${MYSQL_USER:-agentkernel}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请设置 MYSQL_PASSWORD}
+    # 只绑本机回环，避免把 MySQL 暴露到局域网（P0-5）
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:

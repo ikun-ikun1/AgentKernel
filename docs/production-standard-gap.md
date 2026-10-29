@@ -74,8 +74,8 @@
 |---|---|---|---|---|---|---|
 | G-20 | 工具白名单 | ✅ 已达标 | `tools/contracts.py:67-73`；`runtime/agent.py:202-207`；`registry.py:104-110` | — | — | 保持；新增工具需 ADR |
 | G-21 | 禁止 shell/eval | ✅ 已达标 | `tools/builtin.py:17-53` AST 白名单；grep 无 `eval(`/`exec(`/`shell=True` | — | — | 保持 |
-| G-22 | 外部 MCP 命令 allowlist + env 清洗 | 任意 argv + 继承全环境（含 key/DSN） | `__main__.py:98-110`；`mcp/client.py:67-75` 未传 `env=` | **高**：显式传参即可执行任意本机命令并读到 key | **P0** | `shutil.which`+`realpath` 规范化后**逐项精确相等**才算命中（禁止前缀匹配）；负向用例：allowlist `/usr/bin/echo` 时 `/usr/bin/echo-evil`、`/usr/bin/../bin/echo`、指向根外的 symlink 均按规则判定；子进程 env 白名单；未命中拒绝启动 |
-| G-23 | 文档读取根目录白名单 + 大小/数量/深度限制 | 任意路径，`rglob` 不限深度（且跟随符号链接） | `__main__.py:54-66`；`rag/ingest.py:82-87`；`mcp/server.py:225-236` | **高**：可读 `/etc/passwd`、`~/.ssh` 并入库/回灌模型 | **P0** | `realpath + commonpath` 判定；`followlinks=False` + 逐文件复核；**负向用例**：`../` 穿越、根内 symlink→`/etc/passwd`、根内 symlink 目录→`/`、根外绝对路径各 1 条被拒 |
+| G-22 | 外部 MCP 命令 allowlist + env 清洗 | ✅ **已实现**：`--mcp-profile` 命名 profile + 精确 argv；解释器需 `allow_interpreter`；env 白名单剔除密钥；`--mcp` 需 `AGENTKERNEL_ALLOW_RAW_MCP=1` | `mcp/profiles.py`、`mcp/client.py`（`env=` 传入 Popen）、`__main__.py`；`mcp_profiles.example.toml` | 低：raw 逃生口仍存在（显式开启+警告），属运维决策 | — | 负向测试：未知 profile、相对命令、解释器未声明、`-c` 参数、env 泄漏 |
+| G-23 | 文档读取根目录白名单 + 大小/数量/深度限制 | ✅ **已实现**：CLI `/ingest`、`--docs` 与 MCP server 位置参数统一走 `utils/paths.py`；默认根 = cwd，可配 `AGENTKERNEL_DOC_ROOTS` | `utils/paths.py`、`__main__.py`、`mcp/server.py`、`.env.example` | 低：`/history` 文案未变；改根目录需要重启 | — | 负向测试 6 条：`../`、symlink 文件逃逸、symlink 目录不遍历、超大小、超数量、根外绝对路径 |
 | G-24 | 出站端点 allowlist | base_url 任意 | `utils/env.py:32-33`；`runtime/llm.py:35-40` | 中：key 可被发往任意主机 | P1 | 非 allowlist 启动即失败 |
 | G-25 | 会话级预算（token/调用数） | 只有 `MAX_STEPS=10` 与 256KB payload | `agent.py:59`；`json_repair.py:22`；`env.py:40-47` | 中：长会话/多工具可放大成本 | P1 | 超预算降级并记录 `budget_exceeded` |
 | G-26 | 参数长度/格式校验 | 手写 schema 子集，无 maxLength/pattern | `registry.py:47-97`；内置工具未设 `additionalProperties:false`（`builtin.py:76-85`） | 中：超长字符串直通 | P2 | 增加 maxLength/pattern；多余参数拒绝 |

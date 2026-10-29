@@ -71,7 +71,7 @@
 | 检索实验模块 | PDF/MD/TXT → 指纹与增量索引 → MySQL ngram 全文检索；可选 Embedding + Chroma 混合检索，结果保留页码与来源 |
 | MCP 两端 | server 用官方 SDK（可选）+ 纯 Python stdio 入口；client 自实现 `Content-Length` 帧 + JSON-RPC 2.0，支持初始化协商与 `structuredContent` |
 | LLM 调用 | OpenAI client 复用 + 超时/重试，失败统一 `LLMError` |
-| 外部 MCP | CLI `--mcp` 可接任意 stdio MCP server（工具名自动加前缀，类似 Claude SDK `mcp_servers`） |
+| 外部 MCP | CLI `--mcp-profile <name>` 接入 profile 声明的 stdio MCP server（精确 argv + env 白名单，工具名自动加前缀） |
 | 安全边界 | 计算器 AST 白名单、知识库只读、API Key 走 `.env` |
 
 ## 边界声明
@@ -191,8 +191,11 @@ python eval.py
 # 5. 单独启动 MCP stdio server（供自实现 client 或第三方 Host 调用）
 python -m agentkernel.mcp.server <文档路径>
 
-# 6. 接入任意外部 stdio MCP server（可多次 --mcp，工具名自动加 mcp0_/mcp1_ 前缀）
-python -m agentkernel --mcp "python -m agentkernel.mcp.server <文档路径>"
+# 6. 接入外部 stdio MCP server（P0-5：只接受 profile 声明的命令与精确 argv）
+#    复制 mcp_profiles.example.toml 为 mcp_profiles.toml，按需修改 command/args，然后：
+python -m agentkernel --mcp-profile kb-server
+#    文档入库默认只允许当前目录；需要别的目录时显式配置：
+#    AGENTKERNEL_DOC_ROOTS=/data/docs:/home/me/notes python -m agentkernel --docs /data/docs
 ```
 
 CLI 内置命令：`/new [标题]` 新建会话、`/sessions` 列出会话、`/history` 查看历史、`/ingest <路径>` 增量入库 PDF/MD/TXT、`/docs` 列出文档、`/logs` 查看工具调用审计、`/help` 帮助、`/quit` 退出。未安装向量依赖时仍使用持久化 MySQL ngram，不会退化为内存索引。

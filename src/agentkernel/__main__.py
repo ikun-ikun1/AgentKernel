@@ -11,12 +11,13 @@
 - /quit         退出（同 quit / exit / q）
 
 知识库工具（knowledge_query / knowledge_list）默认注册；用 `--docs` 启动时直接入库。
-用 `--mcp` 可接入任意外部 stdio MCP server（类似 Claude Agent SDK 的 mcp_servers 配置）。
+外部 MCP server 用 `--mcp-profile <name>` 接入（命令/参数/环境来自 profile 文件，不接受任意命令字符串）。
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shlex
 import sys
@@ -24,6 +25,12 @@ import uuid
 from pathlib import Path
 
 from agentkernel.mcp.client import InProcessMCPClient, MCPClient, StdioMCPClient, register_mcp_tools
+from agentkernel.mcp.profiles import (
+    McpProfileError,
+    build_child_env,
+    load_profiles,
+    select_profile,
+)
 from agentkernel.mcp.server import KnowledgeMCPServer
 from agentkernel.memory.base import RuntimeStore
 from agentkernel.memory.factory import create_runtime_store
@@ -33,6 +40,7 @@ from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
 from agentkernel.utils import env as env_utils
 from agentkernel.utils import observability
+from agentkernel.utils import paths as path_utils
 
 _SUPPORTED_SUFFIXES = {".pdf", ".md", ".markdown", ".txt"}
 
@@ -54,18 +62,12 @@ def _load_history(store: RuntimeStore, session_id: str) -> list[dict[str, str]]:
 
 
 def _ingest_path(kb: KnowledgeBase, path: str) -> int:
-    """入库一个文件或目录，返回入库文档数。"""
-    p = Path(path).expanduser()
-    if not p.exists():
-        print(f"路径不存在：{p}")
+    """入库一个文件或目录，返回入库文档数；路径越界/超限直接拒绝（P0-5）。"""
+    try:
+        files = path_utils.collect_documents(path)
+    except path_utils.PathBoundaryError as exc:
+        print(f"拒绝入库：{exc}")
         return 0
-    files = (
-        [p]
-        if p.is_file()
-        else sorted(
-            f for f in p.rglob("*") if f.is_file() and f.suffix.lower() in _SUPPORTED_SUFFIXES
-        )
-    )
     total = 0
     for file in files:
         try:
@@ -83,8 +85,10 @@ def _ingest_path(kb: KnowledgeBase, path: str) -> int:
 def _build_agent(
     docs: list[str] | None = None,
     kb_db: str | None = None,
-    mcp_commands: list[str] | None = None,
+    mcp_profiles: list[str] | None = None,
     kb_backend: str = "lexical",
+    profiles_file: str | None = None,
+    raw_mcp_commands: list[str] | None = None,
 ) -> tuple[Agent, Registry, KnowledgeBase, list[MCPClient]]:
     registry = Registry()
     builtin.register_builtin(registry)
@@ -103,23 +107,42 @@ def _build_agent(
     server = KnowledgeMCPServer(kb)
     register_mcp_tools(registry, InProcessMCPClient(server))
 
-    # 外部 stdio MCP server（类似 Claude SDK 的 mcp_servers 配置）
+    # 外部 stdio MCP server：只接受 profile 声明的命令（P0-5）
     external_clients: list[MCPClient] = []
-    for idx, cmd in enumerate(mcp_commands or []):
+    profiles = load_profiles(Path(profiles_file) if profiles_file else None)
+    for idx, name in enumerate(mcp_profiles or []):
+        try:
+            profile = select_profile(name, profiles)
+            client = StdioMCPClient([profile.command, *profile.args], env=build_child_env(profile))
+            prefix = f"mcp{idx}_"
+            n = register_mcp_tools(registry, client, prefix=prefix)
+            external_clients.append(client)
+            print(f"已接入 MCP profile {name}（{n} 个工具，前缀 {prefix}）")
+        except (McpProfileError, OSError, ValueError) as e:
+            print(
+                f"接入 MCP profile 失败（{name}）："
+                f"{type(e).__name__}: {observability.redact(str(e))}"
+            )
+
+    # 开发逃生口：任意命令必须显式开启，且跳过 argv profile 校验
+    for idx, cmd in enumerate(raw_mcp_commands or []):
+        if os.environ.get("AGENTKERNEL_ALLOW_RAW_MCP") != "1":
+            print("拒绝 --mcp：未启用 AGENTKERNEL_ALLOW_RAW_MCP=1（请改用 --mcp-profile）")
+            break
+        print("警告：--mcp 是开发逃生口，未经过 profile 校验")
         try:
             argv = shlex.split(cmd)
             if not argv:
                 continue
-            # 用户习惯写 `python -m ...` 时，用当前解释器（.venv）保证子进程环境一致
             if argv[0] in ("python", "python3"):
                 argv[0] = sys.executable
             client = StdioMCPClient(argv)
-            prefix = f"mcp{idx}_"
+            prefix = f"raw{idx}_"
             n = register_mcp_tools(registry, client, prefix=prefix)
             external_clients.append(client)
-            print(f"已接入外部 MCP server（{n} 个工具，前缀 {prefix}）：{cmd}")
-        except Exception as e:
-            print(f"接入外部 MCP server 失败（{cmd}）：{type(e).__name__}: {e}")
+            print(f"已接入外部 MCP server（{n} 个工具，前缀 {prefix}）")
+        except Exception as e:  # 接入失败不阻塞启动
+            print(f"接入外部 MCP server 失败：{type(e).__name__}: {observability.redact(str(e))}")
 
     return Agent(registry), registry, kb, external_clients
 
@@ -265,11 +288,24 @@ def main() -> None:
         help="知识库后端：lexical 默认稳定；hybrid/semantic 显式启用向量模型",
     )
     parser.add_argument(
+        "--mcp-profile",
+        action="append",
+        default=None,
+        metavar="NAME",
+        help="接入 profile 文件中声明的 MCP server（可多次）；不接受任意命令字符串",
+    )
+    parser.add_argument(
+        "--mcp-profiles-file",
+        default=None,
+        metavar="PATH",
+        help="profile 文件路径（默认 AGENTKERNEL_MCP_PROFILES 或 ~/.agentkernel/mcp_profiles.toml）",
+    )
+    parser.add_argument(
         "--mcp",
         action="append",
         default=None,
         metavar="CMD",
-        help='接入外部 stdio MCP server（可多次使用），如 --mcp "python -m agentkernel.mcp.server /tmp/docs"',
+        help="（开发逃生口）任意命令，需 AGENTKERNEL_ALLOW_RAW_MCP=1；生产请用 --mcp-profile",
     )
     parser.add_argument(
         "--migrate",
@@ -303,7 +339,8 @@ def main() -> None:
     except Exception as e:
         parser.exit(
             2,
-            f"Runtime 存储初始化失败：{type(e).__name__}: {e}\n"
+            f"Runtime 存储初始化失败：{type(e).__name__}: "
+            f"{observability.redact(str(e))}\n"
             "提示：安装 MySQL 依赖并启动 docker compose，或使用 --db sqlite:///:memory:\n",
         )
 
@@ -312,14 +349,16 @@ def main() -> None:
     )
     try:
         agent, _, kb, clients = _build_agent(
-            args.docs,
-            kb_dsn_or_path,
-            args.mcp,
-            args.kb_backend,
+            docs=args.docs,
+            kb_db=kb_dsn_or_path,
+            mcp_profiles=args.mcp_profile,
+            kb_backend=args.kb_backend,
+            profiles_file=args.mcp_profiles_file,
+            raw_mcp_commands=args.mcp,
         )
     except Exception as e:
         store.close()
-        parser.exit(2, f"初始化失败：{type(e).__name__}: {e}\n")
+        parser.exit(2, f"初始化失败：{type(e).__name__}: {observability.redact(str(e))}\n")
     if kb.dsn:
         print(f"知识库：{kb.backend_name}（MySQL：{_redact_dsn(kb.dsn)}）")
     else:
