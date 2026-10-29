@@ -10,7 +10,7 @@
 | [status.md](./status.md) | 测试/CI/镜像/观测现状、批一交付、未完成 Top 8、复现命令 |
 | [production-standard.md](./production-standard.md) | 项目画像、SLO 与错误预算、威胁模型、六门禁阈值、发布回滚、豁免 |
 | [production-standard-gap.md](./production-standard-gap.md) | 41+ 项差距：现状证据、风险、优先级、验收标准 |
-| [reports/](./reports/) | `make report` 生成的 SLO 周报与趋势索引（含真实 API 调用的 `2026-W44`） |
+| [reports/](./reports/) | `make report` 的 SLO 周报与索引（含真实 API 的 `2026-W44`）；`restore-drill-*.md` 为恢复演练证据 |
 
 ## 2. 设计与边界
 

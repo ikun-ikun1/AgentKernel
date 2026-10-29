@@ -9,7 +9,7 @@
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **100 个**：本地 `95 passed / 5 skipped`（无 MySQL DSN），CI `100 passed / 0 skipped` |
+| 测试 | **106 个**：本地 `100 passed / 5 skipped`（无 MySQL DSN），CI `105 passed / 0 skipped` |
 | 评测 | `python eval.py` → 5/5（mock，无需 API Key） |
 | 真实模型 | 6 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
@@ -70,6 +70,8 @@ AGENTKERNEL_LOG=~/.agentkernel/logs/agentkernel.jsonl python -m agentkernel
 make report       # SLO 周报 → docs/reports/
 make trace        # 按 trace_id 打印 span 树
 make prune        # 日志 14 天 / DB 90 天（--dry-run 可先看）
+make backup       # MySQL 逻辑备份（保留 7 份，口令走 env）
+make restore-drill # 恢复最新备份到临时库并校验行数（产报告）
 ```
 
 CLI 内置命令：`/new`、`/sessions`、`/history`、`/ingest <路径>`、`/docs`、`/logs`、`/help`、`/quit`。
@@ -101,7 +103,7 @@ AgentKernel/
 ├── src/agentkernel/         # runtime / tools / memory / rag / mcp / utils
 ├── migrations/versions/     # 0001 初始 schema、0002 tool_logs.duration_ms
 ├── scripts/                 # report / trace / prune
-├── tests/                   # 100 个测试（含 MySQL 集成、迁移往返、D4 多进程复现）
+├── tests/                   # 106 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练）
 └── docs/                    # status、production-standard(-gap)、架构、历史里程碑、附录
 ```
 
