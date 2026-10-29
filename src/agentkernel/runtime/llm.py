@@ -11,13 +11,19 @@
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Any
 
 from agentkernel.utils import env
 from agentkernel.utils.errors import LLMError
+from agentkernel.utils.observability import Usage
 
 _client: Any = None
 _client_env: tuple[str, str, str] | None = None
+
+# 最近一次调用的 usage/model，供 Agent 记账；chat 的返回签名保持不变（测试与 eval 会 monkeypatch chat）
+_last_usage: ContextVar[Usage | None] = ContextVar("agentkernel_last_usage", default=None)
+_last_model: ContextVar[str | None] = ContextVar("agentkernel_last_model", default=None)
 
 
 def _get_client() -> Any:
@@ -59,8 +65,30 @@ def chat(
         if max_tokens is not None:
             kwargs["max_tokens"] = max_tokens
         resp = _get_client().chat.completions.create(**kwargs)
+        _last_model.set(str(kwargs["model"]))
+        raw_usage = getattr(resp, "usage", None)
+        if raw_usage is None:
+            _last_usage.set(None)
+        else:
+            _last_usage.set(
+                Usage(
+                    prompt_tokens=int(getattr(raw_usage, "prompt_tokens", 0) or 0),
+                    completion_tokens=int(getattr(raw_usage, "completion_tokens", 0) or 0),
+                )
+            )
         return resp.choices[0].message.content or ""
     except LLMError:
         raise
     except Exception as e:
         raise LLMError(f"模型调用失败：{e}") from e
+
+
+def pop_usage() -> Usage | None:
+    """取走并清空最近一次调用的 usage（mock 掉 chat 时返回 None）。"""
+    usage = _last_usage.get()
+    _last_usage.set(None)
+    return usage
+
+
+def last_model() -> str | None:
+    return _last_model.get()

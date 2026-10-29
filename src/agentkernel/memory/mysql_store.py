@@ -14,6 +14,7 @@ from typing import Any
 
 from agentkernel.memory.base import RuntimeStore
 from agentkernel.utils.errors import AgentKernelError
+from agentkernel.utils.observability import redact, truncate
 
 
 class MySQLStoreError(AgentKernelError):
@@ -268,8 +269,10 @@ class MySQLRuntimeStore(RuntimeStore):
                             {
                                 "session_id": session_id,
                                 "tool_name": tool_name,
-                                "input_json": _json.dumps(action_input, ensure_ascii=False),
-                                "output_json": result,
+                                "input_json": truncate(
+                                    redact(_json.dumps(action_input, ensure_ascii=False))
+                                ),
+                                "output_json": truncate(redact(result)),
                                 "success": 1 if success else 0,
                                 "created_at": now,
                             },

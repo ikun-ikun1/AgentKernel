@@ -198,16 +198,16 @@
 
 | 要求 | 阈值 / 做法 | 现状证据 |
 |---|---|---|
-| 结构化日志 | JSONL，一行一条；每轮 1 条 `turn`、每次工具 1 条 `tool` | ❌ 全仓 0 处 `import logging`；只有 `print()`（`__main__.py` 17 处） |
+| 结构化日志 | JSONL，一行一条；每轮 1 条 `turn`、每次工具 1 条 `tool` | ✅ `utils/observability.py` + `runtime/agent.py`；9 个测试覆盖字段表/脱敏/成本/审计失败 |
 | 字段表 | **14 字段 = 12 核心 + 2 条件**。核心（恒有）：`ts, level, event, trace_id, session_id_hash, turn_id, step, latency_ms, model, tokens{in,out}, success, error_type`；条件：`tool_name`（仅 tool 事件）、`cost_usd`（仅 turn/llm 事件） | ❌ 无（`llm.py:60-61` 丢弃 `resp.usage`） |
-| Trace | 每轮一个 `trace_id`；span：`turn` → `llm.chat` / `tool.run` / `store.*`；本地 100% 采样，落 `traces.jsonl`；OTLP 导出默认关闭 | ❌ 无 trace id（只有 JSON-RPC 自增 id，`client.py:87-92`） |
-| 指标 | 计数器：turns、tool_calls、tool_errors、json_repair_layers、budget_exceeded；直方图：turn_latency、tool_latency、tokens | ❌ 无指标；`duration_ms` 算出但被丢弃（`registry.py:133` → `base.py:36-45` 无字段） |
-| 脱敏 | 日志默认不落消息正文；debug 级别落正文也必须先过 secret 正则；`tool_logs` 落库前 redact + 截断 4KB | ❌ `tool_logs` 存完整入参与结果（`mysql_store.py:246-260`）；`/logs` 打印前 120 字（`__main__.py:193-197`） |
-| 审计失败可见 | 观察者异常必须计数 + 告警，不得静默 `pass` | ❌ `agent.py:102-106` 静默吞掉 |
-| 保留期 | 日志 14 天滚动；`tool_logs`/`messages` 90 天；eval 报告永久（入 git） | ❌ 无清理/滚动机制 |
-| 看板 | `make report` 生成 `docs/reports/YYYY-Www.md`（SLO 达成、成本、失败用例） | ❌ 无 |
+| Trace | 每轮一个 `trace_id`；span：`turn` → `llm.chat` / `tool.run` / `store.*`；本地 100% 采样，落 `traces.jsonl`；OTLP 导出默认关闭 | ⚠️ turn/tool 共享 `trace_id`+`turn_id`；无独立 span 与 OTLP 导出（批二） |
+| 指标 | 计数器：turns、tool_calls、tool_errors、json_repair_layers、budget_exceeded；直方图：turn_latency、tool_latency、tokens | ⚠️ `make report` 从 JSONL 聚合成功率/p50/p95/tokens/成本；无导出式直方图；`tool_logs` 仍无耗时列 |
+| 脱敏 | 日志默认不落消息正文；debug 级别落正文也必须先过 secret 正则；`tool_logs` 落库前 redact + 截断 4KB | ✅ 入库前 `redact+truncate`（SQLite/MySQL 两处）；日志字段同样过 redact；`/history` 仍按设计展示正文 |
+| 审计失败可见 | 观察者异常必须计数 + 告警，不得静默 `pass` | ✅ `audit_failures` 计数 + `audit_failed` 事件 |
+| 保留期 | 日志 14 天滚动；`tool_logs`/`messages` 90 天；eval 报告永久（入 git） | ❌ 仍无清理/滚动机制（P1） |
+| 看板 | `make report` 生成 `docs/reports/YYYY-Www.md`（SLO 达成、成本、失败用例） | ✅ `scripts/report.py` + `make report`；已本地验证生成周报 |
 
-**成本口径（必须版本化）**：定价表带版本号 `PRICING_TABLE_VERSION`（单位 USD / 1M tokens，来源与快照写入 `docs/pricing.md`，本版基线 2026-10-29）；模型不在表中 → `cost_usd=null` + `pricing_unknown=true` + 每个未知模型告警一次，**禁止静默算 0**（0 与「不知道」必须可区分，否则 S8 与预算告警全部失真）。
+**成本口径（必须版本化）**：定价表带版本号 `PRICING_TABLE_VERSION`（单位 USD / 1M tokens，来源与快照写入 `docs/pricing.md`，本版基线 2026-10-29）；模型不在表中 → `cost_usd=null` + 一条 `pricing_unknown` 告警事件（每个未知模型只报一次；不塞进 turn 的 14 字段表，避免字段膨胀），**禁止静默算 0**（0 与「不知道」必须可区分，否则 S8 与预算告警全部失真）。
 
 **加严点**：基线要求「trace + 结构化日志 + 指标 + 告警」，本项目在单机场景下**不引入** Langfuse/Grafana 作为前置条件，但要求同等信息的本地 JSONL + 周报；一旦接入在线服务，OTLP 导出即转为必需。
 
@@ -329,7 +329,7 @@
 | P0-1 | 无 CI / 无 `make check` / ruff 当前失败 | 可重复 + 可验证 | 建 `Makefile` + GitHub Actions；修 `docs/render_architecture.py:2` 的 I001 | `make check` 本地 0 退出；CI 首次全绿（含 MySQL service，0 skip） |
 | P0-2 | 无锁文件、镜像浮动、解释器不固定、硬编码口令 | 可重复 + 可控制 | `uv lock`；`.python-version`=3.11；MySQL pin digest；删 `factory.py:20`/`alembic.ini:4` 默认口令并改 `.env.example` | `uv sync --frozen` 在空环境成功；`grep -r agentkernel:agentkernel` 为空 |
 | P0-3 | 覆盖率不可测、golden set 只有 5 条 | 可验证 | 装 pytest-cov、设 `fail_under=80`、核心模块 `--cov-fail-under`；mock golden set 扩到 50 条并进 `make check` | 覆盖率报告 ≥80%；eval 50 条 ≥98%；两者都在 CI |
-| P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | 每轮 1 条 turn 日志含 **14 字段（12 核心 + 2 条件）**；`make report` 能出周报 |
+| P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已实现（待 PR）**：每轮 1 条 turn 含 14 字段；`make report` 能出周报；9 个测试覆盖 |
 | P0-5 | 三个高危控制缺口：MCP 任意命令+继承 key、文档任意路径、DSN 异常未脱敏 | 可控制 | env 白名单 + `AGENTKERNEL_MCP_ALLOW`；`AGENTKERNEL_DOC_ROOTS` + 大小/数量/深度限制；异常路径过 `_redact_dsn`；3306 绑 `127.0.0.1` | 越权读 `/etc/passwd` 被拒；子进程 `env` 无 key；compose 只绑本地 |
 
 ### 8.2 P1（P0 完成后 1–2 个迭代）

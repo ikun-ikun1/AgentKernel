@@ -13,6 +13,8 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
+from agentkernel.utils.observability import redact, truncate
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -170,8 +172,8 @@ class SQLiteStore:
                 (
                     session_id,
                     tool_name,
-                    _json.dumps(action_input, ensure_ascii=False),
-                    result,
+                    truncate(redact(_json.dumps(action_input, ensure_ascii=False))),
+                    truncate(redact(result)),
                     1 if success else 0,
                     now,
                 ),

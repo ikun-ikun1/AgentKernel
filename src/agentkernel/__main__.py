@@ -32,6 +32,7 @@ from agentkernel.runtime.agent import Agent
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
 from agentkernel.utils import env as env_utils
+from agentkernel.utils import observability
 
 _SUPPORTED_SUFFIXES = {".pdf", ".md", ".markdown", ".txt"}
 
@@ -133,6 +134,10 @@ def _repl(store: RuntimeStore, kb: KnowledgeBase, agent: Agent) -> None:
         store.log_tool_call(session_id, tool_name, action_input, result, ok)
 
     agent.on_tool_call = _log_tool_call
+    agent.session_id = session_id
+    agent.on_event = lambda event: observability.emit(
+        event["event"], **{k: v for k, v in event.items() if k != "event"}
+    )
 
     print("AgentKernel 已启动（/help 查看内置命令，Ctrl+C 中断）")
     history: list[dict[str, str]] = _load_history(store, session_id)
@@ -160,6 +165,7 @@ def _repl(store: RuntimeStore, kb: KnowledgeBase, agent: Agent) -> None:
                 session_id = uuid.uuid4().hex[:8]
                 store.create_session(session_id, arg.strip() or session_id)
                 history = _load_history(store, session_id)
+                agent.session_id = session_id
                 print(f"已新建会话 {session_id}（历史已清空）")
                 continue
             if cmd == "sessions":
@@ -264,6 +270,7 @@ def main() -> None:
     import os
 
     env_utils.load_env()
+    observability.configure()
 
     if args.migrate:
         from agentkernel.memory.factory import DEFAULT_MYSQL_DSN

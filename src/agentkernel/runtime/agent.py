@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -14,6 +15,7 @@ from typing import Any
 from agentkernel.runtime import llm
 from agentkernel.tools import contracts, json_repair
 from agentkernel.tools.registry import Registry
+from agentkernel.utils import observability
 
 SYSTEM_PROMPT = """你是一个能调用工具的 Agent。
 
@@ -52,6 +54,8 @@ class ContextConfig:
 
 # 工具调用观察者：在每次工具执行后回调，用于审计日志等（对应 agent-study Ch14 tool_logs）
 ToolObserver = Callable[[str, dict[str, Any], str], None]
+# 结构化事件观察者：每轮 1 条 turn、每次工具 1 条 tool（字段表见 utils/observability.py）
+EventObserver = Callable[[dict[str, Any]], None]
 
 
 class Agent:
@@ -61,52 +65,211 @@ class Agent:
         max_steps: int = 10,
         context: ContextConfig | None = None,
         on_tool_call: ToolObserver | None = None,
+        on_event: EventObserver | None = None,
+        session_id: str | None = None,
     ) -> None:
         self.registry = registry
         self.max_steps = max_steps
         self.context = context or ContextConfig()
         self.on_tool_call = on_tool_call
+        self.on_event = on_event
+        self.session_id = session_id
+        self.audit_failures = 0
+        self._step = 0
 
     def run(self, user_input: str, history: list[dict[str, str]]) -> str:
-        """跑一轮对话，就地更新 history。返回最终回答。"""
+        """跑一轮对话，就地更新 history。返回最终回答。
+
+        观测：每轮发 1 条 `turn` 事件（含 trace/turn id、步数、token、成本），
+        工具事件由 `_execute_tool_call` 发出；观测失败不影响主流程。
+        """
+        trace_id = observability.new_trace_id()
+        turn_id = observability.new_turn_id()
+        started = time.perf_counter()
+        stats: dict[str, Any] = {
+            "steps": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "usage_seen": False,
+            "model": None,
+        }
         history.append({"role": "user", "content": user_input})
 
-        for _ in range(self.max_steps):
-            raw = llm.chat(self._build_messages(history))
-            action = self._parse(raw)
+        try:
+            for step in range(1, self.max_steps + 1):
+                self._step = step
+                stats["steps"] = step
+                llm.pop_usage()
+                raw = llm.chat(self._build_messages(history))
+                usage = llm.pop_usage()
+                if usage is not None:
+                    stats["usage_seen"] = True
+                    stats["prompt_tokens"] += usage.prompt_tokens
+                    stats["completion_tokens"] += usage.completion_tokens
+                model = llm.last_model()
+                if model:
+                    stats["model"] = model
+                action = self._parse(raw)
 
-            if isinstance(action, contracts.FinalAnswer):
-                history.append({"role": "assistant", "content": action.text})
-                return action.text
+                if isinstance(action, contracts.FinalAnswer):
+                    history.append({"role": "assistant", "content": action.text})
+                    self._emit_turn(
+                        trace_id, turn_id, stats, started, success=True, error_type=None
+                    )
+                    return action.text
 
-            if isinstance(action, contracts.ToolCall):
+                if isinstance(action, contracts.ToolCall):
+                    history.append({"role": "assistant", "content": raw})
+                    self._execute_tool_call(action, history, trace_id, turn_id)
+                    continue  # 回到循环，让模型基于观察结果继续
+
+                if isinstance(action, contracts.ToolCalls):
+                    # 多工具调用：当前按顺序执行（模型应按无依赖关系来给多个调用）。
+                    # 若要做真并行，可在无依赖时用线程池；教学版保持串行以便解释观察回灌顺序。
+                    history.append({"role": "assistant", "content": raw})
+                    for call in action.calls:
+                        self._execute_tool_call(call, history, trace_id, turn_id)
+                    continue
+
+                # 解析失败 → 降级为纯文本回答（OpenClaw：不能晋升为工具调用就当普通文本）
                 history.append({"role": "assistant", "content": raw})
-                self._execute_tool_call(action, history)
-                continue  # 回到循环，让模型基于观察结果继续
+                self._emit_turn(
+                    trace_id,
+                    turn_id,
+                    stats,
+                    started,
+                    success=True,
+                    error_type="parse_fallback",
+                )
+                return raw
+        except Exception as exc:
+            self._emit_turn(
+                trace_id,
+                turn_id,
+                stats,
+                started,
+                success=False,
+                error_type=type(exc).__name__,
+            )
+            raise
 
-            if isinstance(action, contracts.ToolCalls):
-                # 多工具调用：当前按顺序执行（模型应按无依赖关系来给多个调用）。
-                # 若要做真并行，可在无依赖时用线程池；教学版保持串行以便解释观察回灌顺序。
-                history.append({"role": "assistant", "content": raw})
-                for call in action.calls:
-                    self._execute_tool_call(call, history)
-                continue
-
-            # 解析失败 → 降级为纯文本回答（OpenClaw：不能晋升为工具调用就当普通文本）
-            history.append({"role": "assistant", "content": raw})
-            return raw
-
+        self._emit_turn(trace_id, turn_id, stats, started, success=False, error_type="MaxSteps")
         return "（达到最大步数上限，未完成）"
 
-    def _execute_tool_call(self, call: contracts.ToolCall, history: list[dict[str, str]]) -> None:
-        """执行单个工具调用，观察结果回灌历史，并触发审计观察者。"""
+    def _execute_tool_call(
+        self,
+        call: contracts.ToolCall,
+        history: list[dict[str, str]],
+        trace_id: str,
+        turn_id: str,
+    ) -> None:
+        """执行单个工具调用，观察结果回灌历史，并触发审计观察者与 tool 事件。"""
+        started = time.perf_counter()
         result = self.registry.run(call.action, call.action_input)
+        latency_ms = round((time.perf_counter() - started) * 1000, 1)
         if self.on_tool_call is not None:
             try:
                 self.on_tool_call(call.action, call.action_input, result)
             except Exception:
-                pass  # 审计失败不影响主流程
+                # 审计失败不影响主流程，但必须可见（禁止静默 pass）
+                self.audit_failures += 1
+                self._emit(
+                    self._base_event(
+                        "audit_failed",
+                        trace_id,
+                        turn_id,
+                        latency_ms=0.0,
+                        model=None,
+                        tokens=None,
+                        success=False,
+                        error_type="AuditError",
+                    )
+                )
+        self._emit(
+            self._base_event(
+                "tool",
+                trace_id,
+                turn_id,
+                latency_ms=latency_ms,
+                model=None,
+                tokens=None,
+                success=bool(getattr(result, "success", True)),
+                error_type=getattr(result, "error_type", None),
+                tool_name=call.action,
+            )
+        )
         history.append({"role": "user", "content": f"工具 {call.action} 返回：{result}"})
+
+    # ---- 观测 ----
+
+    def _base_event(
+        self,
+        event: str,
+        trace_id: str,
+        turn_id: str,
+        *,
+        latency_ms: float,
+        model: str | None,
+        tokens: dict[str, int] | None,
+        success: bool,
+        error_type: str | None,
+        tool_name: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "event": event,
+            "trace_id": trace_id,
+            "session_id_hash": observability.hash_session(self.session_id),
+            "turn_id": turn_id,
+            "step": self._step,
+            "latency_ms": latency_ms,
+            "model": model,
+            "tokens": tokens,
+            "success": success,
+            "error_type": error_type,
+        }
+        if tool_name is not None:
+            payload["tool_name"] = tool_name
+        return payload
+
+    def _emit_turn(
+        self,
+        trace_id: str,
+        turn_id: str,
+        stats: dict[str, Any],
+        started: float,
+        *,
+        success: bool,
+        error_type: str | None,
+    ) -> None:
+        usage = (
+            observability.Usage(
+                prompt_tokens=int(stats["prompt_tokens"]),
+                completion_tokens=int(stats["completion_tokens"]),
+            )
+            if stats["usage_seen"]
+            else None
+        )
+        tokens = {"in": usage.prompt_tokens, "out": usage.completion_tokens} if usage else None
+        payload = self._base_event(
+            "turn",
+            trace_id,
+            turn_id,
+            latency_ms=round((time.perf_counter() - started) * 1000, 1),
+            model=stats["model"],
+            tokens=tokens,
+            success=success,
+            error_type=error_type,
+        )
+        payload["cost_usd"] = observability.cost_usd(stats["model"], usage)
+        self._emit(payload)
+
+    def _emit(self, payload: dict[str, Any]) -> None:
+        if self.on_event is None:
+            return
+        try:
+            self.on_event(payload)
+        except Exception:  # 观测失败不得影响主流程
+            self.audit_failures += 1
 
     def _build_messages(self, history: list[dict[str, str]]) -> list[dict[str, str]]:
         # 注意：SYSTEM_PROMPT 含 JSON 示例的 {} 括号，不能用 str.format，
