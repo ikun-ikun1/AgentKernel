@@ -42,7 +42,7 @@ D4 已确认「需要支持多进程 / 多客户端同时写同一会话」；PR
 
 - 新增 `tests/test_mysql_multiprocess.py`：**20 进程 × 20 次**写同一会话，断言
   1. 无进程异常退出；2. 消息数 = 400（无丢失/重复）；3. `sessions.updated_at == max(messages.created_at)`。
-- PR 1 中该用例在当前实现上应为**失败**（用 `xfail(strict=True)` 记录，CI 保持绿）；PR 2 移除 xfail 并转绿。
+- PR 1 用 `xfail(strict=True)` 记录失败（CI 保持绿）；PR 2 已移除 xfail，20×20 用例转绿并通过 CI。
 - 线程级用例（`test_mysql_integration.py:85`）保留，但不再作为跨进程证据。
 
 ## 回滚
