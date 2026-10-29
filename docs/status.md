@@ -10,7 +10,7 @@
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 测试 | **100 个测试**；本地 `95 passed / 5 skipped`（无 DSN），CI `99 passed + 1 xfailed / 0 skipped`（xfail 是 D4 复现，PR 2 转绿） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `python eval.py` → 5/5 | 本机实测 |
-| 真实模型 | 6 次 live API 调用，tokens/cost 均非空 | [reports/2026-W44.md](./reports/2026-W44.md) |
+| 真实模型 | 7 次 live 调用（含 `make test-live` 冒烟），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 3 个 job：`test`（MySQL 8 service）、`eval-minimal`、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 <400MB | `make docker-smoke` |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 迁移 0001/0002 | `make check` + `test_migrations.py` |
@@ -19,10 +19,11 @@
 ## 2. 测试与门禁
 
 ```bash
-make check        # lint + format-check + mypy + pytest + eval(mock)
+make check        # lint + format-check + mypy + pytest(排除 live) + eval(mock)
 make report       # 从 JSONL 生成 SLO 周报（docs/reports/）
 make trace        # 按 trace_id 打印 span 树
 make prune        # 日志 14 天 / DB 90 天（支持 dry-run）
+make test-live    # 真实 API 冒烟：1 次调用（需 AGENTKERNEL_LIVE_API=1 与 DEEPSEEK_API_KEY）
 make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 ```
 

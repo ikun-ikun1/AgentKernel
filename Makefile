@@ -20,7 +20,7 @@ DOCKER_IMAGE ?= agentkernel:local
 # 本地 docker.io 不可达时可覆盖，例如 make docker-build DOCKER_BASE=docker.m.daocloud.io/library/python:3.11-slim
 DOCKER_BASE ?= python:3.11.15-slim
 
-.PHONY: help require-env sync sync-all format format-check lint type test eval report trace prune check docker-build docker-smoke docker-nonroot docker-size
+.PHONY: help require-env sync sync-all format format-check lint type test test-live eval report trace prune check docker-build docker-smoke docker-nonroot docker-size
 
 help:
 	@echo "make sync         安装锁定依赖（uv sync --frozen $(EXTRAS)）"
@@ -30,7 +30,8 @@ help:
 	@echo "make format-check 校验格式（check 已包含）"
 	@echo "make lint         ruff check"
 	@echo "make type         mypy src"
-	@echo "make test         pytest -q -rs $(PYTEST_ARGS)"
+	@echo "make test         pytest -q -rs -m 'not live' $(PYTEST_ARGS)"
+	@echo "make test-live    真实 API 冒烟（需 AGENTKERNEL_LIVE_API=1 与 DEEPSEEK_API_KEY，1 次调用）"
 	@echo "make eval         eval.py（mock，无需 API Key）"
 	@echo "make report       从 JSONL 日志生成 SLO 周报（AGENTKERNEL_LOG 指向日志文件）"
 	@echo "make trace        按 trace_id 打印 span 树（TRACE_ID 可选）"
@@ -60,7 +61,10 @@ type:
 	$(PY) -m mypy src
 
 test:
-	$(PY) -m pytest -q -rs $(PYTEST_ARGS)
+	$(PY) -m pytest -q -rs -m "not live" $(PYTEST_ARGS)
+
+test-live:
+	AGENTKERNEL_LIVE_API=1 $(PY) -m pytest -q -m live $(PYTEST_ARGS)
 
 eval:
 	$(PY) eval.py

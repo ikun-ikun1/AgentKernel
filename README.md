@@ -48,8 +48,10 @@
 # 1. 安装（锁定依赖；pdf 是轻量 PDF 解析，rag/mcp 按需）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 
-# 2. 一键检查：ruff + format + mypy + pytest + eval(mock)
+# 2. 一键检查：ruff + format + mypy + pytest(排除 live) + eval(mock)
 make check
+# 可选：真实 API 冒烟（1 次调用，约 $0.0002）
+AGENTKERNEL_LIVE_API=1 make test-live
 
 # 3. 起 MySQL（本地开发）
 docker compose up -d mysql

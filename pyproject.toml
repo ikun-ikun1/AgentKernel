@@ -47,6 +47,9 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "live: 真实 API 调用（默认排除；用 make test-live 显式运行）",
+]
 
 [tool.ruff]
 line-length = 100
