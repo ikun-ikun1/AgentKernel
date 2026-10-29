@@ -85,8 +85,9 @@
 | # | 标准要求（§4.5） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
 | G-28 | 测试全绿 | ✅ 65 passed, 3 skipped | `.venv/bin/python -m pytest -q` → `65 passed, 3 skipped in 0.19s` | — | — | 保持；CI 中 0 skip |
-| G-29 | MySQL 集成测试必须真跑 | 默认 skip（需 `AGENTKERNEL_MYSQL_TEST_DSN`） | `tests/test_mysql_integration.py:13-15,85-107` | 高：MySQL 路径常态无验证（含并发写） | **P0** | CI service container 提供 DSN，3 个用例必跑 |
-| G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | 无覆盖率工具、无阈值 | `pytest --cov` → `unrecognized arguments`；`pyproject.toml` 无 `[tool.coverage]`；3 个模块从未被 import（`__main__.py`、`memory/mysql_store.py`、`rag/mysql_store.py`） | 高：改坏关键路径无人知 | **P0** | 覆盖率报告 + `fail_under=80` 进 `make check` |
+| G-29 | MySQL 集成测试必须真跑 | 默认 skip（需 `AGENTKERNEL_MYSQL_TEST_DSN`） | `tests/test_mysql_integration.py:13-15,85-107` | 高：MySQL 路径常态无验证（含并发写） | **P0** | CI service container 提供 DSN，3 个用例必跑；PDF 用例用轻量 `pdf` extra（仅 pymupdf，不装 torch）真跑；`grep -q SKIPPED` 命令级强制 0 skip |
+| G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | 无覆盖率工具、无阈值；**P0-1 未包含 pytest-cov，明确延后批二**（不要当成已装） | `pytest --cov` → `unrecognized arguments`；`pyproject.toml` 无 `[tool.coverage]`；`uv.lock` 中无 pytest-cov；3 个模块从未被 import（`__main__.py`、`memory/mysql_store.py`、`rag/mysql_store.py`） | 高：改坏关键路径无人知 | **P0（批二）** | 补 `pytest-cov` + 覆盖率报告 + `fail_under=80` 进 `make check`；在批二开工前不得声称「覆盖率已达标」 |
+| G-44 | 干净环境安装验收（P0-1 遗留） | **未完成**：临时 worktree 中 `uv sync --frozen --extra dev --extra mysql` 600s 超时（PyPI ~78KB/s），`.venv` 不完整，不能据此判断代码问题 | review 记录（2026-10-29，用户本地复核） | 中：lock 与安装树尚未被干净环境证明 | **P0**（由 P0-2 CI 首次绿关闭） | CI 首次全绿即关闭；关闭前所有报告必须写「干净环境未验证」 |
 | G-31 | 静态检查 0 退出 | ruff 1 error（I001）；mypy ✅ | `ruff check .` → `Found 1 error`，`docs/render_architecture.py:2`；`mypy src` → `Success: no issues found in 25 source files` | 中：门禁红着就没人当真 | **P0** | `ruff check`/`format --check` 0 退出 |
 | G-32 | golden set ≥50（mock）/≥20（live） | 5 条 mock + 4 条 live | `eval.py:59-171,174-223` | 高：S1/S2 无统计意义 | **P0** | 50/20 条，进 `make check` 与 CI |
 | G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |
@@ -128,7 +129,9 @@
 
 ## 8. 路线图（P0 / P1 / P2）
 
-### 8.1 P0（5 项，未完成不得宣称「按生产标准」）
+### 8.1 P0（批一 5 项，未完成不得宣称「按生产标准」）
+
+> 批一范围 = 下表 5 项。覆盖率门槛 + golden set 50 条、跨进程并发（D4）排在**批二**；`pytest-cov` 随批二补，批一不装。
 
 | 序 | 任务 | 覆盖差距 | 预估 | 依赖 |
 |---|---|---|---|---|
