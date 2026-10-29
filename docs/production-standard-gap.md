@@ -16,7 +16,7 @@
 | 2 | 可观测 | **PARTIAL（接近完成）** | 已实现 JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`；仍缺 OTLP 导出与定时调度 | G-07…G-13、G-47 |
 | 3 | 可回滚 | **PARTIAL** | 0001 迁移有对称 downgrade；但无迁移测试、无备份/恢复演练、DDL 双轨（启动 `create_all`）、无 tag/wheel | G-14…G-19 |
 | 4 | 可控制 | **PARTIAL** | 工具白名单、无 shell/eval、AST 计算器、只读 KB 已达标；但外部 MCP 任意命令继承 key、`/ingest` 无根目录、无 token 预算、base_url 无 allowlist | G-20…G-27 |
-| 5 | 可验证 | **PARTIAL** | CI 已全绿（99 passed + 1 xfailed / 0 skipped；xfail 为 D4 复现）+ mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、无 fuzz/扫描 | G-30…G-34 |
+| 5 | 可验证 | **PARTIAL** | CI 已全绿（100 passed / 0 skipped）+ mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、无 fuzz/扫描 | G-30…G-34 |
 | 6 | 可运维 | **PARTIAL** | 有 ADR、有降级路径；但无 runbook、无 `make doctor`、无 SLO 周报、无事故模板、无 CHANGELOG/tag | G-35…G-40 |
 
 > 说明：`PARTIAL` 不等于「差不多可以上线」，只表示该门禁已有可复用的实现或文档，缺的是证据链与自动化。
@@ -87,7 +87,7 @@
 
 | # | 标准要求（§4.5） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
-| G-28 | 测试全绿 | ✅ 本地 95 passed/5 skipped；**CI 99 passed + 1 xfailed / 0 skipped**（100 个测试函数；xfail 是 D4 复现，PR 2 转绿） | 本地 `.venv/bin/python -m pytest -q`；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
+| G-28 | 测试全绿 | ✅ 本地 95 passed/5 skipped；**CI 100 passed / 0 skipped**（100 个测试函数） | 本地 `.venv/bin/python -m pytest -q`；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
 | G-29 | MySQL 集成测试必须真跑 | ✅ CI 已真跑（MySQL 8.0.46 service + DSN，0 skip） | `.github/workflows/ci.yml` test job；PR #1 全绿合并 `20f2b0c`（用户确认；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 保持；PDF 用例由 `pdf` extra 真跑，`grep -q SKIPPED` 强制 0 skip |
 | G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | 无覆盖率工具、无阈值；**P0-1 未包含 pytest-cov，明确延后批二**（不要当成已装） | `pytest --cov` → `unrecognized arguments`；`pyproject.toml` 无 `[tool.coverage]`；`uv.lock` 中无 pytest-cov；3 个模块从未被 import（`__main__.py`、`memory/mysql_store.py`、`rag/mysql_store.py`） | 高：改坏关键路径无人知 | **P0（批二）** | 补 `pytest-cov` + 覆盖率报告 + `fail_under=80` 进 `make check`；在批二开工前不得声称「覆盖率已达标」 |
 | G-44 | 干净环境安装验收（P0-1 遗留） | ✅ **已关闭**：PR #1 CI 首次全绿（`uv sync --frozen --extra dev --extra mysql --extra pdf` 在干净 runner 完成；当时 68 passed / 0 skipped，当前 99/0） | PR #1 → merge commit `20f2b0c`；workflow `.github/workflows/ci.yml`（权限 `contents: read`）；用户确认 2026-10-29（CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 已关闭；后续干净环境验收复用 CI，不再用本地 worktree |
@@ -95,7 +95,7 @@
 | G-32 | golden set ≥50（mock）/≥20（live） | 5 条 mock + 4 条 live | `eval.py:59-171,174-223` | 高：S1/S2 无统计意义 | **P0** | 50/20 条，进 `make check` 与 CI |
 | G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |
 | G-34 | 安全扫描（gitleaks/semgrep/pip-audit） | 均未接入 | `ls .pre-commit-config.yaml`/`.gitleaks.toml`/`semgrep.yml` → 不存在 | 高：密钥与高危依赖靠人眼 | **P0** | 三类扫描 0 high，进 `make check` |
-| G-41 | 文档与实测一致 | ✅ **已修复**：README 重写为「100 个测试；本地 95/5、CI 99+1xfail」双口径；里程碑/面试材料加历史标注 | `README.md`、`docs/status.md`、`docs/README.md`；一致性由 `status.md` 单点维护 | — | — | 后续数字只改 `status.md`，其他文档引用它 |
+| G-41 | 文档与实测一致 | ✅ **已修复**：README 重写为「100 个测试；本地 95/5、CI 100/0」双口径；里程碑/面试材料加历史标注 | `README.md`、`docs/status.md`、`docs/README.md`；一致性由 `status.md` 单点维护 | — | — | 后续数字只改 `status.md`，其他文档引用它 |
 
 ---
 
@@ -134,7 +134,7 @@
 
 ### 8.1 P0（批一已执行；1/2/4/5 已完成，3 已改为 Dockerfile，覆盖率与 golden set 移入批二）
 
-> 批一范围 = 下表 5 项。覆盖率门槛 + golden set 50 条、跨进程并发（D4）排在**批二**；`pytest-cov` 随批二补，批一不装。
+> 批一范围 = 下表 5 项。覆盖率门槛 + golden set 50 条排在**批二**；`pytest-cov` 随批二补，批一不装。
 
 | 序 | 任务 | 覆盖差距 | 预估 | 依赖 |
 |---|---|---|---|---|
@@ -162,7 +162,7 @@ G-26（schema 长度/格式）、G-38（事故模板）、OTLP 导出、mypy `--
 cd /home/ikun/AgentKernel
 
 # 测试与静态检查
-.venv/bin/python -m pytest -q              # 95 passed, 5 skipped（有 DSN 时 99 passed + 1 xfailed）
+.venv/bin/python -m pytest -q              # 95 passed, 5 skipped（有 DSN 时 100 passed）
 .venv/bin/python -m ruff check .           # All checks passed!（EXIT=0）
 .venv/bin/python -m mypy src               # Success: no issues found in 25 source files
 .venv/bin/python -m pytest --cov=agentkernel --cov-report=term-missing -q   # 不支持 --cov（pytest-cov 未装）

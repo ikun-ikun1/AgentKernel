@@ -9,12 +9,17 @@ from __future__ import annotations
 import random
 import threading
 import time
+from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from agentkernel.memory.base import RuntimeStore
 from agentkernel.utils.errors import AgentKernelError
 from agentkernel.utils.observability import redact, truncate
+
+# ADR-002：跨进程写同一会话靠 sessions 行锁串行化；进程内锁只是优化（且有界）
+MAX_WRITE_ATTEMPTS = 3
+MAX_SESSION_LOCKS = 1024
 
 
 class MySQLStoreError(AgentKernelError):
@@ -49,17 +54,26 @@ class MySQLRuntimeStore(RuntimeStore):
         self._text = text
         self._sqlalchemy_error = SQLAlchemyError
         self._engine: Any = None
-        self._session_locks: dict[str, threading.Lock] = {}
+        self._session_locks: OrderedDict[str, threading.Lock] = OrderedDict()
         self._session_locks_guard = threading.Lock()
 
     def _session_lock(self, session_id: str) -> threading.Lock:
-        """同一会话的写操作在本进程内串行，避免并发 UPDATE 同一行导致死锁。"""
+        """进程内锁（有界 LRU）：仅减少同进程竞争，跨进程正确性由 DB 行锁保证。"""
         with self._session_locks_guard:
             lock = self._session_locks.get(session_id)
-            if lock is None:
-                lock = threading.Lock()
-                self._session_locks[session_id] = lock
+            if lock is not None:
+                self._session_locks.move_to_end(session_id)
+                return lock
+            lock = threading.Lock()
+            self._session_locks[session_id] = lock
+            if len(self._session_locks) > MAX_SESSION_LOCKS:
+                self._session_locks.popitem(last=False)
             return lock
+
+    @staticmethod
+    def _backoff(attempt: int) -> None:
+        """指数退避 + 抖动：0.05s → 0.1s（+ 0–50ms）。"""
+        time.sleep(0.05 * (2**attempt) + random.random() * 0.05)
 
     @property
     def engine(self) -> Any:
@@ -200,7 +214,6 @@ class MySQLRuntimeStore(RuntimeStore):
             conn.execute(text("DELETE FROM sessions WHERE id = :id"), {"id": session_id})
 
     def append_message(self, session_id: str, role: str, content: str) -> int:
-        now = _now()
         try:
             from sqlalchemy import text
             from sqlalchemy.exc import OperationalError
@@ -209,9 +222,18 @@ class MySQLRuntimeStore(RuntimeStore):
 
         last_exc: Exception | None = None
         with self._session_lock(session_id):
-            for attempt in range(3):
+            for attempt in range(MAX_WRITE_ATTEMPTS):
                 try:
                     with self.engine.begin() as conn:
+                        # ADR-002：先锁会话行，跨进程写同一会话在此串行化
+                        locked = conn.execute(
+                            text("SELECT id FROM sessions WHERE id = :id FOR UPDATE"),
+                            {"id": session_id},
+                        ).scalar()
+                        if locked is None:
+                            raise MySQLStoreError(f"会话不存在：{session_id}（先 create_session）")
+                        # 取锁后再取时间：保证 updated_at 不早于本条消息
+                        now = _now()
                         cursor = conn.execute(
                             text(
                                 "INSERT INTO messages (session_id, role, content, created_at) "
@@ -230,9 +252,9 @@ class MySQLRuntimeStore(RuntimeStore):
                         )
                         return int(cursor.lastrowid or 0)
                 except OperationalError as exc:
-                    if _is_deadlock(exc) and attempt < 2:
+                    if _is_deadlock(exc) and attempt < MAX_WRITE_ATTEMPTS - 1:
                         last_exc = exc
-                        time.sleep(0.05 * (attempt + 1) + random.random() * 0.05)
+                        self._backoff(attempt)
                         continue
                     raise
         assert last_exc is not None
@@ -270,7 +292,6 @@ class MySQLRuntimeStore(RuntimeStore):
     ) -> int:
         import json as _json
 
-        now = _now()
         try:
             from sqlalchemy import text
             from sqlalchemy.exc import OperationalError
@@ -279,9 +300,17 @@ class MySQLRuntimeStore(RuntimeStore):
 
         last_exc: Exception | None = None
         with self._session_lock(session_id):
-            for attempt in range(3):
+            for attempt in range(MAX_WRITE_ATTEMPTS):
                 try:
                     with self.engine.begin() as conn:
+                        # ADR-002：与消息写共用同一把会话行锁，保证同会话写顺序一致
+                        locked = conn.execute(
+                            text("SELECT id FROM sessions WHERE id = :id FOR UPDATE"),
+                            {"id": session_id},
+                        ).scalar()
+                        if locked is None:
+                            raise MySQLStoreError(f"会话不存在：{session_id}（先 create_session）")
+                        now = _now()
                         cursor = conn.execute(
                             text(
                                 "INSERT INTO tool_logs "
@@ -304,9 +333,9 @@ class MySQLRuntimeStore(RuntimeStore):
                         )
                         return int(cursor.lastrowid or 0)
                 except OperationalError as exc:
-                    if _is_deadlock(exc) and attempt < 2:
+                    if _is_deadlock(exc) and attempt < MAX_WRITE_ATTEMPTS - 1:
                         last_exc = exc
-                        time.sleep(0.05 * (attempt + 1) + random.random() * 0.05)
+                        self._backoff(attempt)
                         continue
                     raise
         assert last_exc is not None

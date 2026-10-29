@@ -27,7 +27,7 @@
 | A5 | 模型月度预算 ≤ $5；live eval 每周 ≤ 1 次、单次 ≤ 20 次调用 | 无成本统计代码可依据（`src/agentkernel/runtime/llm.py:60-61` 丢弃 usage），按个人项目经验设定 | 预算更小时：live eval 降为每月 1 次，SLO-S2 窗口改为 4 周 |
 | A6 | 数据仅为本人文档与对话，不含第三方个人数据、支付/医疗等受监管数据 | `docs/technical-scope-and-boundary.md:143-171` 安全边界自述 | 若接入他人文档：需重做数据分级、保留期、删除路径（第 5 节） |
 | A7 | 运行时统一 Python 3.11.x（`pyproject.toml:10` 声明 >=3.11，但本机同时存在 3.14.4） | `.venv/bin/python -V` → 3.11.15；`python3 -V` → 3.14.4；仓库里同时有 `cpython-311` 与 `cpython-314` 缓存 | 若允许 3.12+：需声明版本矩阵并在 CI 跑双版本 |
-| A8 | **必须支持多进程并发写同一会话**（已确认，见 D4） | 用户答复；现状仅进程内锁（`memory/mysql_store.py:50-60`） | 不满足即视为数据层缺陷；跨进程用例进 CI 后，线程级用例不再作为并发证据 |
+| A8 | **必须支持多进程并发写同一会话**（已确认，见 D4） | 用户答复；已由 ADR-002 的会话行锁实现（`memory/mysql_store.py`） | 跨进程用例进 CI（20×20）后，线程级用例不再作为并发证据 |
 
 ### 0.2 已确认决策（2026-10-29 用户答复，替代原「待确认问题」）
 
@@ -106,7 +106,7 @@
 | **S4** | 单轮延迟 | 一次 `agent.run()` 端到端（含工具执行）耗时 | mock 模式 p95 ≤ 300ms、p99 ≤ 800ms；live 模式 p95 ≤ 12s、p99 ≤ 25s | 每次 eval + 每周 20 轮真实使用采样 | live p95 > 15s 连续 2 周 → 告警（检查 provider 与重试） | ⚠️ 无计时埋点（`registry.py:126-133` 只算工具耗时且不落库） |
 | **S5** | 启动与恢复 | ①冷启动到可交互耗时 ②干净 clone → 首轮对话耗时 ③重启后消息条数/顺序一致性 | ① p95 ≤ 3s（DB 已就绪）② ≤ 15 分钟 ③ 100% 一致 | 每月演练 1 次 | ② 失败或 ③ 出现差异 → 阻断发布 | ⚠️ 无测量；`/history` 从 DB 重载（`__main__.py:212`）但无恢复测试 |
 | **S6** | 检索质量与入库一致性 | ①golden 查询 30 条的 Recall@5 ②回答引用命中率（含正确文档名）③重复入库新增 chunk 数 ④单文档（≤2MB）入库 p95 | ①≥0.85 ②≥90% ③=0 ④≤10s | 检索相关变更 + 每月 1 次 | ①<0.8 或 ②<85% → 阻断发布；③>0 → 按数据缺陷处理 | ⚠️ ③有幂等实现与用例（`rag/ingest.py:517-520`、`tests/test_rag.py:76-93`），①②无 golden 集 |
-| **S7** | 数据一致性与并发 | **多进程 × 20 并发写同一会话**：丢失/重复/死锁逃逸条数；迁移 upgrade→downgrade→upgrade 三轮成功率 | ①②③=0；迁移 100% | 每次发布 | 任意失败 → 阻断发布 | ⚠️ 迁移往返已有测试（CI）；**跨进程一致性未达标**（进程内锁无效，D4 批二）；线程级用例不作为证据 |
+| **S7** | 数据一致性与并发 | **多进程 × 20 并发写同一会话**：丢失/重复/死锁逃逸条数；迁移 upgrade→downgrade→upgrade 三轮成功率 | ①②③=0；迁移 100% | 每次发布 | 任意失败 → 阻断发布 | ✅ 迁移往返与多进程一致性用例均进 CI（20 进程 × 20 写，0 失败）；线程级用例不再作为唯一证据 |
 | **S8** | 成本与资源 | ①单轮 input/output token ②单会话累计 token ③每千轮成本 ④月度花费 | ①≤8k in / 2k out ②≤150k ③≤$3/千轮【待实测】④≤$5/月 | 每月 | ②>100k 或 ④>80% 预算 → 告警；④超额 → 停 live eval | ❌ `resp.usage` 从不读取（`llm.py:60-61`） |
 | **S9** | 安全 | ①密钥扫描高危数 ②SAST 高危数 ③依赖高危漏洞数 ④工具越权（读非授权根、执行 shell）次数 | ①=0 ②=0 ③=0 ④=0 | 每次发布 | 任意 >0 → 阻断发布 | ❌ 无 gitleaks/semgrep/pip-audit；④见 4.4 控制项 |
 
@@ -159,7 +159,7 @@
 | R7 | 迁移/数据损坏 | 双轨 DDL（`create_all` + Alembic）；downgrade 无测试；时间字段是字符串 | schema 漂移、降级失败、排序错乱 | 0001 有对称 downgrade（`migrations/versions/0001_initial.py:78-88`）；事务边界显式（`memory/mysql_store.py:129-136`） | **中**：`memory/factory.py:36` 启动即 `create_all`；无迁移测试；`created_at` 为 `String(64)`（`0001_initial.py:26-27`） |
 | R8 | 依赖漂移 | `>= ` 版本范围、无锁文件、镜像 tag `8.0` | 「昨天能跑今天不能跑」 | 无 | **高**：`pyproject.toml:11-34`、`docker-compose.yml:3` |
 | R9 | 成本失控 | 无 token 统计；模型可能循环调用工具 | 账单超支 | `MAX_STEPS`=10（`agent.py:59,72`）、payload 256KB 上限（`json_repair.py:22`） | **中**：无 token/成本计数，无会话级预算 |
-| R10 | 死锁（已修，但有边界） | 同会话并发写触发 MySQL 1213 | 写入失败 | 进程内 per-session 锁 + 3 次有界重试（`memory/mysql_store.py:26-30,50-60,174-201`）；提交 1597ec4 | **高（已升级）**：D4 确认需要多进程，当前锁仅进程内 → 不满足；`_session_locks` 永不淘汰 |
+| R10 | 跨进程并发写（D4） | 多进程写同一会话 | 死锁/丢失更新/updated_at 回退 | 事务内 `SELECT … FOR UPDATE` 锁会话行 + 有界 LRU 进程内锁 + 指数退避重试（`memory/mysql_store.py`）；ADR-002 | **低**：多进程 20×20 用例在 CI 通过；进程内锁仅作优化 |
 
 > 注：`73537e9` 是文档提交，死锁修复实际在 `1597ec4`（`git show --stat` 已核对）。对外表述以 1597ec4 为准。
 
@@ -243,13 +243,13 @@
 
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
-| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 个 MySQL 集成 + 1 个迁移往返）由 service container 真跑；PDF 用例由轻量 `pdf` extra（仅 pymupdf，不引入 torch）真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制失败 | ✅ 本地 `95 passed, 5 skipped`；CI `99 passed + 1 xfailed / 0 skipped`（3 集成 + 1 迁移往返；xfail 为 D4 复现，PR 2 转绿） |
+| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `95 passed, 5 skipped`；CI `100 passed / 0 skipped` |
 | 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ❌ 无 pytest-cov/coverage（`ModuleNotFoundError`）；**pytest-cov 明确排在批二**，批一不装、不声称达标；3 个模块在测试进程从未被 import |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy `Success: no issues found in 28 source files` |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
 | eval 门禁 | mock 100% 必过 5 条验收 + 总体 ≥ 98%；live ≥ 80%；进 `make check` 与 CI | ✅ CI 两个入口都跑：`test` job 的 `make check`（含 mock eval）与 `eval-minimal` job |
 | 模糊测试 | 500 条坏 JSON + 100 条非法帧，0 崩溃 0 挂起（单条 > 2s 视为挂起） | ❌ 无 fuzz 语料 |
-| 并发压测 | **多进程 × 20 并发写同一会话**，0 丢失 0 重复 0 死锁逃逸 | ❌ 未达标：现有线程级用例（`test_mysql_integration.py:85-107`）不能证明跨进程；D4 批二实现 |
+| 并发压测 | **多进程 × 20 并发写同一会话**，0 丢失 0 重复 0 死锁逃逸 | ✅ `tests/test_mysql_multiprocess.py`（20 进程 × 20 写）在 CI 通过；线程级用例保留但不作为证据 |
 | 安全扫描 | gitleaks 0、semgrep 0 high、pip-audit 0 high | ❌ 三者均未安装/未接入 |
 | 迁移验证 | upgrade/downgrade 往返 3 次 | ❌ 无 |
 | 负载口径 | 「2× 峰值」= 20 并发（见 2.3） | — |
@@ -281,7 +281,7 @@
 - **恢复演练**：每月 1 次，从备份恢复到临时库 → 校验行数与 `/history` 输出 → 记录耗时。
 - **迁移纪律**：只前滚兼容；每个迁移必须有 `downgrade` 且被 `test_migrations.py` 覆盖；禁止在应用启动时自动建表（消除双轨）。
 - **数据校验**：入库后 `SELECT COUNT(*) FROM chunks WHERE doc_id=?` 与 `chunk_count` 一致；重复入库后总 chunk 数不变。
-- **并发写口径（D4）**：同一会话的写必须**跨进程**正确。当前实现是进程内 `threading.Lock`（`memory/mysql_store.py:50-60`），只对单进程有效，**不满足**本项要求。达标方式二选一并写 ADR：①事务内 `SELECT ... FOR UPDATE` 锁会话行后再写（InnoDB 行锁，跨进程有效）②会话级唯一写入令牌/幂等键 + 冲突重试。验证必须是「多进程 × 并发写」用例，线程级用例不能替代。
+- **并发写口径（D4）**：同一会话的写必须**跨进程**正确。已按 ADR-002 实现：写事务内先 `SELECT … FOR UPDATE` 锁会话行，再写消息/工具日志并更新 `updated_at`；进程内锁降级为有界 LRU 优化；1213/1205 指数退避重试。验证是 `tests/test_mysql_multiprocess.py`（20 进程 × 20 写，CI 真跑）。
 
 ---
 
@@ -327,14 +327,14 @@
 | # | 差距 | 门禁 | 动作 | 验收 |
 |---|---|---|---|---|
 | P0-1 | 无锁文件 / 无 `make check` / ruff 失败 | 可重复 + 可验证 | `uv.lock`、`.python-version`、`Makefile`、修 I001、纯格式化提交 | ✅ 已合并（`uv lock --check` 0；`make check` 0；CI 全绿） |
-| P0-2 | 缺 CI 与 0-skip 强制（当时） | 可重复 + 可验证 | GitHub Actions：MySQL service、`uv lock --check`、`make check`、`grep SKIPPED`、`eval-minimal` | ✅ 已合并（PR #1；CI 99 passed + 1 xfailed / 0 skipped） |
+| P0-2 | 缺 CI 与 0-skip 强制（当时） | 可重复 + 可验证 | GitHub Actions：MySQL service、`uv lock --check`、`make check`、`grep SKIPPED`、`eval-minimal` | ✅ 已合并（PR #1；当前 CI 100 passed / 0 skipped） |
 | P0-3 | 无应用镜像、无体积门禁 | 可重复 | 多阶段 Dockerfile（非 root，core+mysql）、compose app profile、CI build + <400MB 门禁 | ✅ 已合并（PR #2；310MB、uid 10001、smoke EXIT=0） |
 | P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已合并**：每轮 1 条 turn 含 16 字段（12 核心 + 4 条件）；`make report/trace`；9 个观测测试 |
 | P0-5 | 三个高危控制缺口：MCP 任意命令+继承 key、文档任意路径、DSN 异常未脱敏 | 可控制 | env 白名单 + `AGENTKERNEL_MCP_ALLOW`；`AGENTKERNEL_DOC_ROOTS` + 大小/数量/深度限制；异常路径过 `_redact_dsn`；3306 绑 `127.0.0.1` | **已合并（PR #5）**：profile 精确 argv + env 白名单；realpath 文档根（含 symlink 逃逸）；异常脱敏；compose 绑回环；15 个安全测试 |
 
 ### 8.2 P1（批二，按风险排序）
 
-**D4 跨进程一致性（DB 级行锁/幂等键 + 多进程用例）**；备份/恢复演练脚本与首次演练（G-17/G-18）；双轨 DDL 消除（G-16）；MCP client 捕获 `UnicodeDecodeError` 与总时长上限；检索 golden 查询 30 条 + Recall@5 阈值；`make doctor`；runbook 6 场景；`/delete` 命令 + 90 天清理；semver tag + CHANGELOG；S8 预算执行（会话级 token 上限）。
+备份/恢复演练脚本与首次演练（G-17/G-18）；双轨 DDL 消除（G-16）；MCP client 捕获 `UnicodeDecodeError` 与总时长上限；检索 golden 查询 30 条 + Recall@5 阈值；`make doctor`；runbook 6 场景；`/delete` 命令 + 90 天清理；semver tag + CHANGELOG；S8 预算执行（会话级 token 上限）。
 
 ### 8.3 P2（有余力再做）
 
@@ -388,7 +388,7 @@ OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval �
 | 命令 | 输出 |
 |---|---|
 | `.venv/bin/python -V` / `python3 -V` | 3.11.15 / 3.14.4 |
-| `.venv/bin/python -m pytest -q` | `95 passed, 5 skipped`（无 DSN）；有 DSN `99 passed + 1 xfailed`（D4 复现） |
+| `.venv/bin/python -m pytest -q` | `95 passed, 5 skipped`（无 DSN）；有 DSN `100 passed` |
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `All checks passed!`（EXIT=0） |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 28 source files` |

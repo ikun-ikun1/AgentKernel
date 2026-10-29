@@ -2,7 +2,7 @@
 
 ## 状态
 
-Proposed（PR 1：设计与失败复现；实现见 PR 2）
+Accepted（PR 1 设计与失败复现；PR 2 实现：会话行锁 + 有界 LRU + 指数退避；多进程用例已转绿）
 
 ## 背景
 
@@ -12,7 +12,7 @@ ADR-001 把 MySQL 8 设为主存储后，`MySQLRuntimeStore.append_message` / `l
 - `sessions.updated_at` 由每个写事务各自计算后覆盖，最后提交者可能带着**更早**的时间戳，导致 `updated_at < max(messages.created_at)`；
 - 20 并发下仍可能触发 1213 死锁 / 1205 锁等待，现有重试只有 3 次、间隔 0.05–0.1s。
 
-D4 已确认「需要支持多进程 / 多客户端同时写同一会话」，因此当前实现判定为不达标（gap R10 高风险）。
+D4 已确认「需要支持多进程 / 多客户端同时写同一会话」；PR 1 时当前实现判定为不达标（gap R10 高风险），PR 2 按本 ADR 修复。
 
 ## 选项对比
 
@@ -42,7 +42,7 @@ D4 已确认「需要支持多进程 / 多客户端同时写同一会话」，�
 
 - 新增 `tests/test_mysql_multiprocess.py`：**20 进程 × 20 次**写同一会话，断言
   1. 无进程异常退出；2. 消息数 = 400（无丢失/重复）；3. `sessions.updated_at == max(messages.created_at)`。
-- PR 1 中该用例在当前实现上应为**失败**（用 `xfail(strict=True)` 记录，CI 保持绿）；PR 2 移除 xfail 并转绿。
+- PR 1 用 `xfail(strict=True)` 记录失败（CI 保持绿）；PR 2 已移除 xfail，20×20 用例转绿并通过 CI。
 - 线程级用例（`test_mysql_integration.py:85`）保留，但不再作为跨进程证据。
 
 ## 回滚
