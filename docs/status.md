@@ -28,11 +28,11 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 
 | 门禁 | 阈值（项目级） | 当前 |
 |---|---|---|
-| 可重复 | `uv.lock` + `.python-version` + `make sync` | ✅ |
+| 可重复 | `uv.lock` + `.python-version` + `make sync` | ✅ 基础 / **PARTIAL**：镜像 digest（G-45/G-46）、默认口令（G-06）批二 |
 | 可观测 | JSONL 16 字段 + span + 成本 + 周报 | ✅（缺 OTLP，G-47） |
-| 可回滚 | 迁移 expand-only + downgrade 往返测试 | ✅ |
-| 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 | ✅（P0-5 已合并） |
-| 可验证 | 0 skip、迁移往返、真实 MySQL | ✅ |
+| 可回滚 | 迁移 expand-only + downgrade 往返测试 | ✅ 迁移 / **PARTIAL**：备份与恢复演练（G-17/G-18）批二 |
+| 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 | ✅ 基础 / **PARTIAL**：G-24 base_url allowlist、G-25 会话预算、G-27 工具结果隔离 批二 |
+| 可验证 | 0 skip、迁移往返、真实 MySQL | ✅ 基础 / **PARTIAL**：G-30 覆盖率、G-32 golden set 50 条 批二 |
 | 可运维 | runbook / doctor / 定期恢复演练 | ❌ 批二（G-35/G-36/G-17） |
 
 ## 3. 批一交付（P0-1 ~ P0-5）
@@ -58,6 +58,8 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 6 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
 | 7 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
 | 8 | runbook / 恢复演练（G-17/G-18/G-35） | 事故无步骤、备份未验证 | 批二 |
+| 9 | 默认口令仍在代码里（G-06） | 弱口令可能被复制到真实部署 | 批二（小 PR） |
+| 10 | 镜像 digest 未固定（G-45/G-46） | tag 重推静默变内容 | 待网络可达 |
 
 ## 5. 文档地图
 
