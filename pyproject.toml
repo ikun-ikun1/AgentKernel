@@ -18,10 +18,16 @@ mysql = [
   "sqlalchemy>=2.0",
   "pymysql>=1.1",
   "alembic>=1.13",
+  # MySQL 8 caching_sha2_password / SSL 认证路径需要；CI 与生产环境统一装上，避免只在某些 auth 路径失败
+  "cryptography>=42",
 ]
 rag = [
   "chromadb>=0.4",
   "sentence-transformers>=2.2",
+  "pymupdf>=1.23",
+]
+# 轻量 PDF 解析依赖：CI 只装这个就能让 test_rag 的 PDF 用例真跑，不必引入 chromadb/torch
+pdf = [
   "pymupdf>=1.23",
 ]
 mcp = [

@@ -5,25 +5,27 @@
 # - 依赖安装一律走 lock：`make sync` = `uv sync --frozen --extra dev --extra mysql`。
 #   dev/mysql/rag/mcp 都是 [project.optional-dependencies]，因此用 --extra 而不是 --group。
 # - 格式门禁自 chore/format-baseline 起接入 `check`；格式化提交已写入 .git-blame-ignore-revs。
-# - 已知环境依赖：tests/test_rag.py:102 用 importorskip("fitz") 需要 PyMuPDF（rag extra），
-#   未安装时该用例 skip；P0-2 的 0-skip 策略需先拆 rag job 或装 rag extra（见 gap 文档 G-43 附近）。
+# - PDF 用例依赖 PyMuPDF：用轻量 pdf extra（只装 pymupdf，不引入 chromadb/torch），CI 因此可以 0 skip。
+# - CI 在 make check 之后用 `grep -q SKIPPED check.log` 强制 0 skip（pytest 有 skip 仍返回 0）。
 
 SHELL := /bin/bash
 
 PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 UV ?= uv
-EXTRAS ?= --extra dev --extra mysql
+EXTRAS ?= --extra dev --extra mysql --extra pdf
+PYTEST_ARGS ?=
 
 .PHONY: help require-env sync sync-all format format-check lint type test eval check
 
 help:
 	@echo "make sync         安装锁定依赖（uv sync --frozen $(EXTRAS)）"
+	@echo "make test PYTEST_ARGS='-k pdf'  透传 pytest 参数"
 	@echo "make sync-all     安装全部 extras（含 rag/mcp，体积大）"
 	@echo "make format       格式化（ruff format）"
 	@echo "make format-check 校验格式（check 已包含）"
 	@echo "make lint         ruff check"
 	@echo "make type         mypy src"
-	@echo "make test         pytest -q -rs"
+	@echo "make test         pytest -q -rs $(PYTEST_ARGS)"
 	@echo "make eval         eval.py（mock，无需 API Key）"
 	@echo "make check        lint + format-check + type + test + eval"
 
@@ -49,7 +51,7 @@ type:
 	$(PY) -m mypy src
 
 test:
-	$(PY) -m pytest -q -rs
+	$(PY) -m pytest -q -rs $(PYTEST_ARGS)
 
 eval:
 	$(PY) eval.py
