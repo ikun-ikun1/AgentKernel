@@ -1,0 +1,15 @@
+# MCP server profiles（P0-5）
+#
+# 规则：
+# - command 必须是 realpath 绝对路径（不允许相对路径、不允许符号链接指向别处）
+# - args 是**精确数组**：CLI 只能选择 profile 名，不能追加/修改参数
+# - 解释器（sh/python/python3/node/...）必须显式 allow_interpreter = true
+# - env_allowlist 缺省时只给 PATH/HOME/LANG/LC_ALL/PYTHONPATH/TMPDIR；
+#   DEEPSEEK_*/AGENTKERNEL_*/OPENAI_*/AWS_*/ANTHROPIC_* 永远不注入
+
+[[mcp_profiles]]
+name = "kb-server"
+command = "/usr/bin/python3.11"
+allow_interpreter = true
+args = ["-m", "agentkernel.mcp.server", "/srv/kb/docs"]
+env_allowlist = ["PATH", "HOME", "LANG", "PYTHONPATH"]

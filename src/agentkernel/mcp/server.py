@@ -11,11 +11,11 @@ import argparse
 import json
 import os
 import sys
-from pathlib import Path
 from typing import Any
 
 from agentkernel.rag.ingest import KnowledgeBase, SearchResult
 from agentkernel.tools.registry import validate_parameters
+from agentkernel.utils import paths as path_utils
 from agentkernel.utils.errors import AgentKernelError
 
 
@@ -223,17 +223,10 @@ def main(argv: list[str] | None = None) -> None:
         dsn=kb_dsn,
     )
     for path in parsed.paths:
-        path_obj = Path(path).expanduser()
-        if path_obj.is_dir():
-            files = sorted(
-                f
-                for f in path_obj.rglob("*")
-                if f.is_file() and f.suffix.lower() in {".pdf", ".md", ".markdown", ".txt"}
-            )
-        elif path_obj.is_file():
-            files = [path_obj]
-        else:
-            print(f"跳过不存在的路径：{path_obj}", file=sys.stderr)
+        try:
+            files = path_utils.collect_documents(path)
+        except path_utils.PathBoundaryError as exc:
+            print(f"拒绝入库：{exc}", file=sys.stderr)
             continue
         for file in files:
             try:

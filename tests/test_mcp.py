@@ -140,6 +140,8 @@ def test_stdio_client_against_self_hosted_server(tmp_path):
     env = dict(os.environ)
     src_path = str(project_root / "src")
     env["PYTHONPATH"] = src_path + os.pathsep + env.get("PYTHONPATH", "")
+    # P0-5：server 只允许读取 AGENTKERNEL_DOC_ROOTS 内的文档
+    env["AGENTKERNEL_DOC_ROOTS"] = str(tmp_path)
 
     client = StdioMCPClient(
         [
@@ -149,7 +151,8 @@ def test_stdio_client_against_self_hosted_server(tmp_path):
             "--kb-db",
             str(tmp_path / "kb"),
             str(doc),
-        ]
+        ],
+        env=env,
     )
     try:
         tools = client.list_tools()
