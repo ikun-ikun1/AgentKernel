@@ -11,6 +11,7 @@
     4. 知识库问答（走 MCP knowledge_query，回答带来源）
     5. 上下文保持（第 2 轮还记得第 1 轮要求）
 """
+
 from __future__ import annotations
 
 import argparse
@@ -106,9 +107,7 @@ def run_mock_cases() -> list[dict[str, str]]:
     )
 
     # 3. 坏 JSON 修复（单引号 + 带噪声）
-    mock = MockLLM(
-        ["好的，结果如下：{'action': 'final_answer', 'action_input': '修复成功'}"]
-    )
+    mock = MockLLM(["好的，结果如下：{'action': 'final_answer', 'action_input': '修复成功'}"])
     agent, _ = _build_agent()
     agent_module.llm.chat = mock  # type: ignore[attr-defined]
     try:

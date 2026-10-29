@@ -1,4 +1,5 @@
 """环境变量读取（.env），API Key 不硬编码。"""
+
 from __future__ import annotations
 
 import os
@@ -12,6 +13,7 @@ def load_env() -> None:
     """加载项目根目录的 .env（幂等，可重复调用）。"""
     try:
         from dotenv import load_dotenv
+
         load_dotenv(_PROJECT_ROOT / ".env")
     except ImportError:
         # 未装 python-dotenv 时，依赖用户自行 export 环境变量

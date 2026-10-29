@@ -1,4 +1,5 @@
 """内置工具：当前时间 + 安全计算器。"""
+
 from __future__ import annotations
 
 import ast

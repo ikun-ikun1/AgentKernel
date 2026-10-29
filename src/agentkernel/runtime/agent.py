@@ -4,6 +4,7 @@
 - truncate：超预算时保留「首条用户要求 + 最近消息」，防止第 10 轮把第 1 轮要求丢了。
 - compact：优先调模型做摘要压缩，把旧历史压成一条「对话摘要」；模型不可用时降级为 truncate。
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -43,9 +44,10 @@ COMPACT_PROMPT = """请把下面的对话历史压缩成一段 200 字以内的�
 @dataclass
 class ContextConfig:
     """上下文管理配置（字符预算，避免引入 tokenizer 依赖）。"""
-    max_history_chars: int = 8000        # 送入模型的历史消息字符上限
-    compact_trigger_chars: int = 6000     # 超过该值触发 compact 压缩
-    keep_recent_chars: int = 2000         # compact 时保留的最近消息字符数
+
+    max_history_chars: int = 8000  # 送入模型的历史消息字符上限
+    compact_trigger_chars: int = 6000  # 超过该值触发 compact 压缩
+    keep_recent_chars: int = 2000  # compact 时保留的最近消息字符数
 
 
 # 工具调用观察者：在每次工具执行后回调，用于审计日志等（对应 agent-study Ch14 tool_logs）
@@ -104,9 +106,7 @@ class Agent:
                 self.on_tool_call(call.action, call.action_input, result)
             except Exception:
                 pass  # 审计失败不影响主流程
-        history.append(
-            {"role": "user", "content": f"工具 {call.action} 返回：{result}"}
-        )
+        history.append({"role": "user", "content": f"工具 {call.action} 返回：{result}"})
 
     def _build_messages(self, history: list[dict[str, str]]) -> list[dict[str, str]]:
         # 注意：SYSTEM_PROMPT 含 JSON 示例的 {} 括号，不能用 str.format，
@@ -137,9 +137,7 @@ class Agent:
         if not history:
             return []
         first_user = history[0] if history[0]["role"] == "user" else None
-        budget = self.context.max_history_chars - (
-            len(first_user["content"]) if first_user else 0
-        )
+        budget = self.context.max_history_chars - (len(first_user["content"]) if first_user else 0)
         recent: list[dict[str, str]] = []
         used = 0
         for msg in reversed(history[1:] if first_user else history):
@@ -166,12 +164,8 @@ class Agent:
         if not older:
             return recent
         try:
-            compact_prompt = COMPACT_PROMPT.replace(
-                "{history}", self._format_for_compact(older)
-            )
-            summary = llm.chat(
-                [{"role": "user", "content": compact_prompt}]
-            ).strip()
+            compact_prompt = COMPACT_PROMPT.replace("{history}", self._format_for_compact(older))
+            summary = llm.chat([{"role": "user", "content": compact_prompt}]).strip()
         except Exception:
             return None
         if not summary:

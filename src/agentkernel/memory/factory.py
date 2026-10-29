@@ -6,6 +6,7 @@ DSN 规则：
 - 未传 DSN 时读取 `AGENTKERNEL_DB_URL`；仍未设置则使用 MySQL 默认 DSN
   （与 docker-compose.yml 保持一致），连接失败时由调用方决定是否降级 SQLite。
 """
+
 from __future__ import annotations
 
 import os

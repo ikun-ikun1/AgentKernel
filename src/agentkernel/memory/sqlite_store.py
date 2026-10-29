@@ -5,6 +5,7 @@
 - 默认库文件在 ~/.agentkernel/agentkernel.db；测试可传 :memory:。
 - 单连接 + 锁，CLI 场景够用；打开 `WAL` 降低读写互锁概率。
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -121,13 +122,10 @@ class SQLiteStore:
         now = _now()
         with self._lock:
             cur = self._conn.execute(
-                "INSERT INTO messages (session_id, role, content, created_at) "
-                "VALUES (?, ?, ?, ?)",
+                "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
                 (session_id, role, content, now),
             )
-            self._conn.execute(
-                "UPDATE sessions SET updated_at = ? WHERE id = ?", (now, session_id)
-            )
+            self._conn.execute("UPDATE sessions SET updated_at = ? WHERE id = ?", (now, session_id))
             self._conn.commit()
             return int(cur.lastrowid or 0)
 

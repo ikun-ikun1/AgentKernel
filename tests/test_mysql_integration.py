@@ -4,6 +4,7 @@
 用法示例：
     AGENTKERNEL_MYSQL_TEST_DSN=mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel_test pytest -q
 """
+
 from __future__ import annotations
 
 import os

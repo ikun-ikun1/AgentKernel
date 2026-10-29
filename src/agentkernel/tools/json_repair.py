@@ -10,6 +10,7 @@
 - `max_payload_bytes` payload 上限：超过 256KB 的候选直接放弃，防止把长正文误判成工具调用。
 - `repair_action` 一步完成「修复 + 契约分类」，是 OpenClaw `promote` 的 Python 简化版。
 """
+
 from __future__ import annotations
 
 import ast
@@ -112,9 +113,7 @@ def parse_json(
     return None
 
 
-def _actions_allowed(
-    obj: dict[str, Any], allowed_actions: set[str] | frozenset[str]
-) -> bool:
+def _actions_allowed(obj: dict[str, Any], allowed_actions: set[str] | frozenset[str]) -> bool:
     """允许清单过滤：单工具看 action，多工具看 actions 数组每一项。"""
     action = obj.get("action")
     if action == contracts.FINAL_ACTION:

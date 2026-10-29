@@ -1,4 +1,5 @@
 """Render architecture.mmd's production diagram without a browser runtime."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,7 +26,9 @@ def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def _box(draw: ImageDraw.ImageDraw, xy: tuple[int, int, int, int], label: str, fill: str, outline: str) -> None:
+def _box(
+    draw: ImageDraw.ImageDraw, xy: tuple[int, int, int, int], label: str, fill: str, outline: str
+) -> None:
     draw.rounded_rectangle(xy, radius=18, fill=fill, outline=outline, width=3)
     left, top, right, bottom = xy
     lines = label.split("\n")
@@ -40,7 +43,9 @@ def _box(draw: ImageDraw.ImageDraw, xy: tuple[int, int, int, int], label: str, f
         y += line_height
 
 
-def _arrow(draw: ImageDraw.ImageDraw, start: tuple[int, int], end: tuple[int, int], dashed: bool = False) -> None:
+def _arrow(
+    draw: ImageDraw.ImageDraw, start: tuple[int, int], end: tuple[int, int], dashed: bool = False
+) -> None:
     if dashed:
         x1, y1 = start
         x2, y2 = end
@@ -49,8 +54,16 @@ def _arrow(draw: ImageDraw.ImageDraw, start: tuple[int, int], end: tuple[int, in
             if index % 2 == 0:
                 a = index / max(1, steps)
                 b = min(1, (index + 1) / max(1, steps))
-                draw.line((x1 + (x2 - x1) * a, y1 + (y2 - y1) * a,
-                           x1 + (x2 - x1) * b, y1 + (y2 - y1) * b), fill=EDGE, width=3)
+                draw.line(
+                    (
+                        x1 + (x2 - x1) * a,
+                        y1 + (y2 - y1) * a,
+                        x1 + (x2 - x1) * b,
+                        y1 + (y2 - y1) * b,
+                    ),
+                    fill=EDGE,
+                    width=3,
+                )
     else:
         draw.line((*start, *end), fill=EDGE, width=4)
     x, y = end
@@ -61,7 +74,9 @@ def main() -> None:
     image = Image.new("RGB", (WIDTH, HEIGHT), BG)
     draw = ImageDraw.Draw(image)
     title_font = _font(38)
-    draw.text((60, 35), "AgentKernel: Runtime + Production RAG Infrastructure", fill=INK, font=title_font)
+    draw.text(
+        (60, 35), "AgentKernel: Runtime + Production RAG Infrastructure", fill=INK, font=title_font
+    )
 
     boxes = {
         "user": (60, 410, 270, 510, "CLI / MCP Host", CORE, EDGE),
@@ -74,7 +89,15 @@ def main() -> None:
         "catalog": (1540, 265, 1740, 390, "SQLite\nCatalog + FTS5", STORAGE, STORAGE_EDGE),
         "vector": (1540, 465, 1740, 590, "Chroma\nOptional vectors", STORAGE, STORAGE_EDGE),
         "source": (1540, 680, 1740, 805, "PDF / MD / TXT", STORAGE, STORAGE_EDGE),
-        "memory": (760, 120, 1060, 245, "SQLite Runtime Store\nSessions + Logs", STORAGE, STORAGE_EDGE),
+        "memory": (
+            760,
+            120,
+            1060,
+            245,
+            "SQLite Runtime Store\nSessions + Logs",
+            STORAGE,
+            STORAGE_EDGE,
+        ),
     }
     for left, top, right, bottom, label, fill, outline in boxes.values():
         _box(draw, (left, top, right, bottom), label, fill, outline)
@@ -91,7 +114,12 @@ def main() -> None:
     _arrow(draw, (650, 250), (760, 180), dashed=True)
 
     note_font = _font(18)
-    draw.text((620, 880), "Durable lexical baseline | Optional semantic index | Citations retain source/page metadata", fill=INK, font=note_font)
+    draw.text(
+        (620, 880),
+        "Durable lexical baseline | Optional semantic index | Citations retain source/page metadata",
+        fill=INK,
+        font=note_font,
+    )
     output = Path(__file__).with_name("architecture.png")
     image.save(output, "PNG", optimize=True)
     print(output)

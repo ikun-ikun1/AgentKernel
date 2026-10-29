@@ -1,4 +1,5 @@
 """json_repair 三层修复的测试。"""
+
 from agentkernel.tools import contracts, json_repair
 
 
@@ -8,7 +9,9 @@ def test_parse_clean_json():
 
 
 def test_extract_with_noise():
-    text = '好的，我来查一下：{"action": "calculator", "action_input": {"expression": "1+2"}} 就是这样'
+    text = (
+        '好的，我来查一下：{"action": "calculator", "action_input": {"expression": "1+2"}} 就是这样'
+    )
     assert json_repair.parse_json(text)["action"] == "calculator"
 
 
@@ -75,9 +78,7 @@ def test_parse_and_classify_multi_actions():
         '{"actions": [{"action": "calculator", "action_input": {"expression": "1+2"}}, '
         '{"action": "get_current_time", "action_input": {}}]}'
     )
-    action = json_repair.repair_action(
-        text, allowed_actions={"calculator", "get_current_time"}
-    )
+    action = json_repair.repair_action(text, allowed_actions={"calculator", "get_current_time"})
     assert isinstance(action, contracts.ToolCalls)
     assert len(action.calls) == 2
     assert action.calls[0].action == "calculator"

@@ -1,4 +1,5 @@
 """MCP server / client 测试（进程内适配器 + 自实现 client 的帧协议 + stdio 子进程）。"""
+
 from __future__ import annotations
 
 import io
@@ -71,9 +72,7 @@ def test_register_mcp_tools_with_prefix():
 def test_extract_tool_result_structured_content():
     from agentkernel.mcp.client import StdioMCPClient
 
-    text = StdioMCPClient._extract_tool_result(
-        "demo", {"structuredContent": {"items": [1, 2]}}
-    )
+    text = StdioMCPClient._extract_tool_result("demo", {"structuredContent": {"items": [1, 2]}})
     assert text == '{"items": [1, 2]}'
 
 
@@ -81,15 +80,23 @@ def test_handle_json_rpc_tools_call_and_errors():
     server = _make_server()
     ok = handle_json_rpc(
         server,
-        {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-         "params": {"name": "knowledge_query", "arguments": {"query": "ReAct"}}},
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "knowledge_query", "arguments": {"query": "ReAct"}},
+        },
     )
     assert ok is not None and ok.get("result", {}).get("content")[0]["text"]
 
     not_found = handle_json_rpc(
         server,
-        {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
-         "params": {"name": "nope", "arguments": {}}},
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "nope", "arguments": {}},
+        },
     )
     assert not_found is not None and not_found.get("error", {}).get("code") == -32602
 

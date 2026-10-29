@@ -4,6 +4,7 @@
   `KnowledgeMCPServer`，保证 client 端和测试在无重依赖环境下也能跑通。
 - server 只暴露「查询 + 列出」两个只读工具，不提供写/删能力（安全边界）。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -91,9 +92,7 @@ class KnowledgeMCPServer:
         try:
             from mcp.server.fastmcp import FastMCP  # type: ignore[import-not-found]
         except ImportError as e:
-            raise MCPToolError(
-                "官方 mcp SDK 未安装：pip install mcp"
-            ) from e
+            raise MCPToolError("官方 mcp SDK 未安装：pip install mcp") from e
 
         server = FastMCP("agentkernel-knowledge")
         server.tool(name="knowledge_query", description=TOOL_DEFINITIONS[0]["description"])(
@@ -110,6 +109,7 @@ class KnowledgeMCPServer:
 # 无 mcp SDK 时也能启动一个标准 MCP stdio server，供自实现 client 子进程调用。
 # 协议消息走 stdout；日志/错误走 stderr。
 # ---------------------------------------------------------------------------
+
 
 def handle_json_rpc(server: KnowledgeMCPServer, request: dict[str, Any]) -> dict[str, Any] | None:
     """处理一个 JSON-RPC 请求；通知（无 id）返回 None。"""
@@ -226,7 +226,8 @@ def main(argv: list[str] | None = None) -> None:
         path_obj = Path(path).expanduser()
         if path_obj.is_dir():
             files = sorted(
-                f for f in path_obj.rglob("*")
+                f
+                for f in path_obj.rglob("*")
                 if f.is_file() and f.suffix.lower() in {".pdf", ".md", ".markdown", ".txt"}
             )
         elif path_obj.is_file():

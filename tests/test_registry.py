@@ -1,4 +1,5 @@
 """工具注册与内置工具的测试。"""
+
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry, Tool, validate_parameters
 from agentkernel.utils.errors import ToolParamError
@@ -69,6 +70,7 @@ def test_unknown_tool():
 
 def test_current_time_format():
     import re
+
     r = _make_registry()
     out = r.run("get_current_time", {})
     assert re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", out)

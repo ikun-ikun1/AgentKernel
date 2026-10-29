@@ -3,6 +3,7 @@
 使用 SQLAlchemy 2.x Core + PyMySQL，通过连接池与显式事务边界访问 MySQL。
 依赖未安装或连接失败时抛出明确错误；CLI/工厂负责给出降级提示。
 """
+
 from __future__ import annotations
 
 import random
@@ -97,7 +98,12 @@ class MySQLRuntimeStore(RuntimeStore):
             "messages",
             metadata,
             Column("id", Integer, primary_key=True, autoincrement=True),
-            Column("session_id", String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False),
+            Column(
+                "session_id",
+                String(64),
+                ForeignKey("sessions.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             Column("role", String(32), nullable=False),
             Column("content", Text, nullable=False),
             Column("created_at", String(64), nullable=False),
@@ -106,7 +112,12 @@ class MySQLRuntimeStore(RuntimeStore):
             "tool_logs",
             metadata,
             Column("id", Integer, primary_key=True, autoincrement=True),
-            Column("session_id", String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False),
+            Column(
+                "session_id",
+                String(64),
+                ForeignKey("sessions.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             Column("tool_name", String(128), nullable=False),
             Column("input_json", Text, nullable=False),
             Column("output_json", Text, nullable=False),
@@ -132,7 +143,12 @@ class MySQLRuntimeStore(RuntimeStore):
                     "INSERT IGNORE INTO sessions (id, title, created_at, updated_at) "
                     "VALUES (:id, :title, :created_at, :updated_at)"
                 ),
-                {"id": session_id, "title": title or session_id, "created_at": now, "updated_at": now},
+                {
+                    "id": session_id,
+                    "title": title or session_id,
+                    "created_at": now,
+                    "updated_at": now,
+                },
             )
         return session_id
 

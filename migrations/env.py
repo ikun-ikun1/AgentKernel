@@ -2,6 +2,7 @@
 
 运行时 DSN 读取 `AGENTKERNEL_DB_URL`，与 CLI/Store 工厂保持一致。
 """
+
 from __future__ import annotations
 
 import os

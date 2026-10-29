@@ -9,6 +9,7 @@ MCP 官方 stdio 传输使用 LSP 风格的帧格式：
 - 协议消息走 stdout；所有日志/调试输出必须走 stderr（否则 Client 解析失败）。
 - 每个帧一个完整 JSON-RPC 消息。
 """
+
 from __future__ import annotations
 
 import json
@@ -76,9 +77,7 @@ def read_frame(
     headers: dict[str, str] = {}
     header_bytes = 0
     while True:
-        remaining_timeout = (
-            None if deadline is None else max(0.0, deadline - time.monotonic())
-        )
+        remaining_timeout = None if deadline is None else max(0.0, deadline - time.monotonic())
         line = _readline(stream, remaining_timeout)
         if not line:
             raise MCPFramingError("MCP 连接已关闭")

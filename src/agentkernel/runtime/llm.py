@@ -8,6 +8,7 @@
 - timeout + max_retries 防止 CLI 被一次网络抖动卡死；
 - 失败统一抛 LLMError，调用方决定降级策略。
 """
+
 from __future__ import annotations
 
 from typing import Any

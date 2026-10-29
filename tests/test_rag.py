@@ -1,4 +1,5 @@
 """Persistent RAG ingestion, retrieval, and citation tests."""
+
 from __future__ import annotations
 
 import pytest
@@ -30,9 +31,7 @@ def test_shingle_index_query():
     idx = ShingleIndex()
     idx.add(
         [
-            Chunk(
-                chunk_id="a:0", doc_name="a.md", text="AgentKernel 是一个从零实现的 Agent 内核"
-            ),
+            Chunk(chunk_id="a:0", doc_name="a.md", text="AgentKernel 是一个从零实现的 Agent 内核"),
             Chunk(chunk_id="b:0", doc_name="b.md", text="今天天气不错"),
         ]
     )

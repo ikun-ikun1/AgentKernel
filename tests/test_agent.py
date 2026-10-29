@@ -1,4 +1,5 @@
 """ReAct 主循环与上下文管理的测试（用 fake LLM，不依赖真实 API）。"""
+
 from __future__ import annotations
 
 from agentkernel.runtime.agent import Agent, ContextConfig
@@ -56,11 +57,7 @@ def test_multi_tool_call_executes_all_then_answers(monkeypatch):
     assert agent.run("算两个数", history) == "分别是 3 和 20"
     assert seen == ["calculator", "calculator"]
     assert (
-        sum(
-            1
-            for m in history
-            if m["role"] == "user" and "工具 calculator 返回" in m["content"]
-        )
+        sum(1 for m in history if m["role"] == "user" and "工具 calculator 返回" in m["content"])
         == 2
     )
 

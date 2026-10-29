@@ -13,6 +13,7 @@
 知识库工具（knowledge_query / knowledge_list）默认注册；用 `--docs` 启动时直接入库。
 用 `--mcp` 可接入任意外部 stdio MCP server（类似 Claude Agent SDK 的 mcp_servers 配置）。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,8 +58,12 @@ def _ingest_path(kb: KnowledgeBase, path: str) -> int:
     if not p.exists():
         print(f"路径不存在：{p}")
         return 0
-    files = [p] if p.is_file() else sorted(
-        f for f in p.rglob("*") if f.is_file() and f.suffix.lower() in _SUPPORTED_SUFFIXES
+    files = (
+        [p]
+        if p.is_file()
+        else sorted(
+            f for f in p.rglob("*") if f.is_file() and f.suffix.lower() in _SUPPORTED_SUFFIXES
+        )
     )
     total = 0
     for file in files:
@@ -84,7 +89,11 @@ def _build_agent(
     builtin.register_builtin(registry)
 
     # kb_db 支持 MySQL DSN 或本地路径（SQLite 测试适配器）。
-    kb_dsn = kb_db if kb_db and (kb_db.startswith("mysql://") or kb_db.startswith("mysql+pymysql://")) else None
+    kb_dsn = (
+        kb_db
+        if kb_db and (kb_db.startswith("mysql://") or kb_db.startswith("mysql+pymysql://"))
+        else None
+    )
     kb_persist_dir = None if kb_dsn else kb_db
     kb = KnowledgeBase(persist_dir=kb_persist_dir, backend=kb_backend, dsn=kb_dsn)
     if docs:
@@ -243,7 +252,7 @@ def main() -> None:
         action="append",
         default=None,
         metavar="CMD",
-        help="接入外部 stdio MCP server（可多次使用），如 --mcp \"python -m agentkernel.mcp.server /tmp/docs\"",
+        help='接入外部 stdio MCP server（可多次使用），如 --mcp "python -m agentkernel.mcp.server /tmp/docs"',
     )
     parser.add_argument(
         "--migrate",
@@ -274,10 +283,15 @@ def main() -> None:
     try:
         store = create_runtime_store(args.db)
     except Exception as e:
-        parser.exit(2, f"Runtime 存储初始化失败：{type(e).__name__}: {e}\n"
-                      "提示：安装 MySQL 依赖并启动 docker compose，或使用 --db sqlite:///:memory:\n")
+        parser.exit(
+            2,
+            f"Runtime 存储初始化失败：{type(e).__name__}: {e}\n"
+            "提示：安装 MySQL 依赖并启动 docker compose，或使用 --db sqlite:///:memory:\n",
+        )
 
-    kb_dsn_or_path = args.kb_db or os.environ.get("AGENTKERNEL_KB_DSN") or "~/.agentkernel/knowledge"
+    kb_dsn_or_path = (
+        args.kb_db or os.environ.get("AGENTKERNEL_KB_DSN") or "~/.agentkernel/knowledge"
+    )
     try:
         agent, _, kb, clients = _build_agent(
             args.docs,

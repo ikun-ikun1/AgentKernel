@@ -11,6 +11,7 @@ payload 是合法对象」的调用才被晋升为结构化工具调用；其余
 多工具调用对应 agent-study Ch11「Parallel Tool Calling」：模型可一次输出多个
 工具调用，当前内核按顺序执行（无依赖时也可并行，注释见 runtime/agent.py）。
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -23,6 +24,7 @@ FINAL_ACTION = "final_answer"
 @dataclass
 class ToolCall:
     """模型输出的单个工具调用。"""
+
     action: str
     action_input: dict[str, Any]
 
@@ -30,12 +32,14 @@ class ToolCall:
 @dataclass
 class ToolCalls:
     """模型一次输出的多个工具调用。"""
+
     calls: list[ToolCall]
 
 
 @dataclass
 class FinalAnswer:
     """最终回答。"""
+
     text: str
 
 

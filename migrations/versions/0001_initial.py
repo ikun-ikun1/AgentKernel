@@ -6,6 +6,7 @@ Create Date: 2026-09-01
 
 ADR-001: MySQL 8 作为主存储，包含 Runtime 状态表与知识库文档/Chunk 表。
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -29,7 +30,12 @@ def upgrade() -> None:
     op.create_table(
         "messages",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column("session_id", sa.String(64), sa.ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "session_id",
+            sa.String(64),
+            sa.ForeignKey("sessions.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("role", sa.String(32), nullable=False),
         sa.Column("content", sa.Text, nullable=False),
         sa.Column("created_at", sa.String(64), nullable=False),
@@ -37,7 +43,12 @@ def upgrade() -> None:
     op.create_table(
         "tool_logs",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column("session_id", sa.String(64), sa.ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "session_id",
+            sa.String(64),
+            sa.ForeignKey("sessions.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("tool_name", sa.String(128), nullable=False),
         sa.Column("input_json", sa.Text, nullable=False),
         sa.Column("output_json", sa.Text, nullable=False),
@@ -62,12 +73,17 @@ def upgrade() -> None:
     op.create_table(
         "chunks",
         sa.Column("chunk_id", sa.String(128), primary_key=True),
-        sa.Column("doc_id", sa.String(64), sa.ForeignKey("documents.doc_id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "doc_id",
+            sa.String(64),
+            sa.ForeignKey("documents.doc_id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("ordinal", sa.Integer, nullable=False),
         sa.Column("text", sa.Text, nullable=False),
         sa.Column("page", sa.Integer),
         sa.Column("section", sa.String(512), nullable=False, server_default=""),
-         sa.Column("metadata_json", sa.Text, nullable=False),
+        sa.Column("metadata_json", sa.Text, nullable=False),
     )
     op.create_index("idx_documents_name", "documents", ["doc_name"])
     op.create_index("idx_chunks_doc", "chunks", ["doc_id", "ordinal"])

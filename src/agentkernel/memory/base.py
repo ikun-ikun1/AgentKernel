@@ -3,6 +3,7 @@
 Runtime 只依赖本模块定义的 Store 接口，不直接 import SQLite/MySQL 驱动。
 生产主存储为 MySQL，SQLite 仅作为测试与本地无 MySQL 时的适配器。
 """
+
 from __future__ import annotations
 
 from typing import Protocol

@@ -3,6 +3,7 @@
 文档与 Chunk 事实数据存 MySQL，中文词法检索使用 InnoDB FULLTEXT + ngram parser。
 向量索引仅作为可选增强，缺失时回退到本模块的 MySQL 词法检索。
 """
+
 from __future__ import annotations
 
 import json
@@ -115,19 +116,20 @@ class MySQLKnowledgeStore:
             ).first()
             if not exists:
                 conn.execute(
-                    text(
-                        "CREATE FULLTEXT INDEX idx_chunks_ft ON chunks (text) "
-                        "WITH PARSER ngram"
-                    )
+                    text("CREATE FULLTEXT INDEX idx_chunks_ft ON chunks (text) WITH PARSER ngram")
                 )
 
     def get_document(self, doc_id: str) -> dict[str, Any] | None:
         from sqlalchemy import text
 
         with self.engine.connect() as conn:
-            row = conn.execute(
-                text("SELECT * FROM documents WHERE doc_id = :doc_id"), {"doc_id": doc_id}
-            ).mappings().first()
+            row = (
+                conn.execute(
+                    text("SELECT * FROM documents WHERE doc_id = :doc_id"), {"doc_id": doc_id}
+                )
+                .mappings()
+                .first()
+            )
         return dict(row) if row else None
 
     def upsert_document(self, document: dict[str, Any], chunks: list[Chunk]) -> None:
@@ -274,11 +276,15 @@ class MySQLKnowledgeStore:
         from sqlalchemy import text
 
         with self.engine.connect() as conn:
-            row = conn.execute(
-                text(
-                    "SELECT doc_id FROM documents WHERE doc_name = :doc_name "
-                    "ORDER BY ingested_at DESC LIMIT 1"
-                ),
-                {"doc_name": doc_name},
-            ).mappings().first()
+            row = (
+                conn.execute(
+                    text(
+                        "SELECT doc_id FROM documents WHERE doc_name = :doc_name "
+                        "ORDER BY ingested_at DESC LIMIT 1"
+                    ),
+                    {"doc_name": doc_name},
+                )
+                .mappings()
+                .first()
+            )
         return str(row["doc_id"]) if row else None

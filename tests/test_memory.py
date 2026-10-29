@@ -1,4 +1,5 @@
 """Runtime 存储测试：SQLite 测试适配器 + 工厂选择。"""
+
 from __future__ import annotations
 
 from agentkernel.memory.factory import create_runtime_store

@@ -7,6 +7,7 @@ add a persistent Chroma + sentence-transformers vector index. SQLite FTS5 is
 always the durable lexical baseline; missing vector dependencies never erase
 the corpus or change its identifiers.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -139,10 +140,9 @@ def _shingles(text: str, n: int = 2) -> set[str]:
     normalized = "".join(text.lower().split())
     if not normalized:
         return set()
-    return {
-        normalized[index : index + n]
-        for index in range(max(0, len(normalized) - n + 1))
-    } or {normalized}
+    return {normalized[index : index + n] for index in range(max(0, len(normalized) - n + 1))} or {
+        normalized
+    }
 
 
 class ShingleIndex:
@@ -369,9 +369,7 @@ class SQLiteIndex:
 
     def list_documents(self) -> list[str]:
         with self._lock:
-            rows = self._conn.execute(
-                "SELECT doc_name FROM documents ORDER BY doc_name"
-            ).fetchall()
+            rows = self._conn.execute("SELECT doc_name FROM documents ORDER BY doc_name").fetchall()
         return [str(row["doc_name"]) for row in rows]
 
     def find_document_id_by_name(self, doc_name: str) -> str | None:
@@ -432,7 +430,9 @@ class _VectorIndex:
         result = self._collection.query(query_embeddings=[embedding], n_results=limit)
         ids = (result.get("ids") or [[]])[0]
         distances = (result.get("distances") or [[]])[0]
-        return [(str(chunk_id), 1.0 - float(distance)) for chunk_id, distance in zip(ids, distances)]
+        return [
+            (str(chunk_id), 1.0 - float(distance)) for chunk_id, distance in zip(ids, distances)
+        ]
 
 
 class KnowledgeBase:

@@ -3,6 +3,7 @@
 个人项目特点：client 端不调官方 SDK，手写 MCP stdio 传输（Content-Length 帧 + JSON-RPC 2.0），
 证明懂协议底层；同时提供 InProcessMCPClient 作为无 SDK 环境下的演示/测试适配器。
 """
+
 from __future__ import annotations
 
 import json
@@ -143,9 +144,7 @@ class StdioMCPClient(MCPClient):
     def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
         if not self.negotiated:
             self.initialize()
-        result = self._request(
-            "tools/call", {"name": name, "arguments": arguments}
-        )
+        result = self._request("tools/call", {"name": name, "arguments": arguments})
         return self._extract_tool_result(name, result)
 
     @staticmethod
@@ -203,9 +202,7 @@ class InProcessMCPClient(MCPClient):
         return self.server.call_tool(name, arguments)
 
 
-def register_mcp_tools(
-    registry: Registry, client: MCPClient, prefix: str = ""
-) -> int:
+def register_mcp_tools(registry: Registry, client: MCPClient, prefix: str = "") -> int:
     """把 MCP client 暴露的工具注册进内核 registry，返回注册数量。
 
     prefix 用于区分不同 MCP server（类似 Claude SDK 的 `mcp__server__tool` 命名），

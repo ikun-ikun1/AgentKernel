@@ -4,6 +4,7 @@
 （type / properties / required / enum / items / additionalProperties），
 既能讲清「工具参数为什么可靠」，也符合项目「零框架、少依赖」的定位。
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
