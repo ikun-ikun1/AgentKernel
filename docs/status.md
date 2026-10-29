@@ -8,7 +8,7 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 测试 | **100 个测试**；本地 `95 passed / 5 skipped`（无 DSN），CI `99 passed + 1 xfailed / 0 skipped`（xfail 是 D4 复现，PR 2 转绿） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 测试 | **100 个测试**；本地 `95 passed / 5 skipped`（无 DSN），CI `100 passed / 0 skipped` | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `python eval.py` → 5/5 | 本机实测 |
 | 真实模型 | 7 次 live 调用（含 `make test-live` 冒烟），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 3 个 job：`test`（MySQL 8 service）、`eval-minimal`、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
@@ -51,16 +51,14 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 
 | # | 项 | 影响 | 计划 |
 |---|---|---|---|
-| 1 | 多进程并发写同一会话（D4） | 当前只有进程内锁，跨进程无保护 | 批二（DB 级行锁/幂等键） |
-| 2 | 覆盖率工具与 80% 门槛（G-30） | 改坏关键路径无自动拦截 | 批二 |
-| 3 | golden set 50 条（G-32） | S1/S2 统计意义不足 | 批二 |
-| 4 | `DEEPSEEK_BASE_URL` 无 allowlist（G-24） | key 可能被改环境变量发往任意主机 | 批二 |
-| 5 | 迁移/DDL 双轨收口（G-16） | `create_all` 与 Alembic 并存 | 批二 |
-| 6 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
-| 7 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
-| 8 | runbook / 恢复演练（G-17/G-18/G-35） | 事故无步骤、备份未验证 | 批二 |
-| 9 | 默认口令仍在代码里（G-06） | 弱口令可能被复制到真实部署 | 批二（小 PR） |
-| 10 | 镜像 digest 未固定（G-45/G-46） | tag 重推静默变内容 | 待网络可达 |
+| 1 | 覆盖率工具与 80% 门槛（G-30） | 改坏关键路径无自动拦截 | 批二 |
+| 2 | golden set 50 条（G-32） | S1/S2 统计意义不足 | 批二 |
+| 3 | `DEEPSEEK_BASE_URL` 无 allowlist（G-24） | key 可能被改环境变量发往任意主机 | 批二 |
+| 4 | 迁移/DDL 双轨收口（G-16） | `create_all` 与 Alembic 并存 | 批二 |
+| 5 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
+| 6 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
+| 7 | runbook / 恢复演练（G-17/G-18/G-35） | 事故无步骤、备份未验证 | 批二 |
+| 8 | 默认口令仍在代码里（G-06） | 弱口令可能被复制到真实部署 | 批二（小 PR） |
 
 ## 5. 文档地图
 
@@ -80,5 +78,5 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 make check
 AGENTKERNEL_MYSQL_TEST_DSN='mysql+pymysql://agentkernel:***@127.0.0.1:3306/agentkernel_test' \
-  .venv/bin/python -m pytest -q      # 99 passed + 1 xfailed（D4 复现）/ 0 skipped
+  .venv/bin/python -m pytest -q      # 100 passed / 0 skipped
 ```

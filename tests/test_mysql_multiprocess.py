@@ -1,7 +1,6 @@
 """D4 失败复现：多进程并发写同一会话（PR 1，不改生产代码）。
 
-当前实现只有进程内 per-session 锁，跨进程无效；本用例预期失败，
-用 xfail(strict=True) 记录，PR 2（行锁串行化）移除 xfail 并转绿。
+实现见 ADR-002：写事务内先 SELECT ... FOR UPDATE 锁会话行，再写消息并更新 updated_at。
 CI 提供 AGENTKERNEL_MYSQL_TEST_DSN 时真跑（0 skip）。
 
 三条不变量：
@@ -37,10 +36,6 @@ def _worker(barrier, index: int) -> None:
         store.close()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D4 未实现：进程内锁跨进程无效，updated_at 可能早于最后一条消息",
-)
 def test_multiprocess_same_session_consistency() -> None:
     from sqlalchemy import text
 
@@ -60,9 +55,12 @@ def test_multiprocess_same_session_consistency() -> None:
             proc.join(timeout=180)
 
         assert [p.exitcode for p in procs if p.exitcode != 0] == [], "worker 异常退出"
-        assert store.count_messages(SESSION_ID) == PROCESSES * WRITES_PER_PROCESS
 
         with store.engine.connect() as conn:
+            count = conn.execute(
+                text("SELECT COUNT(*) FROM messages WHERE session_id = :s"),
+                {"s": SESSION_ID},
+            ).scalar_one()
             updated = conn.execute(
                 text("SELECT updated_at FROM sessions WHERE id = :s"), {"s": SESSION_ID}
             ).scalar_one()
@@ -70,6 +68,7 @@ def test_multiprocess_same_session_consistency() -> None:
                 text("SELECT MAX(created_at) FROM messages WHERE session_id = :s"),
                 {"s": SESSION_ID},
             ).scalar_one()
+        assert count == PROCESSES * WRITES_PER_PROCESS, f"消息数={count}"
         assert updated == latest, f"updated_at={updated} 早于最后一条消息 {latest}"
     finally:
         store.close()
