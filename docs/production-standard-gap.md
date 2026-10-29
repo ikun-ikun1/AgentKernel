@@ -1,0 +1,179 @@
+# AgentKernel 生产标准差距分析
+
+> 对照文件：`docs/production-standard.md`（v0.1 草案）
+> 分析日期：2026-10-29
+> 基线版本：`~/ai-production/baseline` v1.0
+> 结论口径：**PASS** = 有证据满足；**PARTIAL** = 部分满足且有残余风险；**FAIL** = 无证据或明显不满足。
+> 全部证据均可复现，见文末「复现命令」。
+
+---
+
+## 0. 六门禁总览
+
+| # | 门禁 | 结论 | 一句话理由 | 阻断项 |
+|---|---|---|---|---|
+| 1 | 可重复 | **FAIL** | 无锁文件、无 CI、无 `make check`、镜像浮动 tag、代码内硬编码默认口令；`ruff check` 当前退出码 1 | G-01…G-06 |
+| 2 | 可观测 | **FAIL** | 无日志框架/trace id/指标/token 成本；`tool_logs` 明文存储无脱敏；审计异常被静默吞掉 | G-07…G-13 |
+| 3 | 可回滚 | **PARTIAL** | 0001 迁移有对称 downgrade；但无迁移测试、无备份/恢复演练、DDL 双轨（启动 `create_all`）、无 tag/wheel | G-14…G-19 |
+| 4 | 可控制 | **PARTIAL** | 工具白名单、无 shell/eval、AST 计算器、只读 KB 已达标；但外部 MCP 任意命令继承 key、`/ingest` 无根目录、无 token 预算、base_url 无 allowlist | G-20…G-27 |
+| 5 | 可验证 | **PARTIAL** | 65 用例全绿 + mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、MySQL 集成默认 skip、无 fuzz/扫描 | G-28…G-34 |
+| 6 | 可运维 | **PARTIAL** | 有 ADR、有降级路径；但无 runbook、无 `make doctor`、无 SLO 周报、无事故模板、无 CHANGELOG/tag | G-35…G-40 |
+
+> 说明：`PARTIAL` 不等于「差不多可以上线」，只表示该门禁已有可复用的实现或文档，缺的是证据链与自动化。
+
+---
+
+## 1. 可重复（Reproducible）
+
+| # | 标准要求（§4.1） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
+|---|---|---|---|---|---|---|
+| G-01 | 提交 `uv.lock`，`uv sync --frozen` | **无任何锁文件** | `find . -maxdepth 3` 只命中 `pyproject.toml`/`alembic.ini`/`docker-compose.yml`；`ls uv.lock` → 不存在 | 高：换机/换时间装出不同依赖，面试现场复现失败 | **P0** | 空环境 `uv sync --frozen` 成功且 `pytest` 全绿 |
+| G-02 | 解释器固定 + `.python-version` | 声明 `>=3.11`，本机 3.11.15 与 3.14.4 并存 | `pyproject.toml:10`；`.venv/bin/python -V`=3.11.15；`python3 -V`=3.14.4；仓库同时有 `__pycache__/*.cpython-314.pyc` | 中：双解释器缓存/行为差异 | **P0** | `.python-version`=3.11；CI 单版本；README 注明 |
+| G-03 | 无应用容器也可，但依赖必须可重建 | `.venv` 无 pip 模块，130 个包靠 editable 安装 | `.venv/bin/python -m pip --version` → `No module named pip` | 中：无法从仓库重建环境 | **P0** | 与 G-01 同批解决 |
+| G-04 | MySQL 镜像固定 digest | `mysql:8.0` 浮动 tag + 第三方镜像源 | `docker-compose.yml:3`；`docker ps` 显示 `docker.m.daocloud.io/library/mysql:8.0` | 中：上游更新导致行为漂移 | **P0** | compose 用 `@sha256:` 固定 |
+| G-05 | `make check` 单入口且 0 退出 | 无 Makefile；`ruff check .` 当前失败 | 无 `Makefile`/`makefile`；`.venv/bin/python -m ruff check .` → `Found 1 error`（I001，`docs/render_architecture.py:2`），退出码 1 | 高：门禁不可执行，「全绿」无从判断 | **P0** | `make check` 本地 0 退出 |
+| G-06 | 代码中不得有真实默认口令 | `agentkernel:agentkernel` 硬编码两处 | `src/agentkernel/memory/factory.py:20`；`alembic.ini:4` | 中：默认弱口令被复制到真实部署 | **P0** | 两处改为「必须由环境变量提供，否则报错」；`grep -r "agentkernel:agentkernel"` 为空 |
+| G-42 | 应用镜像：多阶段、非 root、可构建（D1 新增） | **无 Dockerfile** | `find . -maxdepth 2 -name 'Dockerfile*'` → 空；只有 MySQL 的 compose 服务（`docker-compose.yml:1-20`） | 中：「只差一个变更即可上线」缺少镜像证据 | **P0** | `docker build` 成功；容器内 `id -u`≠0；smoke = `printf '/quit\n' \| python -m agentkernel --db :memory: --kb-db :memory:` 退出 0（只用 `--help` 太弱）；CI 有 build job |
+| G-43 | 格式化门禁无法直接启用（新发现） | `ruff format --check .` → **32 个文件待格式化**（20 已格式化） | `.venv/bin/python -m ruff format --check .` 实测输出 | 中：直接加 gate 会让 P0-1 变成 32 文件大 diff，掩盖真实变更 | **P0**（跟随 P0-2） | 单独一个「纯格式化」提交（`git diff -w` 为空、pytest 结果不变），然后 `format --check` 进入 `make check`/CI |
+
+---
+
+## 2. 可观测（Observable）
+
+| # | 标准要求（§4.2） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
+|---|---|---|---|---|---|---|
+| G-07 | 结构化 JSONL 日志 | 全部 `print()`，无 `logging` | 全仓 `grep "import logging"` 0 命中；`__main__.py` 17 处 print | 中：无法机器解析、无法按轮聚合 | **P0** | 每轮输出 1 条 JSON，含 **14 字段 = 12 核心 + 2 条件**（核心恒有；`tool_name` 仅 tool 事件、`cost_usd` 仅 turn 事件且未知模型为 `null`） |
+| G-08 | `trace_id` 贯穿 LLM→工具→DB | 无 trace id | `mcp/client.py:87-92` 只有 JSON-RPC 自增 id | 中：排障只能靠猜 | **P0** | 一次 `agent.run` 的日志共享同一 trace_id |
+| G-09 | token / 成本记账 | `resp.usage` 被丢弃 | `src/agentkernel/runtime/llm.py:60-61` 只返回 `content` | 高：S8 无法测量，预算不可控 | **P0** | 日志含 prompt/completion tokens 与 cost_usd |
+| G-10 | 指标（计数器/直方图） | 无 | 全仓 grep `prometheus` / `statsd` / `metrics` 0 命中 | 中：S4 无法回归 | P1 | `metrics.jsonl` + `make report` |
+| G-11 | 工具耗时落库 | 算了但丢弃 | `src/agentkernel/tools/registry.py:126-133` 产出 `duration_ms`；`memory/base.py:36-45` 与 `__main__.py:121-124` 无该字段 | 中：审计无耗时，性能问题不可追溯 | P1 | `tool_logs` 增加 `duration_ms` 列（迁移） |
+| G-12 | 审计失败可见 | 静默 `except: pass` | `src/agentkernel/runtime/agent.py:102-106` | 中：审计静默丢失，安全事件无痕迹 | **P0** | 失败计数 + 告警日志 |
+| G-13 | 日志/DB 脱敏与截断 | `tool_logs` 存完整入参与结果，`/logs` 打印 | `memory/mysql_store.py:246-260`；`__main__.py:193-197` | 中：参数含凭据即落库 | **P0** | redact 规则 + 4KB 截断；抽查无 `sk-` |
+
+---
+
+## 3. 可回滚（Rollback）
+
+| # | 标准要求（§4.3） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
+|---|---|---|---|---|---|---|
+| G-14 | 迁移必须有 downgrade | ✅ 0001 有对称 downgrade | `migrations/versions/0001_initial.py:78-88` 反序删表/索引 | — | — | 保持；新增迁移同规则 |
+| G-15 | 迁移往返测试 | 无任何迁移测试 | `grep -r downgrade tests/` 0 命中 | 高：降级失败只在灾难时发现 | **P0** | `test_migrations.py` upgrade→downgrade→upgrade 3 次通过 |
+| G-16 | DDL 单一来源 | 启动时 `create_all` 与 Alembic 双轨 | `src/agentkernel/memory/factory.py:36`；`memory/mysql_store.py:78-118`；`rag/mysql_store.py:58-122` | 高：schema 漂移、迁移回滚后又被自动建回 | **P0** | 删除 `create_all`，仅 `--migrate`/Alembic 建表 |
+| G-17 | 备份策略（RPO ≤24h） | 无脚本、无记录 | 仓库无 `backup*`/`mysqldump` 引用 | 高：误删/迁移失败即丢数据 | **P0** | `make backup`；至少一次真实备份产物 |
+| G-18 | 恢复演练（≤30 天） | 从未演练 | 无 runbook、无演练记录 | 高：备份没验证等于没有 | **P0** | 首次演练记录写入 `docs/runbook.md`（含耗时） |
+| G-19 | 版本化发布与回滚单元 | 版本恒为 `0.1.0`，无 tag/wheel | `pyproject.toml:7`；`git tag` 无输出 | 中：回滚无锚点 | P1 | `v0.2.0` tag + `uv build` 产物 + 回滚步骤验证 |
+
+---
+
+## 4. 可控制（Controllable）
+
+| # | 标准要求（§4.4） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
+|---|---|---|---|---|---|---|
+| G-20 | 工具白名单 | ✅ 已达标 | `tools/contracts.py:67-73`；`runtime/agent.py:202-207`；`registry.py:104-110` | — | — | 保持；新增工具需 ADR |
+| G-21 | 禁止 shell/eval | ✅ 已达标 | `tools/builtin.py:17-53` AST 白名单；grep 无 `eval(`/`exec(`/`shell=True` | — | — | 保持 |
+| G-22 | 外部 MCP 命令 allowlist + env 清洗 | 任意 argv + 继承全环境（含 key/DSN） | `__main__.py:98-110`；`mcp/client.py:67-75` 未传 `env=` | **高**：显式传参即可执行任意本机命令并读到 key | **P0** | `shutil.which`+`realpath` 规范化后**逐项精确相等**才算命中（禁止前缀匹配）；负向用例：allowlist `/usr/bin/echo` 时 `/usr/bin/echo-evil`、`/usr/bin/../bin/echo`、指向根外的 symlink 均按规则判定；子进程 env 白名单；未命中拒绝启动 |
+| G-23 | 文档读取根目录白名单 + 大小/数量/深度限制 | 任意路径，`rglob` 不限深度（且跟随符号链接） | `__main__.py:54-66`；`rag/ingest.py:82-87`；`mcp/server.py:225-236` | **高**：可读 `/etc/passwd`、`~/.ssh` 并入库/回灌模型 | **P0** | `realpath + commonpath` 判定；`followlinks=False` + 逐文件复核；**负向用例**：`../` 穿越、根内 symlink→`/etc/passwd`、根内 symlink 目录→`/`、根外绝对路径各 1 条被拒 |
+| G-24 | 出站端点 allowlist | base_url 任意 | `utils/env.py:32-33`；`runtime/llm.py:35-40` | 中：key 可被发往任意主机 | P1 | 非 allowlist 启动即失败 |
+| G-25 | 会话级预算（token/调用数） | 只有 `MAX_STEPS=10` 与 256KB payload | `agent.py:59`；`json_repair.py:22`；`env.py:40-47` | 中：长会话/多工具可放大成本 | P1 | 超预算降级并记录 `budget_exceeded` |
+| G-26 | 参数长度/格式校验 | 手写 schema 子集，无 maxLength/pattern | `registry.py:47-97`；内置工具未设 `additionalProperties:false`（`builtin.py:76-85`） | 中：超长字符串直通 | P2 | 增加 maxLength/pattern；多余参数拒绝 |
+| G-27 | 工具结果作为不可信数据隔离 | 原样 `role=user` 入历史 | `runtime/agent.py:107-109`；知识库正文进 system prompt（`agent.py:114`） | 中：间接提示注入放大 | P1 | 结果加边界标记 + 注入用例 |
+
+---
+
+## 5. 可验证（Verifiable）
+
+| # | 标准要求（§4.5） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
+|---|---|---|---|---|---|---|
+| G-28 | 测试全绿 | ✅ 65 passed, 3 skipped | `.venv/bin/python -m pytest -q` → `65 passed, 3 skipped in 0.19s` | — | — | 保持；CI 中 0 skip |
+| G-29 | MySQL 集成测试必须真跑 | 默认 skip（需 `AGENTKERNEL_MYSQL_TEST_DSN`） | `tests/test_mysql_integration.py:13-15,85-107` | 高：MySQL 路径常态无验证（含并发写） | **P0** | CI service container 提供 DSN，3 个用例必跑 |
+| G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | 无覆盖率工具、无阈值 | `pytest --cov` → `unrecognized arguments`；`pyproject.toml` 无 `[tool.coverage]`；3 个模块从未被 import（`__main__.py`、`memory/mysql_store.py`、`rag/mysql_store.py`） | 高：改坏关键路径无人知 | **P0** | 覆盖率报告 + `fail_under=80` 进 `make check` |
+| G-31 | 静态检查 0 退出 | ruff 1 error（I001）；mypy ✅ | `ruff check .` → `Found 1 error`，`docs/render_architecture.py:2`；`mypy src` → `Success: no issues found in 25 source files` | 中：门禁红着就没人当真 | **P0** | `ruff check`/`format --check` 0 退出 |
+| G-32 | golden set ≥50（mock）/≥20（live） | 5 条 mock + 4 条 live | `eval.py:59-171,174-223` | 高：S1/S2 无统计意义 | **P0** | 50/20 条，进 `make check` 与 CI |
+| G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |
+| G-34 | 安全扫描（gitleaks/semgrep/pip-audit） | 均未接入 | `ls .pre-commit-config.yaml`/`.gitleaks.toml`/`semgrep.yml` → 不存在 | 高：密钥与高危依赖靠人眼 | **P0** | 三类扫描 0 high，进 `make check` |
+| G-41 | 文档与实测一致 | README 称「65 默认测试 + **2** 个 MySQL 集成测试跳过」，实测为 **3** 个 skip（68 个 test 函数） | `README.md:27,228`；`tests/test_mysql_integration.py:38,52,85`；`.venv/bin/python -m pytest -q` → `65 passed, 3 skipped` | 低：数字不准会被面试深挖时质疑证据可信度 | P2 | README 改为 68/65+3，并与 `pytest -q` 输出对齐 |
+
+---
+
+## 6. 可运维（Operable）
+
+| # | 标准要求（§4.6） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
+|---|---|---|---|---|---|---|
+| G-35 | Runbook（6 场景） | 无 | 无 `docs/runbook.md` | 中：凌晨出事无步骤（个人项目=自己明天出事） | **P0** | 6 场景各含现象/排查/修复/回滚 |
+| G-36 | `make doctor` 体检 | 无 | 无 Makefile；启动失败才报错（`__main__.py:274-290`） | 中：排障靠读栈 | P1 | 一条命令输出 7 项体检结果 |
+| G-37 | SLO 周报 | 无 | 无 `docs/reports/` | 中：SLO 只存在于文档 | P1 | `make report` 生成周报并入库 |
+| G-38 | 事故模板/复盘 | 无 | 仓库无 incident 模板 | 低 | P2 | 模板 + 首次复盘记录 |
+| G-39 | CHANGELOG + semver tag | 无 | `git tag` 空；无 CHANGELOG | 中：变更不可追溯 | P1 | 首个 tag 与 CHANGELOG |
+| G-40 | 依赖降级路径 | ✅ 模型失败不崩、向量缺失回退 ngram | `__main__.py:205-209`；`rag/ingest.py:484-499` | — | — | 保持 |
+
+---
+
+## 7. 已满足项（不是欠账，避免只列缺点）
+
+| 能力 | 证据 | 备注 |
+|---|---|---|
+| 工具白名单 + 未注册不执行 | `tools/contracts.py:67-73`、`runtime/agent.py:202-207` | 单测覆盖（`tests/test_agent.py:95`） |
+| 无 shell / 无 eval，计算器 AST 白名单 + 指数/位宽上限 | `tools/builtin.py:17-53` | 单测覆盖（`tests/test_registry.py:59`） |
+| SQL 全参数绑定 | `memory/mysql_store.py:177-192`；`rag/mysql_store.py:212-219` | grep 无 f-string SQL |
+| MCP 帧长度/头长度/超时/半帧保护 | `mcp/framing.py:26-27,46-63,99-104` | 部分分支无用例（见 G-33） |
+| `.env` 不入库且权限 600 | `.gitignore:7`；`ls -l .env` → `-rw-------`；`git ls-files .env` 不匹配 | 密钥卫生基本合规 |
+| API key 只在环境变量、异常不含值 | `utils/env.py:21-29`；`llm.py:64-65` | DSN 异常路径仍需脱敏（G-13 关联） |
+| 死锁：进程内按会话串行 + 3 次有界重试 | `memory/mysql_store.py:26-30,50-60,174-201`（提交 1597ec4） | 跨进程无效（G-29 关联） |
+| 文档入库 checksum 幂等 | `rag/ingest.py:517-520,560-562`；单测 `tests/test_rag.py:76-93` | S6③ 已有实现 |
+| 迁移 0001 对称 downgrade | `migrations/versions/0001_initial.py:78-88` | 仅缺测试（G-15） |
+| mock eval 有阈值、非零退出 | `eval.py:246-248` | 仅缺规模与 CI（G-32） |
+| mypy 全绿 | `mypy src` → 25 文件 0 错误 | 保持 |
+
+---
+
+## 8. 路线图（P0 / P1 / P2）
+
+### 8.1 P0（5 项，未完成不得宣称「按生产标准」）
+
+| 序 | 任务 | 覆盖差距 | 预估 | 依赖 |
+|---|---|---|---|---|
+| 1 | 建 `Makefile` + GitHub Actions；修 ruff I001；含一个**纯格式化提交**（32 文件）后再启用 `format --check` | G-05, G-28, G-31, G-43 | 0.75 天 | D2 允许 CI（已确认） |
+| 2 | `uv lock` + `.python-version` + MySQL digest + 删默认口令 | G-01, G-02, G-04, G-06 | 0.5 天 | — |
+| 3 | 覆盖率工具 + 阈值 + golden set 5→50 + eval 入 `make check` | G-30, G-32, G-29（CI service） | 1.5 天 | 1 |
+| 4 | 结构化日志 + trace_id + token/成本 + 脱敏 | G-07…G-13 | 1.5 天 | 1 |
+| 5 | MCP env 白名单 + 文档根白名单 + DSN 异常脱敏 + 3306 绑本地 | G-22, G-23, G-13 | 1 天 | — |
+
+合计约 5 人日；完成后再跑一遍本文件的表格，P0 项全部应转 PASS。
+
+### 8.2 P1（1–2 个迭代）
+
+G-15/G-16（迁移测试 + 去双轨 DDL）、G-17/G-18（备份与首次恢复演练）、G-19（tag+CHANGELOG）、G-10/G-11（指标与耗时落库）、G-24（base_url allowlist）、G-25（会话预算）、G-27（不可信数据隔离）、G-33（fuzz 语料）、G-35/G-36/G-37（runbook + doctor + 周报）。
+
+### 8.3 P2
+
+G-26（schema 长度/格式）、G-38（事故模板）、OTLP 导出、mypy `--strict`、向量索引重建入口（ADR-001 自陈缺口）、多版本矩阵。
+
+---
+
+## 9. 复现命令
+
+```bash
+cd /home/ikun/AgentKernel
+
+# 测试与静态检查
+.venv/bin/python -m pytest -q              # 65 passed, 3 skipped
+.venv/bin/python -m ruff check .           # Found 1 error（I001，docs/render_architecture.py:2），EXIT=1
+.venv/bin/python -m mypy src               # Success: no issues found in 25 source files
+.venv/bin/python -m pytest --cov=agentkernel --cov-report=term-missing -q   # 不支持 --cov（pytest-cov 未装）
+.venv/bin/python -c "import coverage"      # ModuleNotFoundError
+
+# 评测
+.venv/bin/python eval.py                   # 通过 5/5，EXIT=0
+
+# 资产盘点
+ls .github Makefile uv.lock .pre-commit-config.yaml .gitleaks.toml 2>&1   # 均 No such file
+git tag                                     # 空
+git ls-files | wc -l                        # 59
+
+# 环境
+.venv/bin/python -V ; python3 -V            # 3.11.15 / 3.14.4
+.venv/bin/python -m pip --version           # No module named pip
+docker ps --format '{{.Names}} {{.Image}} {{.Status}}'   # agentkernel-mysql ... mysql:8.0 Up (healthy)
+```
+
+> 复现环境：2026-10-29，HEAD=`73537e9`，`git status --porcelain` 为空（除本文件与 `docs/production-standard.md` 为新增文档）。
