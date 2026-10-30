@@ -3,8 +3,8 @@
 DSN 规则：
 - `mysql://` / `mysql+pymysql://` → MySQL 主存储
 - `sqlite://`、`:memory:` 或本地路径 → SQLite 测试适配器
-- 未传 DSN 时读取 `AGENTKERNEL_DB_URL`；仍未设置则使用 MySQL 默认 DSN
-  （与 docker-compose.yml 保持一致），连接失败时由调用方决定是否降级 SQLite。
+- 未传 DSN 时读取 `AGENTKERNEL_DB_URL`；**两者都没有时直接报错**（G-06：不再内置默认口令）。
+  本地开发请 `cp .env.example .env` 并填 DSN，或显式 `--db sqlite:///:memory:`。
 """
 
 from __future__ import annotations
@@ -18,16 +18,19 @@ from agentkernel.utils import env
 
 env.load_env()
 
-DEFAULT_MYSQL_DSN = "mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel"
-
 
 def _is_mysql_dsn(dsn: str) -> bool:
     return dsn.startswith("mysql://") or dsn.startswith("mysql+pymysql://")
 
 
 def create_runtime_store(dsn: str | None = None, *, auto_create: bool = True) -> RuntimeStore:
-    """按 DSN 创建 Runtime 存储。"""
-    resolved = dsn or os.environ.get("AGENTKERNEL_DB_URL") or DEFAULT_MYSQL_DSN
+    """按 DSN 创建 Runtime 存储；没有 DSN 时报错，不使用内置默认口令。"""
+    resolved = dsn or os.environ.get("AGENTKERNEL_DB_URL")
+    if not resolved:
+        raise RuntimeError(
+            "缺少 Runtime 存储 DSN：请设置 AGENTKERNEL_DB_URL、传 --db，"
+            "或使用 --db sqlite:///:memory:（见 .env.example）"
+        )
 
     if _is_mysql_dsn(resolved):
         from agentkernel.memory.mysql_store import MySQLRuntimeStore

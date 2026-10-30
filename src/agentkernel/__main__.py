@@ -324,9 +324,12 @@ def main() -> None:
         parser.exit(2, f"配置错误：{exc}\n")
 
     if args.migrate:
-        from agentkernel.memory.factory import DEFAULT_MYSQL_DSN
-
-        dsn = args.db or os.environ.get("AGENTKERNEL_DB_URL") or DEFAULT_MYSQL_DSN
+        dsn = args.db or os.environ.get("AGENTKERNEL_DB_URL")
+        if not dsn:
+            parser.exit(
+                2,
+                "--migrate 需要 DSN：传 --db mysql+pymysql://... 或设置 AGENTKERNEL_DB_URL\n",
+            )
         if not (dsn.startswith("mysql://") or dsn.startswith("mysql+pymysql://")):
             parser.exit(2, "--migrate 需要 MySQL DSN（--db mysql+pymysql://...）\n")
         try:
