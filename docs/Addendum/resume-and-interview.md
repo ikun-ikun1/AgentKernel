@@ -1,6 +1,31 @@
 # 简历与面试材料
 
 > **历史文档（2026 年快照）**：命令与数字为当时状态；当前状态见 [../status.md](../status.md)。
+> 投递请使用下面的「当前版（v0.4.0）」；历史快照保留用于展示演进。
+
+## 当前版（v0.4.0，2026-10-30，投递用）
+
+> 下面这版数字与命令以 [status.md](../status.md) 为准；本文件后面的内容是 2026-09 历史快照，仅用于看演进。
+
+**AgentKernel · 自研 Agent Runtime + 知识库 MCP（Python，个人项目）**
+
+- 从零实现 ReAct Runtime、工具调用、MCP client/server、MySQL 会话/审计、RAG 检索与合并；不依赖 Agent 框架。
+- 按「真实失败模式 → 设计取舍 → 测试/评测证据 → 剩余风险」推进：坏 JSON/未知工具、上下文膨胀、多进程丢更新、RAG 新鲜度、MCP/路径/密钥边界、迁移回滚、可重复交付。
+- 架构按 ports & adapters 落地：LLM/Memory/MCP 端口注入，Agent 184 行 facade，RAG/MCP/CLI 拆分；canonical import 路径稳定，v0.4.0 删除兼容 shim（Breaking，迁移表可查）。
+- 质量证据：**203 tests**、覆盖率 **84%**、CI MySQL 8 + 0 skip、mock eval 50/50、600 条 fuzz 语料 0 崩溃、make doctor 7 项、备份/恢复演练 PASS、镜像 digest 固定。
+- 边界：CLI 研究原型，按可上生产标准建设，但不宣称线上 SLA/多租户/高并发生产系统。
+
+### 当前版 2 分钟叙事
+
+1. **问题**：Agent 框架把 Runtime 封装了；真正上生产时坏 JSON、上下文膨胀、多进程写、RAG 过期、MCP 权限、观测和回滚才是事故源。
+2. **基线**：先复现 ReAct、工具契约、观察回灌和持久化，明确模型文本如何变成受控动作。
+3. **失败模式**：逐项做防护——五层 JSON 修复/白名单/降级，truncate/compact，会话行锁 + 重试，SHA-256 增量索引 + 词法基线 + 可选向量，MCP profile + env/路径/allowlist，JSONL/trace/成本/OTLP。
+4. **工程化**：用 ports & adapters 固定边界，LLM 端口真正注入；Agent 缩到 184 行 facade；每步独立 PR，测试/迁移/多进程/安全用例持续绿。
+5. **证据与边界**：203 tests、84% 覆盖、CI 0 skip、eval/fuzz/doctor/恢复演练；v0.4.0 是稳定冻结点，旧 shim 按弃用路径删除，下一步只做维护/性能。
+
+---
+
+
 
 > 以下表述已通过本机 MySQL 测试（测试数量以 [../status.md](../status.md) 为准；含 3 个 MySQL 集成 + 1 个迁移往返 + 多进程一致性）和 mock 评估（5/5）验证。
 
