@@ -244,7 +244,7 @@
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
 | 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `111 passed, 5 skipped`；CI `116 passed / 0 skipped` |
-| 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ❌ 无 pytest-cov/coverage（`ModuleNotFoundError`）；**pytest-cov 明确排在批二**，批一不装、不声称达标；3 个模块在测试进程从未被 import |
+| 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ⚠️ 工具已接入（`make coverage`，CI 上传 XML），实测 **72%**；尚无阈值。低覆盖：`__main__.py` 21%、`llm.py` 49%、`mcp/server.py` 52%、`memory/base.py` 57%、`memory/mysql_store.py` 67%、`rag/mysql_store.py` 69% |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy `Success: no issues found in 28 source files` |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
 | eval 门禁 | mock 100% 必过 5 条验收 + 总体 ≥ 98%；live ≥ 80%；进 `make check` 与 CI | ✅ CI 两个入口都跑：`test` job 的 `make check`（含 mock eval）与 `eval-minimal` job |

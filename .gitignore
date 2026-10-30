@@ -11,6 +11,9 @@ venv/
 .mypy_cache/
 .ruff_cache/
 check.log
+.coverage
+coverage.xml
+htmlcov/
 
 # 数据（本地生成，不入库）
 data/
