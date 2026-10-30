@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from agentkernel._compat import warn_deprecated
+
+warn_deprecated("agentkernel.mcp.client", "agentkernel.adapters.mcp.client")
+
 from agentkernel.adapters.mcp.client import (
     InProcessMCPClient,
     MCPClient,

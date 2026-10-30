@@ -8,7 +8,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from agentkernel.memory.sqlite_store import SQLiteStore
+from agentkernel.adapters.memory.sqlite_store import SQLiteStore
 
 
 def test_duration_roundtrip() -> None:

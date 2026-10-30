@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from agentkernel._compat import warn_deprecated
+
+warn_deprecated("agentkernel.mcp.server", "agentkernel.adapters.mcp.knowledge_server")
+
 from agentkernel.adapters.mcp.knowledge_server import (
     TOOL_DEFINITIONS,
     KnowledgeMCPServer,

@@ -2,6 +2,21 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)；格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.3.1] - 2026-10-30
+
+### Deprecated
+
+- 旧 import 路径（memory/base、memory/*_store、runtime/llm、rag/ingest、rag/mysql_store、mcp/framing|client|server）保留但 import 时发 `DeprecationWarning`，计划 v0.4.0 删除；迁移表见 `docs/migration-shims.md`。
+
+### Changed
+
+- 内部代码（src/eval）全部改走 canonical 路径；新增 `python -m agentkernel.mcp_server` 入口。
+- 新增 11 条兼容测试：旧路径仍可 import 且告警，canonical 路径不告警。
+
+### Tests
+
+- 203 个测试；CI `202 passed / 1 deselected(live) / 0 skipped`；覆盖率 84%+。
+
 ## [0.3.0] - 2026-10-30
 
 ### Changed
@@ -72,6 +87,7 @@
 - 174 个测试；CI `173 passed / 1 deselected(live) / 0 skipped`；覆盖率 82.89%（门槛 80%）。
 - `make eval`：mock golden set 50/50；live set 20 条数据就绪。
 
+[0.3.1]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.3.1
 [0.3.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.1.0

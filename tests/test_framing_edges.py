@@ -6,7 +6,7 @@ import io
 
 import pytest
 
-from agentkernel.mcp.framing import (
+from agentkernel.protocol.mcp_framing import (
     MCPFramingError,
     frame_message,
     read_frame,

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from agentkernel.adapters.memory.sqlite_store import SQLiteStore
 from agentkernel.memory.factory import create_runtime_store
-from agentkernel.memory.sqlite_store import SQLiteStore
 
 
 def test_append_and_get_messages():

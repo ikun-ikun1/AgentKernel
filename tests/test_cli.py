@@ -119,7 +119,7 @@ def test_cli_unknown_mcp_profile_is_reported(
 def test_ingest_path_rejects_missing_and_unsupported(
     tmp_path: Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from agentkernel.rag.ingest import KnowledgeBase
+    from agentkernel.rag.knowledge import KnowledgeBase
 
     monkeypatch.setenv("AGENTKERNEL_DOC_ROOTS", str(tmp_path))
 

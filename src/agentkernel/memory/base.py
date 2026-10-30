@@ -5,6 +5,10 @@
 
 from __future__ import annotations
 
+from agentkernel._compat import warn_deprecated
+
+warn_deprecated("agentkernel.memory.base", "agentkernel.ports.runtime_store")
+
 from agentkernel.ports.runtime_store import RuntimeStore
 
 __all__ = ["RuntimeStore"]

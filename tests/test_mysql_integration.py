@@ -36,7 +36,7 @@ def _schema():
 
 @pytest.fixture()
 def mysql_runtime_store():
-    from agentkernel.memory.mysql_store import MySQLRuntimeStore
+    from agentkernel.adapters.memory.mysql_store import MySQLRuntimeStore
 
     store = MySQLRuntimeStore(MYSQL_TEST_DSN)
     store.ensure_schema()
@@ -46,7 +46,7 @@ def mysql_runtime_store():
 
 @pytest.fixture()
 def mysql_knowledge_store():
-    from agentkernel.rag.mysql_store import MySQLKnowledgeStore
+    from agentkernel.adapters.knowledge.mysql_ngram import MySQLKnowledgeStore
 
     store = MySQLKnowledgeStore(MYSQL_TEST_DSN)
     store.ensure_schema()
@@ -69,7 +69,7 @@ def test_runtime_roundtrip(mysql_runtime_store):
 
 
 def test_knowledge_roundtrip_and_lexical(mysql_knowledge_store):
-    from agentkernel.rag.ingest import Chunk
+    from agentkernel.rag.models import Chunk
 
     store = mysql_knowledge_store
     doc_id = "it-doc-1"

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from agentkernel.mcp import profiles as prof
-from agentkernel.rag.ingest import KnowledgeBase
+from agentkernel.rag.knowledge import KnowledgeBase
 from agentkernel.utils import observability as obs
 from agentkernel.utils import paths as path_utils
 

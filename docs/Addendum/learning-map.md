@@ -70,7 +70,7 @@
 - `mcp/framing.py`：Content-Length 帧协议（日志走 stderr）
 - `mcp/server.py`：`KnowledgeMCPServer`（纯 Python）+ `handle_json_rpc()` + `run_stdio()`
 - `mcp/client.py`：`StdioMCPClient`（自实现 `initialize → tools/list → tools/call`）
-- `mcp/server.py` 的 `main()` 可被 `python -m agentkernel.mcp.server` 启动为真实子进程
+- `adapters/mcp/knowledge_server.py` 的 `main()` 可被 `python -m agentkernel.mcp_server` 启动为真实子进程（旧 `agentkernel.mcp.server` 入口 v0.3.1 告警、v0.4.0 删除）
 
 ### 第六步：RAG——Ch9 + `rag/ingest.py`
 

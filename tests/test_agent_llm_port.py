@@ -19,7 +19,7 @@ def test_agent_does_not_touch_module_level_llm(monkeypatch) -> None:
     def boom(*args, **kwargs):
         raise AssertionError("Agent 不应调用 runtime.llm.chat")
 
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", boom)
+    monkeypatch.setattr("agentkernel.adapters.llm.openai_compatible.chat", boom)
     fake = RecordingLLMClient(reply='{"action": "final_answer", "action_input": "port-only"}')
     agent = Agent(Registry(), llm_client=fake)
     assert agent.run("hi", []) == "port-only"

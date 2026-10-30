@@ -5,6 +5,10 @@
 
 from __future__ import annotations
 
+from agentkernel._compat import warn_deprecated
+
+warn_deprecated("agentkernel.runtime.llm", "agentkernel.adapters.llm.openai_compatible")
+
 from agentkernel.adapters.llm.openai_compatible import _get_client, chat, last_model, pop_usage
 
 __all__ = ["_get_client", "chat", "last_model", "pop_usage"]
