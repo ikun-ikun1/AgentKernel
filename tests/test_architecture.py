@@ -54,8 +54,21 @@ def test_application_does_not_depend_on_adapters_cli_or_runtime() -> None:
     assert bad == []
 
 
-def test_adapters_do_not_depend_on_cli() -> None:
-    assert _violations("adapters", {"agentkernel.cli"}) == []
+def test_adapters_do_not_depend_on_cli_or_application() -> None:
+    assert _violations("adapters", {"agentkernel.cli", "agentkernel.application"}) == []
+
+
+def test_ports_do_not_depend_on_runtime() -> None:
+    assert _violations("ports", {"agentkernel.runtime"}) == []
+
+
+def test_observability_does_not_depend_on_adapters_or_cli() -> None:
+    bad: list[str] = []
+    for path in [ROOT / "observability" / "events.py"]:
+        for module in _imports(path):
+            if module.startswith(("agentkernel.adapters", "agentkernel.cli")):
+                bad.append(f"{path.relative_to(ROOT)}: {module}")
+    assert bad == []
 
 
 def test_rag_core_is_free_of_adapters_and_cli() -> None:
