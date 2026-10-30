@@ -32,9 +32,38 @@ from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
 
 
-class _FakeLLM:
+class _FastPathLLM:
+    """只返回 final_answer：测的是 Agent 编排快路径，不是完整 ReAct。"""
+
     def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
         return '{"action": "final_answer", "action_input": "ok"}'
+
+    def pop_usage(self) -> None:
+        return None
+
+    def last_model(self) -> str | None:
+        return None
+
+
+_TOOL_THEN_ANSWER = [
+    '{"action": "calculator", "action_input": {"expression": "1+2"}}',
+    '{"action": "final_answer", "action_input": "3"}',
+]
+
+
+class _ScriptedLLM:
+    """按脚本先 tool_call 再 final_answer：覆盖工具执行与观察回灌。"""
+
+    def __init__(self) -> None:
+        self.responses: list[str] = []
+
+    def reset(self) -> None:
+        self.responses = list(_TOOL_THEN_ANSWER)
+
+    def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
+        if not self.responses:
+            return '{"action": "final_answer", "action_input": "done"}'
+        return self.responses.pop(0)
 
     def pop_usage(self) -> None:
         return None
@@ -78,13 +107,28 @@ def bench_cli(runs: int) -> dict[str, float]:
     return _measure(run, runs)
 
 
-def bench_react(runs: int) -> dict[str, float]:
+def bench_agent_fastpath(runs: int) -> dict[str, float]:
+    """Agent 编排快路径（无工具、无压缩）；名字刻意不叫 ReAct 延迟。"""
     registry = Registry()
     builtin.register_builtin(registry)
-    agent = Agent(registry, llm_client=_FakeLLM())
+    agent = Agent(registry, llm_client=_FastPathLLM())
 
     def run() -> None:
         agent.run("ping", [])
+
+    return _measure(run, runs)
+
+
+def bench_react_tool(runs: int) -> dict[str, float]:
+    """一轮含 tool_call → 工具执行 → 观察回灌 → final_answer 的 ReAct 编排。"""
+    registry = Registry()
+    builtin.register_builtin(registry)
+    client = _ScriptedLLM()
+    agent = Agent(registry, llm_client=client)
+
+    def run() -> None:
+        client.reset()
+        agent.run("1+2 等于几", [])
 
     return _measure(run, runs)
 
@@ -149,7 +193,8 @@ def main(argv: list[str] | None = None) -> int:
 
     results: dict[str, dict[str, float] | None] = {
         "cli_startup": bench_cli(5),
-        "react_turn": bench_react(args.runs),
+        "agent_fastpath": bench_agent_fastpath(args.runs),
+        "react_tool_turn": bench_react_tool(args.runs),
         "mcp_query": bench_mcp(args.runs),
         "sqlite_write": bench_sqlite(args.runs),
         "mysql_write": bench_mysql(args.dsn, args.runs) if args.dsn else None,
