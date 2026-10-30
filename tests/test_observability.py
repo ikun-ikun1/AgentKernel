@@ -11,11 +11,11 @@ from pathlib import Path
 import pytest
 
 from agentkernel.memory.sqlite_store import SQLiteStore
-from agentkernel.runtime import agent as agent_module
 from agentkernel.runtime.agent import Agent
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
 from agentkernel.utils import observability as obs
+from tests.llm_client_stub import RuntimeLLMClient
 
 
 @pytest.fixture(autouse=True)
@@ -117,8 +117,10 @@ def test_agent_emits_turn_and_tool_events(monkeypatch: pytest.MonkeyPatch) -> No
         '{"action": "calculator", "action_input": {"expression": "1+1"}}',
         '{"action": "final_answer", "action_input": "2"}',
     ]
-    monkeypatch.setattr(agent_module.llm, "chat", lambda messages: responses.pop(0))
-    agent = Agent(_registry(), on_event=events.append, session_id="sess-1")
+    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: responses.pop(0))
+    agent = Agent(
+        _registry(), llm_client=RuntimeLLMClient(), on_event=events.append, session_id="sess-1"
+    )
 
     reply = agent.run("算一下 1+1", [])
 
@@ -148,8 +150,10 @@ def test_audit_failure_is_visible(monkeypatch: pytest.MonkeyPatch) -> None:
         '{"action": "calculator", "action_input": {"expression": "1+1"}}',
         '{"action": "final_answer", "action_input": "2"}',
     ]
-    monkeypatch.setattr(agent_module.llm, "chat", lambda messages: responses.pop(0))
-    agent = Agent(_registry(), on_event=events.append, on_tool_call=boom)
+    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: responses.pop(0))
+    agent = Agent(
+        _registry(), llm_client=RuntimeLLMClient(), on_event=events.append, on_tool_call=boom
+    )
 
     agent.run("算一下", [])
 

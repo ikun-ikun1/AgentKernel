@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agentkernel.observability import events
-from agentkernel.runtime import llm
+from agentkernel.ports.llm import LLMClient
 from agentkernel.tools import contracts, json_repair
 from agentkernel.tools.registry import Registry
 from agentkernel.utils import observability
@@ -72,6 +72,7 @@ class Agent:
     def __init__(
         self,
         registry: Registry,
+        llm_client: LLMClient,
         max_steps: int = 10,
         context: ContextConfig | None = None,
         on_tool_call: ToolObserver | None = None,
@@ -81,6 +82,7 @@ class Agent:
         max_tool_calls_per_turn: int | None = None,
     ) -> None:
         self.registry = registry
+        self.llm_client = llm_client
         self.max_steps = max_steps
         self.context = context or ContextConfig()
         self.on_tool_call = on_tool_call
@@ -137,15 +139,15 @@ class Agent:
                     )
                     self._emit_budget(trace_id, turn_id, turn_span_id, "TokenBudget")
                     return "（已达到会话 token 预算上限，本轮停止；可 /new 开新会话）"
-                llm.pop_usage()
-                raw = llm.chat(self._build_messages(history))
-                usage = llm.pop_usage()
+                self.llm_client.pop_usage()
+                raw = self.llm_client.chat(self._build_messages(history))
+                usage = self.llm_client.pop_usage()
                 if usage is not None:
                     stats["usage_seen"] = True
                     stats["prompt_tokens"] += usage.prompt_tokens
                     stats["completion_tokens"] += usage.completion_tokens
                     self.session_tokens += usage.prompt_tokens + usage.completion_tokens
-                model = llm.last_model()
+                model = self.llm_client.last_model()
                 if model:
                     stats["model"] = model
                 action = self._parse(raw)
@@ -422,7 +424,7 @@ class Agent:
             return recent
         try:
             compact_prompt = COMPACT_PROMPT.replace("{history}", self._format_for_compact(older))
-            summary = llm.chat([{"role": "user", "content": compact_prompt}]).strip()
+            summary = self.llm_client.chat([{"role": "user", "content": compact_prompt}]).strip()
         except Exception:
             return None
         if not summary:

@@ -93,3 +93,22 @@ def pop_usage() -> Usage | None:
 
 def last_model() -> str | None:
     return _last_model.get()
+
+
+class OpenAICompatibleClient:
+    """LLMClient 端口对象适配器；方法委托给本模块的函数实现。"""
+
+    def chat(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float = 0.3,
+        max_tokens: int | None = None,
+    ) -> str:
+        return chat(messages, temperature=temperature, max_tokens=max_tokens)
+
+    def pop_usage(self) -> Usage | None:
+        return pop_usage()
+
+    def last_model(self) -> str | None:
+        return last_model()

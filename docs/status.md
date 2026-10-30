@@ -8,8 +8,8 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 架构 | A0/A0.5 文档 + A1 组合根 + A2 Memory + A3 LLM/事件 + A4 RAG + A5 MCP + A6 分层断言/架构图；CLI、D4、JSONL/OTLP、检索/工具行为不变 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
-| 测试 | **186 个测试**；本地 `180 passed / 6 skipped`（无 DSN），CI `185 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 架构 | A0–A6 完成；A7.1 LLM 端口已注入 Agent（composition/eval 注入 adapter，Agent 不再 import shim）；A7.2–A7.4 待做 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
+| 测试 | **189 个测试**；本地 `183 passed / 6 skipped`（无 DSN），CI `188 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
@@ -57,6 +57,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | # | 项 | 影响 | 计划 |
 |---|---|---|---|
 | 1 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
+| 2 | A7.2–A7.4：Agent 核心拆分/端口补齐/v0.3.0 | Agent 仍是 458 行单体，目标架构未完成 | 继续 A7 |
 
 ## 5. 文档地图
 
