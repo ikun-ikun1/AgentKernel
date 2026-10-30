@@ -1,0 +1,19 @@
+# G-34：密钥扫描配置（在默认规则之上加白名单，避免测试假密钥误报）
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "测试/文档里的假密钥与占位符"
+paths = [
+  '''tests/test_observability\.py''',
+  '''tests/test_env_security\.py''',
+  '''docs/.*''',
+  '''\.env\.example''',
+]
+regexes = [
+  '''sk-abcdef123456''',
+  '''hunter2''',
+  '''change-this-.*''',
+  '''sk-xxx''',
+  '''sk-test-not-real''',
+]

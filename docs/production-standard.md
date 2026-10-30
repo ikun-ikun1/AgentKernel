@@ -250,7 +250,7 @@
 | eval 门禁 | mock 100% 必过 5 条验收 + 总体 ≥ 98%；live ≥ 80%；进 `make check` 与 CI | ✅ CI 两个入口都跑：`test` job 的 `make check`（含 mock eval）与 `eval-minimal` job |
 | 模糊测试 | 500 条坏 JSON + 100 条非法帧，0 崩溃 0 挂起（单条 > 2s 视为挂起） | ❌ 无 fuzz 语料 |
 | 并发压测 | **多进程 × 20 并发写同一会话**，0 丢失 0 重复 0 死锁逃逸 | ✅ `tests/test_mysql_multiprocess.py`（20 进程 × 20 写）在 CI 通过；线程级用例保留但不作为证据 |
-| 安全扫描 | gitleaks 0、semgrep 0 high、pip-audit 0 high | ❌ 三者均未安装/未接入 |
+| 安全扫描 | gitleaks 0、semgrep 0 high、pip-audit 0 high | ✅ `make security`（gitleaks + 本仓 `.semgrep.yml` 规则）与 `make audit`（pip-audit 审计 lock 导出）；CI `security` job；实测 gitleaks 0、semgrep 0、lock 0 漏洞 |
 | 迁移验证 | upgrade/downgrade 往返 3 次 | ❌ 无 |
 | 负载口径 | 「2× 峰值」= 20 并发（见 2.3） | — |
 

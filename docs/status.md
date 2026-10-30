@@ -11,7 +11,7 @@
 | 测试 | **117 个测试**；本地 `111 passed / 5 skipped`（无 DSN），CI `116 passed / 0 skipped` | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `python eval.py` → 5/5 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
-| CI | GitHub Actions 3 个 job：`test`（MySQL 8 service）、`eval-minimal`、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
+| CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 <400MB | `make docker-smoke` |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 迁移 0001/0002 | `make check` + `test_migrations.py` |
 | 观测 | JSONL 16 字段、trace/span 树、token/成本、`make report/trace/prune` | [production-standard.md §4.2](./production-standard.md) |
@@ -24,6 +24,8 @@ make report       # 从 JSONL 生成 SLO 周报（docs/reports/）
 make trace        # 按 trace_id 打印 span 树
 make prune        # 日志 14 天 / DB 90 天（支持 dry-run）
 make test-live    # 真实 API 冒烟：1 次调用（需 AGENTKERNEL_LIVE_API=1 与 DEEPSEEK_API_KEY）
+make security     # gitleaks + semgrep（离线）
+make audit        # pip-audit 审计 lock 依赖（需网络）
 make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 ```
 

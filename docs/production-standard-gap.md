@@ -16,7 +16,7 @@
 | 2 | 可观测 | **PARTIAL（接近完成）** | 已实现 JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`；仍缺 OTLP 导出与定时调度 | G-07…G-13、G-47 |
 | 3 | 可回滚 | **PARTIAL** | 0001 迁移有对称 downgrade；但无迁移测试、无备份/恢复演练、DDL 双轨（启动 `create_all`）、无 tag/wheel | G-14…G-19 |
 | 4 | 可控制 | **PARTIAL** | 工具白名单、无 shell/eval、AST 计算器、只读 KB 已达标；但外部 MCP 任意命令继承 key、`/ingest` 无根目录、无 token 预算、base_url 无 allowlist | G-20…G-27 |
-| 5 | 可验证 | **PARTIAL** | CI 已全绿（116 passed / 0 skipped）+ mypy 全绿 + eval 5/5；但覆盖率不可测、golden set 仅 5 条、无 fuzz/扫描 | G-30…G-34 |
+| 5 | 可验证 | **PARTIAL** | CI 已全绿（116 passed / 0 skipped）+ mypy 全绿 + eval 5/5 + 三类安全扫描接入；仍缺覆盖率门槛（G-30）、golden set 50（G-32）、fuzz（G-33） | G-30, G-32, G-33 |
 | 6 | 可运维 | **PARTIAL** | 有 ADR、有降级路径；但无 runbook、无 `make doctor`、无 SLO 周报、无事故模板、无 CHANGELOG/tag | G-35…G-40 |
 
 > 说明：`PARTIAL` 不等于「差不多可以上线」，只表示该门禁已有可复用的实现或文档，缺的是证据链与自动化。
@@ -94,7 +94,7 @@
 | G-31 | 静态检查 0 退出 | ✅ **已实现** | `ruff check` → `All checks passed!`；`ruff format --check` → 全部已格式化；`mypy src` → 28 文件 0 错误；均在 `make check` 内 | — | — | 保持 |
 | G-32 | golden set ≥50（mock）/≥20（live） | 5 条 mock + 4 条 live | `eval.py:59-171,174-223` | 高：S1/S2 无统计意义 | **P0** | 50/20 条，进 `make check` 与 CI |
 | G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |
-| G-34 | 安全扫描（gitleaks/semgrep/pip-audit） | 均未接入 | `ls .pre-commit-config.yaml`/`.gitleaks.toml`/`semgrep.yml` → 不存在 | 高：密钥与高危依赖靠人眼 | **P0** | 三类扫描 0 high，进 `make check` |
+| G-34 | 安全扫描（gitleaks/semgrep/pip-audit） | ✅ **已接入** | `make security`：gitleaks 8.30.1（`.gitleaks.toml` 白名单测试假密钥）+ semgrep 本地规则 `.semgrep.yml`（eval/exec、shell=True、verify=False、硬编码凭据）；`make audit`：`uv export` 锁文件 → pip-audit；CI 新增 `security` job | 低：semgrep 用本地规则（非 registry 全量规则）；pip-audit 依赖网络 | — | 实测：gitleaks 0、semgrep 0、lock 导出 0 漏洞；负向控制 `eval()` 被拦截 |
 | G-41 | 文档与实测一致 | ✅ **已修复**：README 重写为「117 个测试；本地 111/5、CI 116/0」双口径；里程碑/面试材料加历史标注 | `README.md`、`docs/status.md`、`docs/README.md`；一致性由 `status.md` 单点维护 | — | — | 后续数字只改 `status.md`，其他文档引用它 |
 
 ---

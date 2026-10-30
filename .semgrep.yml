@@ -1,0 +1,38 @@
+# G-34：本地 SAST 规则（离线可跑，不依赖 semgrep registry）
+rules:
+  - id: ak-no-eval-exec
+    languages: [python]
+    severity: ERROR
+    message: "禁止 eval/exec（模型输出不得进入代码执行）"
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+
+  - id: ak-no-shell-true
+    languages: [python]
+    severity: ERROR
+    message: "禁止 subprocess shell=True"
+    patterns:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+
+  - id: ak-no-verify-false
+    languages: [python]
+    severity: ERROR
+    message: "禁止关闭 TLS 校验"
+    patterns:
+      - pattern: $REQ(..., verify=False, ...)
+
+  - id: ak-hardcoded-credential
+    languages: [python]
+    severity: ERROR
+    message: "疑似硬编码凭据（password/secret/token/api_key 赋值字面量）"
+    patterns:
+      - pattern: $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i).*(password|passwd|secret|api_key|apikey|token).*
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i).*(_ENV|environ|os\.).*
+          negate: true
