@@ -95,7 +95,8 @@ def parse_json(
     for candidate in candidates:
         try:
             obj = json.loads(candidate)
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError, RecursionError):
+            # 深层嵌套会让 json 触发 RecursionError；按不可修复降级，不能让进程崩
             continue
         if not isinstance(obj, dict):
             continue
