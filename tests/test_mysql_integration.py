@@ -2,7 +2,7 @@
 
 仅当设置 `AGENTKERNEL_MYSQL_TEST_DSN` 时运行，且测试库应为独立实例。
 用法示例：
-    AGENTKERNEL_MYSQL_TEST_DSN=mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel_test pytest -q
+    AGENTKERNEL_MYSQL_TEST_DSN=mysql+pymysql://agentkernel:change-me@127.0.0.1:3306/agentkernel_test pytest -q
 """
 
 from __future__ import annotations

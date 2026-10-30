@@ -187,7 +187,7 @@
 | 数据库镜像 | `mysql:8.0.46@sha256:...`（含 digest），镜像源可换但 digest 固定 | ⚠️ compose 与 CI 已固定精确 tag `8.0.46`，**digest 未固定**（G-45） |
 | 一键检查 | `make check`：format-check → ruff → mypy → pytest → eval(mock)；覆盖率与扫描在批二补 | ✅ `Makefile` + CI 复用同一入口 |
 | 干净环境 | 空目录 clone → `make check` 通过 ≤ 10 分钟（CI 计时） | ✅ 干净 runner 上 `uv sync --frozen` + `make check` 已多次全绿（PR #1/#3/#5） |
-| 配置注入 | 全部经环境变量；`.env.example` 完整；代码内不得有真实口令 | ❌ 仍存在默认口令：`memory/factory.py:21`、`alembic.ini:5`（G-06，批二） |
+| 配置注入 | 全部经环境变量；`.env.example` 完整；代码内不得有真实口令 | ✅ 无内置默认 DSN（缺 DSN 报错）；`alembic.ini` 无口令；回归测试扫描仓库 |
 | 应用镜像（D1） | 多阶段构建；运行阶段非 root；镜像装 core + `mysql` extra；smoke **不是** `--help`，而是 `printf '/quit\n' \| python -m agentkernel --db :memory: --kb-db :memory:` 退出码 0 + 启动横幅；`docker build` 进 CI | ✅ `Dockerfile`（310MB、uid 10001、smoke EXIT=0）；CI `docker` job 含 <400MB 体积门禁 |
 
 **安装口径（易错）**：`dev / mysql / rag / mcp` 全在 `[project.optional-dependencies]`（`pyproject.toml:16-34`），**不是** `[dependency-groups]`；因此统一用 `uv sync --frozen --extra dev --extra mysql`。`uv sync --group dev` 只对 `[dependency-groups]` 生效，在本项目会静默装不到 pytest。分组：lint/test job 用 `--extra dev --extra mysql`；eval job 只需 `--extra dev`（eval 导入链已实测不触达 chromadb/sentence-transformers/fitz/mcp/sqlalchemy，见附录 A）；`--extra rag|mcp` 只在跑向量或官方 SDK 相关用例时加。
@@ -243,7 +243,7 @@
 
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
-| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `108 passed, 5 skipped`；CI `113 passed / 0 skipped` |
+| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `111 passed, 5 skipped`；CI `116 passed / 0 skipped` |
 | 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ❌ 无 pytest-cov/coverage（`ModuleNotFoundError`）；**pytest-cov 明确排在批二**，批一不装、不声称达标；3 个模块在测试进程从未被 import |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy `Success: no issues found in 28 source files` |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
@@ -388,14 +388,14 @@ OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval �
 | 命令 | 输出 |
 |---|---|
 | `.venv/bin/python -V` / `python3 -V` | 3.11.15 / 3.14.4 |
-| `.venv/bin/python -m pytest -q` | `108 passed, 5 skipped`（无 DSN）；有 DSN `113 passed` |
+| `.venv/bin/python -m pytest -q` | `111 passed, 5 skipped`（无 DSN）；有 DSN `116 passed` |
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `All checks passed!`（EXIT=0） |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 28 source files` |
 | `.venv/bin/python eval.py` | `通过 5/5`，退出码 0 |
 | `git ls-files \| wc -l` | 59 |
 | `find src/agentkernel -name '*.py' \| xargs wc -l` | 3,317 行 / 25 文件 |
-| `wc -l tests/*.py` | 1,748 行 / 114 个 test 函数 |
+| `wc -l tests/*.py` | 1,783 行 / 117 个 test 函数 |
 | `ls .github/workflows/ci.yml` / `ls uv.lock Makefile` | 均存在（P0-1/P0-2 交付） |
 | `docker ps` | `agentkernel-mysql  docker.m.daocloud.io/library/mysql:8.0  Up (healthy)`；compose 已改 `8.0.46`（digest 待补 G-45） |
 | `git log -10 --date=short` | 最近 10 次提交 2026-08-31 ~ 2026-09-28，最后一次 `73537e9` |

@@ -8,7 +8,7 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 测试 | **114 个测试**；本地 `108 passed / 5 skipped`（无 DSN），CI `113 passed / 0 skipped` | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 测试 | **117 个测试**；本地 `111 passed / 5 skipped`（无 DSN），CI `116 passed / 0 skipped` | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `python eval.py` → 5/5 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 3 个 job：`test`（MySQL 8 service）、`eval-minimal`、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
@@ -29,7 +29,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 
 | 门禁 | 阈值（项目级） | 当前 |
 |---|---|---|
-| 可重复 | `uv.lock` + `.python-version` + `make sync` | ✅ 基础 / **PARTIAL**：镜像 digest（G-45/G-46）、默认口令（G-06）批二 |
+| 可重复 | `uv.lock` + `.python-version` + `make sync` | ✅ 基础 / **PARTIAL**：镜像 digest（G-45/G-46）待补；默认口令已清理（G-06） |
 | 可观测 | JSONL 16 字段 + span + 成本 + 周报 | ✅（缺 OTLP，G-47） |
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 | ✅ `make backup` / `make restore-drill`：最新演练 PASS（0.9s，行数全对），报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
 | 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 | ✅ 基础 / **PARTIAL**：G-25 会话预算、G-27 工具结果隔离 批二（G-24 allowlist 已完成） |
@@ -57,7 +57,6 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 4 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
 | 5 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
 | 6 | runbook / make doctor（G-35/G-36） | 事故无步骤、无体检命令 | 批二 |
-| 7 | 默认口令仍在代码里（G-06） | 弱口令可能被复制到真实部署 | 批二（小 PR） |
 
 ## 5. 文档地图
 
@@ -77,5 +76,5 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 make check
 AGENTKERNEL_MYSQL_TEST_DSN='mysql+pymysql://agentkernel:***@127.0.0.1:3306/agentkernel_test' \
-  .venv/bin/python -m pytest -q      # 113 passed / 0 skipped
+  .venv/bin/python -m pytest -q      # 116 passed / 0 skipped
 ```

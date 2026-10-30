@@ -9,7 +9,7 @@
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **114 个**：本地 `108 passed / 5 skipped`（无 MySQL DSN），CI `113 passed / 0 skipped` |
+| 测试 | **117 个**：本地 `111 passed / 5 skipped`（无 MySQL DSN），CI `116 passed / 0 skipped` |
 | 评测 | `python eval.py` → 5/5（mock，无需 API Key） |
 | 真实模型 | 6 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
@@ -57,6 +57,7 @@ AGENTKERNEL_LIVE_API=1 make test-live
 docker compose up -d mysql
 # 4. 配环境变量（.env，勿提交）
 cp .env.example .env   # 填 DEEPSEEK_API_KEY、DSN；按需设 AGENTKERNEL_DOC_ROOTS
+# 未配置 DSN 时 CLI 会直接报错（G-06：不再内置默认口令）
 
 # 5. 跑 CLI（默认 MySQL；无 MySQL 时用内存库）
 python -m agentkernel --kb-backend lexical
@@ -103,7 +104,7 @@ AgentKernel/
 ├── src/agentkernel/         # runtime / tools / memory / rag / mcp / utils
 ├── migrations/versions/     # 0001 初始 schema、0002 tool_logs.duration_ms
 ├── scripts/                 # report / trace / prune
-├── tests/                   # 114 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、出站 allowlist）
+├── tests/                   # 117 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、出站 allowlist、配置校验）
 └── docs/                    # status、production-standard(-gap)、架构、历史里程碑、附录
 ```
 
