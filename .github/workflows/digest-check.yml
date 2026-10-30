@@ -1,0 +1,67 @@
+name: digest-check
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare pinned digests with docker.io
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          targets = [
+              ("python", "3.11.15-slim", "Dockerfile", r"ARG PYTHON_IMAGE=python:3\.11\.15-slim@sha256:([0-9a-f]+)"),
+              ("mysql", "8.0.46", "docker-compose.yml", r"mysql:8\.0\.46@sha256:([0-9a-f]+)"),
+          ]
+
+          drift = []
+          for name, tag, path, pattern in targets:
+              text = Path(path).read_text(encoding="utf-8")
+              match = re.search(pattern, text)
+              if not match:
+                  drift.append(f"{name}:{tag}: pinned digest not found in {path}")
+                  continue
+              pinned = "sha256:" + match.group(1)
+              current = subprocess.check_output(
+                  ["docker", "buildx", "imagetools", "inspect", f"{name}:{tag}", "--format", "{{.Manifest.Digest}}"],
+                  text=True,
+              ).strip()
+              print(f"{name}:{tag} pinned={pinned} current={current}")
+              if current != pinned:
+                  drift.append(f"{name}:{tag}: pinned {pinned} -> current {current}")
+
+          if not drift:
+              print("digests are current")
+              sys.exit(0)
+
+          title = "Docker digest drift: mysql/python"
+          existing = subprocess.run(
+              ["gh", "issue", "list", "--state", "open", "--search", title + " in:title", "--json", "number"],
+              capture_output=True,
+              text=True,
+          )
+          if existing.returncode == 0 and existing.stdout.strip() not in ("", "[]"):
+              print("existing open issue, skip creating another")
+          else:
+              body = "Scheduled digest-check found drift:\n\n" + "\n".join(f"- {item}" for item in drift)
+              body += "\n\nUpdate Dockerfile / docker-compose.yml pinned digests and let CI docker job verify."
+              subprocess.run(["gh", "issue", "create", "--title", title, "--body", body], check=True)
+          print("\n".join(drift))
+          sys.exit(1)
+          PY
