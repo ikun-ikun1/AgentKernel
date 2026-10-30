@@ -47,8 +47,10 @@ def test_ports_do_not_depend_on_outer_layers() -> None:
     assert bad == []
 
 
-def test_application_does_not_depend_on_adapters_or_cli() -> None:
-    bad = _violations("application", {"agentkernel.adapters", "agentkernel.cli"})
+def test_application_does_not_depend_on_adapters_cli_or_runtime() -> None:
+    bad = _violations(
+        "application", {"agentkernel.adapters", "agentkernel.cli", "agentkernel.runtime"}
+    )
     assert bad == []
 
 
@@ -64,6 +66,10 @@ def test_rag_core_is_free_of_adapters_and_cli() -> None:
             if module.startswith(("agentkernel.adapters", "agentkernel.cli")):
                 bad.append(f"{path.relative_to(ROOT)}: {module}")
     assert bad == []
+
+
+def test_agent_facade_under_200_lines() -> None:
+    assert len((ROOT / "runtime" / "agent.py").read_text(encoding="utf-8").splitlines()) < 200
 
 
 def test_agent_does_not_import_llm_shim_or_adapters() -> None:

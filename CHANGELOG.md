@@ -8,6 +8,7 @@
 
 - 架构 A1–A6：CLI 组合根、Memory/LLM/MCP 端口与适配器、RAG 拆分、事件组装外移；旧 import shim 保留一个版本，CLI/schema/安全/D4 行为不变。
 - A7.1：`Agent` 接收注入的 `LLMClient`，composition/eval 创建 adapter；`runtime/agent.py` 不再 import `runtime.llm` shim。
+- A7.2：ReAct 循环、上下文策略、工具执行/观察格式化外移到 `application/` + `domain/`；`Agent` 变为 184 行 facade。
 
 ## [0.2.0] - 2026-10-30
 
