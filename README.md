@@ -5,14 +5,14 @@
 [![CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml/badge.svg)](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml)
 [项目状态](docs/status.md) · [生产问题](docs/production-problems.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [架构 ADR](docs/Addendum/adr-003-production-architecture.md) · [Runbook](docs/runbook.md) · [变更记录](CHANGELOG.md) · [架构图](docs/architecture.png)
 
-## 现状（2026-10-29）
+## 现状（2026-10-30）
 
 | 维度 | 数字 / 状态 |
 |---|---|
 | 测试 | **181 个**：本地 `175 passed / 6 skipped`（无 MySQL DSN），CI `180 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%，核心模块 ≥90%） |
 | 评测 | `make eval` → **50/50**（mock golden set）；`make eval-live` → 20 条真实调用 |
 | 真实模型 | 8 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
-| CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
+| CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`security`、`docker` |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 < 400MB |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 0001/0002 可往返 |
 | 观测 | JSONL 16 字段、trace/span 树、`make report / trace / prune` |

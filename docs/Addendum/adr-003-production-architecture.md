@@ -10,12 +10,12 @@ AgentKernel 目前是「能跑、能测、能交付」的 CLI 研究原型，但
 
 | 文件 | 行数 | 当前职责 | 问题 |
 |---|---:|---|---|
-| `src/agentkernel/__main__.py` | 388 | argparse、env 加载、依赖装配、REPL、历史加载、文档入库、帮助、DSN 脱敏 | 组合根与交互逻辑混在一起，换 CLI/嵌入方式要改主文件 |
-| `src/agentkernel/runtime/agent.py` | 392 | ReAct 循环、上下文策略、工具执行、事件组装、解析 | 一个类同时承担编排、策略、I/O 事件与协议解析 |
+| `src/agentkernel/__main__.py` | 392 | argparse、env 加载、依赖装配、REPL、历史加载、文档入库、帮助、DSN 脱敏 | 组合根与交互逻辑混在一起，换 CLI/嵌入方式要改主文件 |
+| `src/agentkernel/runtime/agent.py` | 475 | ReAct 循环、上下文策略、工具执行、事件组装、解析 | 一个类同时承担编排、策略、I/O 事件与协议解析 |
 | `src/agentkernel/rag/ingest.py` | 659 | 文档加载、分块、Shingle、SQLite 索引、向量索引、KnowledgeBase 编排 | 领域模型、存储适配器、检索策略、文件 I/O 混在一个文件 |
-| `src/agentkernel/memory/mysql_store.py` | 387 | 连接、事务、行锁、SQL、redact、截断 | 存储适配器承担了部分策略；换存储会复制逻辑 |
+| `src/agentkernel/memory/mysql_store.py` | 337 | 连接、事务、行锁、SQL、redact、截断 | 存储适配器承担了部分策略；换存储会复制逻辑 |
 | `src/agentkernel/mcp/server.py` | 245 | JSON-RPC 处理、stdio transport、知识库工具 | 协议、传输、业务处理器耦合，难单独测试 |
-| `src/agentkernel/mcp/client.py` | 238 | stdio transport、JSON-RPC client、工具注册 | 传输与工具桥接耦合 |
+| `src/agentkernel/mcp/client.py` | 246 | stdio transport、JSON-RPC client、工具注册 | 传输与工具桥接耦合 |
 | `src/agentkernel/utils/env.py` | 90 | 环境变量读取、默认值、校验 | 全局读取分散，测试需要 monkeypatch 环境 |
 
 这不是「为了架构而架构」。生产化需要的是：**领域逻辑可单测、外设可替换、故障可隔离、组合根可审计**。当前测试已经证明行为，但继续加功能会放大耦合成本。

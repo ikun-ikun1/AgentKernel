@@ -16,13 +16,13 @@
 | # | 真实生产问题 | 典型故障 | 本项目的设计与证据 | 剩余风险 / 下一步 |
 |---|---|---|---|---|
 | P1 | **模型输出不可靠** | 非法 JSON、代码围栏、未知工具、超长 payload、把长文本误判成工具调用 | 提取 → 修复 → 工具名 allowlist → 256KB 上限 → 纯文本降级；`tools/json_repair.py`；坏 JSON/未知工具/超长载荷测试 | 无 fallback 模型/供应商；provider 故障仍单点（G-23） |
-| P2 | **上下文越聊越乱** | 早期约束丢失、历史撑爆上下文、压缩失败 | 保留首条用户要求；compact 摘要；摘要失败降级 truncate；`runtime/agent.py` 上下文策略；超预算/摘要失败/MAX_STEPS 测试 | 压缩质量无 eval；预算控制未做（G-25） |
+| P2 | **上下文越聊越乱** | 早期约束丢失、历史撑爆上下文、压缩失败 | 保留首条用户要求；compact 摘要；摘要失败降级 truncate；`runtime/agent.py` 上下文策略；超预算/摘要失败/MAX_STEPS 测试 | 压缩质量无独立 eval；会话预算已落地（G-25） |
 | P3 | **多进程写同一会话** | 进程内锁跨进程失效；丢失更新；`updated_at` 回退；1213/1205 死锁 | ADR-002 会话行锁 `SELECT ... FOR UPDATE`；有界 LRU；指数退避；20 进程 × 20 写用例进 CI | 同会话写串行（可接受）；未来高并发可评估幂等键方案 |
-| P4 | **RAG 新鲜度与降级** | 重复入库、改文档后索引不更新、向量依赖挂了 | SHA-256 增量索引；稳定 `doc_id:ordinal`；MySQL ngram 基线；可选 Chroma + RRF；不可用回退 lexical；重复/变更/无向量测试 | 检索 recall 无 golden set（G-32）；Chroma 可选路径测试深度有限 |
-| P5 | **MCP / 工具边界** | 任意命令启动子进程、继承 API key/DSN、文档路径穿越、symlink 逃逸、prompt injection | 命名 profile + 精确 argv；env 白名单；`AGENTKERNEL_DOC_ROOTS` + realpath；大小/数量/深度限制；无 shell/eval；AST 计算器；安全测试 | 工具结果仍以普通文本进历史（G-27）；无 OS 级沙箱；G-24 出站 allowlist 分支待合并 |
-| P6 | **观测与成本** | 只知道「跑完了」，不知道 token/成本/哪一步慢；日志含密钥 | JSONL 16 字段；trace/turn/span；token/cost + 版本化定价；未知模型 `null`；写库前 redact + 4KB 截断；`make report/trace/prune` | 无 OTLP/外部看板（G-47）；无会话预算（G-25） |
-| P7 | **Schema / 迁移安全** | `create_all` 与 Alembic 双轨；迁移回滚后表又被建回；误删数据无备份 | Alembic 0001/0002 往返测试；`make backup` + `make restore-drill` 首次演练 PASS；D4 选无 schema 变更方案 | 双轨 DDL 仍未收口（G-16）；备份是逻辑备份，RPO 需按部署确认 |
-| P8 | **交付可重复** | 本地能跑、CI 不绿；镜像 root；体积失控；依赖漂移 | `uv.lock` + `.python-version`；CI MySQL service + 0-skip 强制；多阶段非 root 镜像 + 体积门禁；`make check` 单入口 | 基础镜像 digest 未 pin（G-45/G-46）；runbook/doctor 未完成（G-35/G-36） |
+| P4 | **RAG 新鲜度与降级** | 重复入库、改文档后索引不更新、向量依赖挂了 | SHA-256 增量索引；稳定 `doc_id:ordinal`；MySQL ngram 基线；可选 Chroma + RRF；不可用回退 lexical；重复/变更/无向量测试 | mock/live golden set 已有（G-32）；Recall@5 未单列；Chroma 可选路径测试深度有限 |
+| P5 | **MCP / 工具边界** | 任意命令启动子进程、继承 API key/DSN、文档路径穿越、symlink 逃逸、prompt injection | 命名 profile + 精确 argv；env 白名单；`AGENTKERNEL_DOC_ROOTS` + realpath；大小/数量/深度限制；无 shell/eval；AST 计算器；安全测试 | 工具结果已做不可信隔离（G-27）；出站 allowlist 已完成（G-24）；无 OS 级沙箱 |
+| P6 | **观测与成本** | 只知道「跑完了」，不知道 token/成本/哪一步慢；日志含密钥 | JSONL 16 字段；trace/turn/span；token/cost + 版本化定价；未知模型 `null`；写库前 redact + 4KB 截断；`make report/trace/prune` | 可选 OTLP/HTTP 导出已落地（G-47）；会话预算已落地（G-25）；无 Prometheus/外部指标看板 |
+| P7 | **Schema / 迁移安全** | `create_all` 与 Alembic 双轨；迁移回滚后表又被建回；误删数据无备份 | Alembic 0001/0002 往返测试；`make backup` + `make restore-drill` 首次演练 PASS；D4 选无 schema 变更方案 | 双轨 DDL 已收口（G-16）；备份是逻辑备份，RPO 需按部署确认 |
+| P8 | **交付可重复** | 本地能跑、CI 不绿；镜像 root；体积失控；依赖漂移 | `uv.lock` + `.python-version`；CI MySQL service + 0-skip 强制；多阶段非 root 镜像 + 体积门禁；`make check` 单入口 | 基础镜像 digest 未 pin（G-45/G-46）；runbook/doctor 已完成（G-35/G-36） |
 
 > 这张表就是项目的「生产问题主线」。面试时先讲问题，再讲取舍和证据，最后主动说剩余风险。
 
@@ -46,7 +46,7 @@
 
 **证据**：超预算历史、摘要失败、MAX_STEPS、第 10 轮仍记得第 1 轮要求等用例。
 
-**没解决**：压缩质量没有独立 eval；没有会话级 token 预算（G-25）。
+**没解决**：压缩质量没有独立 eval；会话预算已落地（G-25），但预算耗尽的降级体验未做 eval。
 
 ### P3 多进程一致性
 
@@ -66,17 +66,17 @@
 
 **证据**：重复入库返回 0、修改后只重建该文档、无向量环境回退、删除文档等用例。
 
-**没解决**：没有 Recall@5 等检索 golden set（G-32）；向量路径的故障注入还不够系统。
+**没解决**：mock/live golden set 已有（G-32），但 Recall@5 未单列阈值；向量路径的故障注入还不够系统。
 
 ### P5 MCP / 工具边界
 
 **生产里为什么会出事**：让 Agent 任意启动命令、继承父环境 API key/DSN、读任意路径、工具输出被当成可信指令。
 
-**做法**：MCP 命名 profile + 精确 argv + 解释器白名单；子进程 env 白名单；文档根 realpath + 拒 symlink 逃逸；大小/数量/深度限制；无 shell/eval；AST 计算器。LLM 出站 `base_url` allowlist 在 G-24 分支完成，待合并后计入 main。
+**做法**：MCP 命名 profile + 精确 argv + 解释器白名单；子进程 env 白名单；文档根 realpath + 拒 symlink 逃逸；大小/数量/深度限制；无 shell/eval；AST 计算器。LLM 出站 `base_url` allowlist 已完成（G-24）。
 
 **证据**：`tests/test_security.py`（15 个安全测试）、`mcp_profiles.example.toml`、路径越界/符号链接/超限/allowlist 绕过用例。
 
-**没解决**：工具结果仍按普通文本进历史，间接提示注入风险还在（G-27）；没有 OS 级沙箱（E2B/容器）作为第二道边界。
+**没解决**：工具结果已做不可信隔离（G-27）；仍没有 OS 级沙箱（E2B/容器）作为第二道边界。
 
 ### P6 观测与成本
 
@@ -86,7 +86,7 @@
 
 **证据**：`tests/test_observability.py`；`docs/reports/2026-W44.md`；live 调用 tokens/cost 非空。
 
-**没解决**：没有 OTLP/外部看板与告警（G-47）；没有会话级预算（G-25）。
+**没解决**：OTLP 可选导出已落地（G-47）；没有 Prometheus/外部指标看板与告警；会话预算已落地（G-25）。
 
 ### P7 Schema / 迁移安全
 
@@ -96,7 +96,7 @@
 
 **证据**：`tests/test_migrations.py`；`docs/reports/restore-drill-20261029.md`；`make check` + CI MySQL service。
 
-**没解决**：G-16 双轨 DDL 仍未收口；备份 RPO/保留策略要按真实部署再确认。
+**没解决**：G-16 双轨 DDL 已收口；备份 RPO/保留策略要按真实部署再确认。
 
 ### P8 交付可重复
 
@@ -106,7 +106,7 @@
 
 **证据**：CI workflow、`Dockerfile`、`docs/status.md`、`docs/reports/restore-drill-20261029.md`。
 
-**没解决**：基础镜像 digest 未 pin（G-45/G-46）；runbook/doctor 未完成（G-35/G-36）。
+**没解决**：基础镜像 digest 未 pin（G-45/G-46）；runbook/doctor 已完成（G-35/G-36）。
 
 ## 这个项目不是什么
 
