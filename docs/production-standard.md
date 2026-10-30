@@ -200,7 +200,7 @@
 |---|---|---|
 | 结构化日志 | JSONL，一行一条；每轮 1 条 `turn`、每次工具 1 条 `tool` | ✅ `utils/observability.py` + `runtime/agent.py`；9 个测试覆盖字段表/脱敏/成本/审计失败 |
 | 字段表 | **16 字段 = 12 核心 + 4 条件**。核心（恒有）：`ts, level, event, trace_id, session_id_hash, turn_id, step, latency_ms, model, tokens{in,out}, success, error_type`；条件：`tool_name`（仅 tool）、`cost_usd`（仅 turn）、`span{id,parent_id,name}`（turn/tool/audit）、`pricing_table_version`（仅 turn 且有用量） | ✅ 已实现并被测试断言 |
-| Trace | 每轮一个 `trace_id`；span：`turn` → `llm.chat` / `tool.run` / `store.*`；本地 100% 采样；OTLP 导出默认关闭 | ✅ `trace_id`（32 hex）+ `span.id`（16 hex，W3C 兼容）+ `parent_id` 父子关系；`make trace TRACE_ID=...` 打印 span 树；仍无 OTLP 导出（G-47） |
+| Trace | 每轮一个 `trace_id`；span：`turn` → `llm.chat` / `tool.run` / `store.*`；本地 100% 采样；OTLP 导出默认关闭 | ✅ `trace_id`（32 hex）+ `span.id`（16 hex，W3C 兼容）+ `parent_id` 父子关系；`make trace TRACE_ID=...` 打印 span 树；可选 OTLP/HTTP JSON 导出（`OTEL_EXPORTER_OTLP_ENDPOINT`，本地假 collector 测试） |
 | 指标 | 计数器：turns、tool_calls、tool_errors、json_repair_layers、budget_exceeded；直方图：turn_latency、tool_latency、tokens | ✅ `make report` 聚合成功率/p50/p95/tokens/成本并维护 `docs/reports/index.md`；`tool_logs.duration_ms` 已落库（迁移 0002）；无 Prometheus 导出 |
 | 脱敏 | 日志默认不落消息正文；debug 级别落正文也必须先过 secret 正则；`tool_logs` 落库前 redact + 截断 4KB | ✅ 入库前 `redact+truncate`（SQLite/MySQL 两处）；日志字段同样过 redact；`/history` 仍按设计展示正文 |
 | 审计失败可见 | 观察者异常必须计数 + 告警，不得静默 `pass` | ✅ `audit_failures` 计数 + `audit_failed` 事件 |
@@ -338,7 +338,7 @@ wheel 产物与 `v0.2.0` 发布验证（G-19）；镜像 digest 固定（G-45/G-
 
 ### 8.3 P2（有余力再做）
 
-OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval 框架替换手写 eval；向量索引全量重建 CLI（ADR-001 自陈缺口）；性能基准与 p95 回归看板；多 Python 版本矩阵（3.11/3.12）。
+mypy `--strict`；mutation testing；promptfoo 式 eval 框架替换手写 eval；向量索引全量重建 CLI（ADR-001 自陈缺口）；性能基准与 p95 回归看板；多 Python 版本矩阵（3.11/3.12）。
 
 ---
 

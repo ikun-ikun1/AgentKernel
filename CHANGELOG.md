@@ -2,6 +2,17 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)；格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [Unreleased]
+
+### Added
+
+- 可选 OTLP/HTTP JSON 导出：`OTEL_EXPORTER_OTLP_ENDPOINT` 开关、后台有界队列、本地假 collector 测试；无外部 SDK 依赖。
+- fuzz 语料：固定种子生成 500 条坏 JSON + 100 条非法 MCP 帧，纳入 `make check` 与 `make fuzz`。
+
+### Fixed
+
+- 深层嵌套 JSON 触发 `RecursionError` 时不再向上抛，按不可修复降级为纯文本。
+
 ## [0.1.0] - 2026-10-30
 
 首个可回滚版本：ReAct Runtime、MCP、MySQL 主存储与观测/安全/运维门禁的第一轮收口。

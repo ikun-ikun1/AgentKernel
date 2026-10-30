@@ -13,7 +13,7 @@
 | # | 门禁 | 结论 | 一句话理由 | 阻断项 |
 |---|---|---|---|---|
 | 1 | 可重复 | **PARTIAL** | 锁文件/解释器/`make check`/CI/格式化门禁已就绪；仍缺镜像 digest（G-04/G-45/G-46）与默认口令清理（G-06） | G-04, G-06, G-45, G-46 |
-| 2 | 可观测 | **PARTIAL（接近完成）** | 已实现 JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`；仍缺 OTLP 导出与定时调度 | G-07…G-13、G-47 |
+| 2 | 可观测 | **PASS** | JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`、可选 OTLP/HTTP 导出；周报调度仍手动（非门禁） | — |
 | 3 | 可回滚 | **PARTIAL** | 迁移测试、备份/恢复演练、`v0.1.0` tag 已就绪；仍缺 wheel 产物与 `v0.2.0` 发布验证 | G-19 |
 | 4 | 可控制 | **PASS** | 白名单/无 shell/只读 KB/MCP profile/文档根/allowlist/结果隔离/会话预算（token + 单轮调用数）均达标 | — |
 | 5 | 可验证 | **PASS** | CI 全绿 + mypy + eval 50/50 + 三类扫描 + 覆盖率 83%（门槛 80%）+ 500/100 条 fuzz 语料（0 崩溃/0 挂起） | — |
@@ -35,7 +35,7 @@
 | G-06 | 代码中不得有真实默认口令 | ✅ **已实现** | 删除 `DEFAULT_MYSQL_DSN`；`create_runtime_store()` 缺 DSN 直接报错并给出指引；`alembic.ini` 不再带口令；`__main__ --migrate` 同样要求显式 DSN | — | — | `tests/test_config_defaults.py` 3 例，含「仓库内不得出现 agentkernel:agentkernel」的回归扫描 |
 | G-42 | 应用镜像：多阶段、非 root、可构建（D1 新增） | **本地已实现并验证**（CI build job 待首次运行） | `Dockerfile` 多阶段，基础镜像 `python:3.11.15-slim`（Debian trixie）；`docker images` **310MB**（未压缩），`inspect .Size` **69MB**（压缩层）；`id -u` → `10001`；smoke `printf '/quit\n' \| docker run -i --rm agentkernel:local python -m agentkernel --db :memory: --kb-db :memory: --kb-backend lexical` → EXIT=0 + 启动横幅；镜像内 `chromadb` 不可导入（rag 未装）、`/app` 无 `.env`；`docker compose --profile app config` 通过（app 不默认启动） | 低：本地 build 用 daocloud 镜像源（`--build-arg`），CI 用 docker.io，默认路径由 CI 首次 build 证明；体积门禁用 `docker images` 口径（inspect 是压缩层，不能混用） | **P0（收尾）** | CI `docker` job 首次绿（含 <400MB 门禁）；smoke 只宣称「能启动」，不宣称 MySQL/运行态已验证 |
 | G-46 | Python 基础镜像未 pin digest（P0-3 新增） | 已从浮动 `python:3.11-slim` 改为精确 `python:3.11.15-slim`，**仍无 digest** | `Dockerfile` `ARG PYTHON_IMAGE=python:3.11.15-slim`；`Makefile` `DOCKER_BASE` 同值；本机无法访问 `registry-1.docker.io` | 中：上游重推 tag 会静默改变基础镜像内容 | **P0（短）** | 改为 `python:3.11.15-slim@sha256:...`；digest 必须在 docker.io 侧取得（daocloud 的 digest 不能直接信任） |
-| G-47 | OTLP/外部看板未接（P0-4b 遗留） | 只有本地 JSONL + `make trace`/`make report`；无 OTLP exporter、无 Prometheus/Grafana | `scripts/trace.py`、`scripts/report.py`；`pyproject.toml` 无 opentelemetry 依赖 | 低：单机 CLI 够用；接在线服务前必须补 | P2 | 需要时加 `opentelemetry-sdk`（可选 extra）+ `OTEL_EXPORTER_OTLP_ENDPOINT` 开关，并用本地假 collector 验证 |
+| G-47 | OTLP/外部看板未接（P0-4b 遗留） | ✅ **已完成**：`OTEL_EXPORTER_OTLP_ENDPOINT` 开关，异步有界队列导出 OTLP/HTTP JSON；失败静默降级不影响主流程；本地假 collector 测试验证路径/字段/脱敏 | `utils/otel.py`、`utils/observability.py`、`tests/test_otel.py` | — | — | 本地假 collector 收到 `/v1/traces`，span 字段与脱敏断言通过 |
 | G-45 | MySQL 镜像未固定 digest（P0-2 引入的临时状态） | 两处已统一为精确 tag `8.0.46`，**仍无 digest** | `.github/workflows/ci.yml` service image `mysql:8.0.46`；`docker-compose.yml:3` `docker.m.daocloud.io/library/mysql:8.0.46`；本机无法访问 `registry-1.docker.io` 取 digest | 中：上游重推 tag 会静默改变行为 | **P0（短）** | 两处都改成 `image@sha256:...`，并在 CI 里验证可拉取 |
 | G-43 | 格式化门禁 | ✅ **已实现** | `style` 提交（32 文件，AST 等价校验）+ `format --check` 进入 `make check`/CI；`.git-blame-ignore-revs` 已加 | — | — | 保持 |
 
@@ -46,9 +46,9 @@
 | # | 标准要求（§4.2） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
 | G-07 | 结构化 JSONL 日志 | ✅ **已实现** | `src/agentkernel/utils/observability.py`（JsonlFormatter/emit）；`runtime/agent.py` 每轮 1 条 `turn`、每次工具 1 条 `tool`；`tests/test_observability.py` 9 例 | — | — | 14 字段（12 核心 + 2 条件）由测试断言；日志默认 stderr，`AGENTKERNEL_LOG` 可落文件 |
-| G-08 | `trace_id` 贯穿 LLM→工具→DB | ✅ **已实现** | `agent.run` 生成 trace_id/turn_id，`tool` 与 `turn` 事件共享（`tests/test_observability.py` 断言）；`session_id` 只以 12 位 sha256 出现 | — | — | 跨进程/OTLP span 仍属批二 |
+| G-08 | `trace_id` 贯穿 LLM→工具→DB | ✅ **已实现** | `agent.run` 生成 trace_id/turn_id，`tool` 与 `turn` 事件共享（`tests/test_observability.py` 断言）；`session_id` 只以 12 位 sha256 出现 | — | — | 跨进程链路仍属批二 |
 | G-09 | token / 成本记账 | ✅ **已实现** | `runtime/llm.py` 用 ContextVar 捕获 usage（`pop_usage()`，chat 签名不变）；`observability.PRICING_TABLE_VERSION=2026-10-29`；未知模型 `cost_usd=null` + 单次 `pricing_unknown` 告警（有测试） | — | — | mock/假 LLM 下 tokens/cost 为 null 是预期，只有 live 调用才有真实 usage |
-| G-10 | 指标（计数器/直方图） | ⚠️ **部分**：`make report` 聚合成功率/p50/p95/tokens/成本并维护索引；`make trace` 输出 span 树；无 Prometheus/OTLP 导出 | `scripts/report.py`、`scripts/trace.py`、`docs/reports/index.md` | 中：S4 可回归，但没有外部看板与告警联动 | P1 | 需要时接 OTLP 导出（G-47）；当前以周报 + trace 树代替 |
+| G-10 | 指标（计数器/直方图） | ⚠️ **部分**：`make report` 聚合成功率/p50/p95/tokens/成本并维护索引；`make trace` 输出 span 树；OTLP traces 已接（G-47），无 Prometheus 指标导出 | `scripts/report.py`、`scripts/trace.py`、`docs/reports/index.md`、`utils/otel.py` | 低：S4 可回归；无外部指标看板/告警联动 | P2 | 需要指标看板时再加 Prometheus exporter；当前周报 + trace 树 + OTLP traces 足够 |
 | G-11 | 工具耗时落库 | ✅ **已实现** | 迁移 `0002_tool_log_duration`（只加可空列，可回滚）；`sqlite_store` 老库自动补列；`mysql_store` 写库带 `duration_ms`；`/logs` 显示耗时；测试 `test_duration_roundtrip` | — | — | 迁移往返由 `tests/test_migrations.py` 在 CI（有 DSN）验证 |
 | G-12 | 审计失败可见 | ✅ **已实现** | `agent.audit_failures` 计数 + `audit_failed` 事件（`runtime/agent.py`）；测试 `test_audit_failure_is_visible` | — | — | 主流程仍不因审计失败中断（按设计） |
 | G-13 | 日志/DB 脱敏与截断 | ✅ **已实现（写库与日志字段）** | `observability.redact/truncate`；写库前都过一遍；`scripts/prune.py` + `make prune`（`LOG_DAYS=14`/`DB_DAYS=90`，支持 dry-run） | 低：`/history` 仍按设计展示消息正文；prune 需 cron/手工触发 | — | 自动调度留给运维侧；不阻塞门禁 |
@@ -152,7 +152,7 @@ G-19（wheel 产物 + `v0.2.0`）。
 
 ### 8.3 P2
 
-G-26（schema 长度/格式）、OTLP 导出、mypy `--strict`、向量索引重建入口（ADR-001 自陈缺口）、多版本矩阵。
+G-26（schema 长度/格式）、mypy `--strict`、向量索引重建入口（ADR-001 自陈缺口）、多版本矩阵。
 
 ---
 

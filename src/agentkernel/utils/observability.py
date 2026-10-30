@@ -191,5 +191,9 @@ def emit(event: str, *, level: int = logging.INFO, **fields: Any) -> None:
     """发一条结构化事件；记录失败不得影响主流程。"""
     try:
         logging.getLogger(LOGGER_NAME).log(level, event, extra={"ak": {"event": event, **fields}})
+        # G-47：配置了 OTEL_EXPORTER_OTLP_ENDPOINT 时异步镜像到 OTLP/HTTP
+        from agentkernel.utils import otel
+
+        otel.record(event, **fields)
     except Exception:  # 观测失败不能拖垮主流程
         pass
