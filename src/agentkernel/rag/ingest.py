@@ -457,7 +457,7 @@ class KnowledgeBase:
             from agentkernel.rag.mysql_store import MySQLKnowledgeStore
 
             self._mysql_store = MySQLKnowledgeStore(dsn)
-            self._mysql_store.ensure_tables()
+            self._mysql_store.ensure_schema()
             self._index: Any = self._mysql_store
         else:
             # `:memory:` 显式表示不落盘；用于测试与 eval。

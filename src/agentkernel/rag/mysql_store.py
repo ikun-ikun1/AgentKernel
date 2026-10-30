@@ -56,57 +56,22 @@ class MySQLKnowledgeStore:
             self._engine.dispose()
             self._engine = None
 
-    def ensure_tables(self) -> None:
-        """创建文档/Chunk 表与 ngram 全文索引（Alembic 之外保留 dev 兜底）。"""
+    def ensure_schema(self) -> None:
+        """校验文档/Chunk 表与 ngram 全文索引已由 Alembic 创建（G-16）。"""
         try:
-            from sqlalchemy import (
-                Column,
-                Float,
-                Index,
-                Integer,
-                MetaData,
-                String,
-                Table,
-                Text,
-                text,
-            )
+            from sqlalchemy import inspect, text
         except ImportError as exc:
             raise MySQLKnowledgeError(
                 "MySQL 知识库需要 SQLAlchemy/PyMySQL：pip install -e '.[mysql]'"
             ) from exc
 
-        metadata = MetaData()
-        documents = Table(
-            "documents",
-            metadata,
-            Column("doc_id", String(64), primary_key=True),
-            Column("doc_name", String(255), nullable=False),
-            Column("source", String(1024), nullable=False),
-            Column("checksum", String(64), nullable=False),
-            Column("size_bytes", Integer, nullable=False),
-            Column("modified_at", Float, nullable=False),
-            Column("ingested_at", String(64), nullable=False),
-            Column("chunk_count", Integer, nullable=False, server_default="0"),
-        )
-        chunks = Table(
-            "chunks",
-            metadata,
-            Column("chunk_id", String(128), primary_key=True),
-            Column("doc_id", String(64), nullable=False),
-            Column("ordinal", Integer, nullable=False),
-            Column("text", Text, nullable=False),
-            Column("page", Integer),
-            Column("section", String(512), nullable=False, server_default=""),
-            # MySQL 8 does not allow defaults on TEXT columns; callers always
-            # provide the serialized metadata explicitly.
-            Column("metadata_json", Text, nullable=False),
-        )
-        Index("idx_documents_name", documents.c.doc_name)
-        Index("idx_chunks_doc", chunks.c.doc_id, chunks.c.ordinal)
-        # MySQL 的 ngram 全文索引需要显式 FULLTEXT DDL；SQLAlchemy 的普通
-        # Index 编译器会生成不带 FULLTEXT 的 CREATE INDEX，无法附加 parser。
-        metadata.create_all(self.engine)
-        with self.engine.begin() as conn:
+        inspector = inspect(self.engine)
+        tables = set(inspector.get_table_names())
+        if "alembic_version" not in tables or not {"documents", "chunks"} <= tables:
+            raise MySQLKnowledgeError(
+                "MySQL 知识库 schema 未初始化：请先执行 `python -m agentkernel --migrate`"
+            )
+        with self.engine.connect() as conn:
             exists = conn.execute(
                 text(
                     "SELECT 1 FROM information_schema.statistics "
@@ -114,10 +79,10 @@ class MySQLKnowledgeStore:
                     "AND index_name = 'idx_chunks_ft' LIMIT 1"
                 )
             ).first()
-            if not exists:
-                conn.execute(
-                    text("CREATE FULLTEXT INDEX idx_chunks_ft ON chunks (text) WITH PARSER ngram")
-                )
+        if not exists:
+            raise MySQLKnowledgeError(
+                "MySQL 知识库缺少 ngram 全文索引 idx_chunks_ft：请执行 `python -m agentkernel --migrate`"
+            )
 
     def get_document(self, doc_id: str) -> dict[str, Any] | None:
         from sqlalchemy import text

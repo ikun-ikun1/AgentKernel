@@ -13,11 +13,30 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+from pathlib import Path
 
 import pytest
 
 DSN = os.environ.get("AGENTKERNEL_MYSQL_TEST_DSN")
 pytestmark = pytest.mark.skipif(not DSN, reason="未配置 AGENTKERNEL_MYSQL_TEST_DSN")
+
+
+def _migrate_schema() -> None:
+    """G-16：集成测试也走 Alembic，不再依赖 create_all。"""
+    from alembic import command
+    from alembic.config import Config
+
+    repo = Path(__file__).resolve().parents[1]
+    os.environ["AGENTKERNEL_DB_URL"] = DSN
+    cfg = Config(str(repo / "alembic.ini"))
+    cfg.set_main_option("script_location", str(repo / "migrations"))
+    command.upgrade(cfg, "head")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _schema():
+    _migrate_schema()
+
 
 SESSION_ID = "d4-mp-session"
 PROCESSES = 20

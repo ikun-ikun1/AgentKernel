@@ -348,7 +348,8 @@ def main() -> None:
             2,
             f"Runtime 存储初始化失败：{type(e).__name__}: "
             f"{observability.redact(str(e))}\n"
-            "提示：安装 MySQL 依赖并启动 docker compose，或使用 --db sqlite:///:memory:\n",
+            "提示：安装 MySQL 依赖并启动 docker compose，首次使用先执行 --migrate；"
+            "或使用 --db sqlite:///:memory:\n",
         )
 
     kb_dsn_or_path = (
