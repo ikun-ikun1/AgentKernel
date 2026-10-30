@@ -318,6 +318,10 @@ def main() -> None:
 
     env_utils.load_env()
     observability.configure()
+    try:
+        env_utils.validate_base_url()
+    except env_utils.LLMConfigError as exc:
+        parser.exit(2, f"配置错误：{exc}\n")
 
     if args.migrate:
         from agentkernel.memory.factory import DEFAULT_MYSQL_DSN

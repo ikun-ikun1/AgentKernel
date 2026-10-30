@@ -234,7 +234,7 @@
 | 外部 MCP | 只接受 `--mcp-profile <name>`：命令与参数来自 profile 文件（**精确 argv 数组**，CLI 不能追加参数）；`command` 必须是 realpath 绝对路径；解释器（sh/python/node…）需显式 `allow_interpreter`；子进程 env 只注入白名单且强制剔除 `DEEPSEEK_*`/`AGENTKERNEL_*`/`OPENAI_*`/`AWS_*`；`--mcp` 任意命令需 `AGENTKERNEL_ALLOW_RAW_MCP=1` 逃生口 | ✅ `mcp/profiles.py` + `StdioMCPClient(env=…)`；14 个安全测试覆盖 unknown profile、相对路径、解释器、`-c`、env 泄漏 |
 | 预算与限流 | `MAX_STEPS` ≤ 10、单轮工具调用 ≤ 5、payload ≤ 256KB、LLM timeout ≤ 60s、retries ≤ 2、单会话 ≤150k tokens | ⚠️ 前四项已有（`agent.py:59`、`json_repair.py:22`、`env.py:40-47`）；无调用数上限、无 token 预算 |
 | 密钥管理 | key 只在 `.env`（600）或进程环境；禁止硬编码口令；启动校验 DSN 不是默认弱口令 | ⚠️ key 合规（`env.py:21-29`）；`factory.py:20`/`alembic.ini:4` 硬编码 |
-| 网络出口 | `DEEPSEEK_BASE_URL` 必须命中 allowlist（如 `api.deepseek.com`），否则拒绝启动 | ❌ 任意 URL（`env.py:32-33`） |
+| 网络出口 | `DEEPSEEK_BASE_URL` 必须命中 `AGENTKERNEL_ALLOWED_LLM_HOSTS`（默认 `api.deepseek.com`），强制 https（本机回环除外），拒绝带凭据 URL | ✅ `env.validate_base_url()`；CLI 启动与 `llm._get_client()` 双重校验；8 个测试 |
 | 输出隔离 | 工具结果入历史时必须包裹为「不可信数据」标记；知识库正文进 prompt 前加分隔符 | ❌ 原样 `role=user`（`agent.py:107-109`） |
 
 **加严点**：基线要求「工具白名单 + 参数校验 + 沙箱/审批」，本项目**不引入人工审批**（单用户 CLI，审批会破坏交互体验），改为「路径白名单 + env 清洗 + 预算上限 + 显式 allowlist 四件套」作为等价控制，并在豁免表登记（第 9 节）。
@@ -243,7 +243,7 @@
 
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
-| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `100 passed, 5 skipped`；CI `105 passed / 0 skipped` |
+| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `108 passed, 5 skipped`；CI `113 passed / 0 skipped` |
 | 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ❌ 无 pytest-cov/coverage（`ModuleNotFoundError`）；**pytest-cov 明确排在批二**，批一不装、不声称达标；3 个模块在测试进程从未被 import |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy `Success: no issues found in 28 source files` |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
@@ -388,14 +388,14 @@ OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval �
 | 命令 | 输出 |
 |---|---|
 | `.venv/bin/python -V` / `python3 -V` | 3.11.15 / 3.14.4 |
-| `.venv/bin/python -m pytest -q` | `100 passed, 5 skipped`（无 DSN）；有 DSN `105 passed` |
+| `.venv/bin/python -m pytest -q` | `108 passed, 5 skipped`（无 DSN）；有 DSN `113 passed` |
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `All checks passed!`（EXIT=0） |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 28 source files` |
 | `.venv/bin/python eval.py` | `通过 5/5`，退出码 0 |
 | `git ls-files \| wc -l` | 59 |
 | `find src/agentkernel -name '*.py' \| xargs wc -l` | 3,317 行 / 25 文件 |
-| `wc -l tests/*.py` | 1,686 行 / 106 个 test 函数 |
+| `wc -l tests/*.py` | 1,748 行 / 114 个 test 函数 |
 | `ls .github/workflows/ci.yml` / `ls uv.lock Makefile` | 均存在（P0-1/P0-2 交付） |
 | `docker ps` | `agentkernel-mysql  docker.m.daocloud.io/library/mysql:8.0  Up (healthy)`；compose 已改 `8.0.46`（digest 待补 G-45） |
 | `git log -10 --date=short` | 最近 10 次提交 2026-08-31 ~ 2026-09-28，最后一次 `73537e9` |

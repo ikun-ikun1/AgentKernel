@@ -9,7 +9,7 @@
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **106 个**：本地 `100 passed / 5 skipped`（无 MySQL DSN），CI `105 passed / 0 skipped` |
+| 测试 | **114 个**：本地 `108 passed / 5 skipped`（无 MySQL DSN），CI `113 passed / 0 skipped` |
 | 评测 | `python eval.py` → 5/5（mock，无需 API Key） |
 | 真实模型 | 6 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
@@ -39,7 +39,7 @@
 | 检索 | PDF/MD/TXT 入库、checksum 增量、稳定 chunk id、MySQL ngram、可选 Chroma + RRF |
 | MCP | 自实现 client 与只读 server（`initialize → tools/list → tools/call`）；外部 server 走**命名 profile + 精确 argv + env 白名单** |
 | 可观测 | 每轮 1 条 `turn`、每次工具 1 条 `tool`；trace/turn/span id；token/成本（定价表版本化）；写库前脱敏 |
-| 安全边界 | 无 shell/eval、AST 计算器、文档根 realpath 白名单（拒 symlink 逃逸）、子进程 env 清洗、DSN 脱敏 |
+| 安全边界 | 无 shell/eval、AST 计算器、文档根 realpath 白名单（拒 symlink 逃逸）、子进程 env 清洗、DSN 脱敏、LLM 出站 allowlist |
 | 交付 | `uv.lock`、`make check`、CI（MySQL service）、多阶段 Dockerfile、迁移往返测试 |
 
 ## 快速开始
@@ -103,7 +103,7 @@ AgentKernel/
 ├── src/agentkernel/         # runtime / tools / memory / rag / mcp / utils
 ├── migrations/versions/     # 0001 初始 schema、0002 tool_logs.duration_ms
 ├── scripts/                 # report / trace / prune
-├── tests/                   # 106 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练）
+├── tests/                   # 114 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、出站 allowlist）
 └── docs/                    # status、production-standard(-gap)、架构、历史里程碑、附录
 ```
 
