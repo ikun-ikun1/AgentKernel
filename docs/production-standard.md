@@ -87,7 +87,7 @@
 
 ### 1.3 规模与演化预期
 
-- 现状：59 个 git 跟踪文件；源码 3,317 行（25 个 .py）；测试 818 行 / 68 个 test 函数；文档 1,726 行；最近一次提交 2026-09-28（`git ls-files | wc -l`；`wc -l` 实测）。
+- 现状规模（文件数、源码/测试/文档行数、测试函数数）随重构变化，统一以 [status.md](./status.md) 与 CI 为准；本节只定义画像与演化预期。
 - 预期：不再扩功能，只收尾与加固；若未来扩成「可安装 CLI 工具」或「在线服务」，第 1 节画像与第 3 节威胁模型必须重做。
 
 ---
@@ -243,9 +243,9 @@
 
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
-| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `158 passed, 5 skipped`；CI `163 passed / 0 skipped`（覆盖率 83%） |
-| 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%；`__main__.py` ≥ 70% | ✅ 总 **83%**（CI 门槛 80%）；核心：json_repair 96 / contracts 100 / registry 97 / framing 96 / base 100；`__main__.py` 73%；剩余低覆盖集中在非核心 MySQL/服务循环模块 |
-| 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy `Success: no issues found in 28 source files` |
+| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地/CI 均全绿且 CI 0 skip；具体 passed/skip 与覆盖率见 [status.md](./status.md)；skip 用 `grep -q SKIPPED` 命令级强制 |
+| 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%；`__main__.py` ≥ 70% | ✅ 总覆盖率与核心模块数字见 [status.md](./status.md)；门槛不变（总体 ≥80%、核心 ≥90%、`__main__.py` ≥70%）；剩余低覆盖集中在非核心 MySQL/服务循环模块 |
+| 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy 0 错误（源文件数随架构变化，见 `make check`/CI） |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ✅ mock 50（qa/tool/json/rag/context 各 10）、live 20；覆盖未知工具/坏 JSON/降级/引用等失败路径 |
 | eval 门禁 | mock 50 条 100% 通过才退出 0；live ≥80%；进 `make check` 与 CI | ✅ CI 两个入口都跑 50 条 mock（`test` 的 `make check`、`eval-minimal`）；live 手动 |
 | 模糊测试 | 500 条坏 JSON + 100 条非法帧，0 崩溃 0 挂起（单条 > 2s 视为挂起） | ❌ 无 fuzz 语料 |
@@ -327,7 +327,7 @@
 | # | 差距 | 门禁 | 动作 | 验收 |
 |---|---|---|---|---|
 | P0-1 | 无锁文件 / 无 `make check` / ruff 失败 | 可重复 + 可验证 | `uv.lock`、`.python-version`、`Makefile`、修 I001、纯格式化提交 | ✅ 已合并（`uv lock --check` 0；`make check` 0；CI 全绿） |
-| P0-2 | 缺 CI 与 0-skip 强制（当时） | 可重复 + 可验证 | GitHub Actions：MySQL service、`uv lock --check`、`make check`、`grep SKIPPED`、`eval-minimal` | ✅ 已合并（PR #1；当前 CI 100 passed / 0 skipped） |
+| P0-2 | 缺 CI 与 0-skip 强制（当时） | 可重复 + 可验证 | GitHub Actions：MySQL service、`uv lock --check`、`make check`、`grep SKIPPED`、`eval-minimal` | ✅ 已合并（PR #1；当时 CI 100 passed / 0 skipped，当前数字见 [status.md](./status.md)） |
 | P0-3 | 无应用镜像、无体积门禁 | 可重复 | 多阶段 Dockerfile（非 root，core+mysql）、compose app profile、CI build + <400MB 门禁 | ✅ 已合并（PR #2；310MB、uid 10001、smoke EXIT=0） |
 | P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已合并**：每轮 1 条 turn 含 16 字段（12 核心 + 4 条件）；`make report/trace`；9 个观测测试 |
 | P0-5 | 三个高危控制缺口：MCP 任意命令+继承 key、文档任意路径、DSN 异常未脱敏 | 可控制 | env 白名单 + `AGENTKERNEL_MCP_ALLOW`；`AGENTKERNEL_DOC_ROOTS` + 大小/数量/深度限制；异常路径过 `_redact_dsn`；3306 绑 `127.0.0.1` | **已合并（PR #5）**：profile 精确 argv + env 白名单；realpath 文档根（含 symlink 逃逸）；异常脱敏；compose 绑回环；15 个安全测试 |
@@ -383,21 +383,21 @@ mypy `--strict`；mutation testing；promptfoo 式 eval 框架替换手写 eval�
 
 ---
 
-## 附录 A：本文件依据的实测证据（2026-10-29）
+## 附录 A：实测证据（历史快照 2026-10-29；当前数字以 [status.md](./status.md) 为准）
 
 | 命令 | 输出 |
 |---|---|
 | `.venv/bin/python -V` / `python3 -V` | 3.11.15 / 3.14.4 |
-| `.venv/bin/python -m pytest -q` | `158 passed, 5 skipped`（无 DSN）；有 DSN `163 passed`；覆盖率 83% |
+| `.venv/bin/python -m pytest -q` | 全绿；无 DSN 会 skip MySQL 用例；具体输出与覆盖率见 [status.md](./status.md) |
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `All checks passed!`（EXIT=0） |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 28 source files` |
 | `.venv/bin/python eval.py` | `通过 50/50`，退出码 0 |
-| `git ls-files \| wc -l` | 59 |
-| `find src/agentkernel -name '*.py' \| xargs wc -l` | 3,317 行 / 25 文件 |
-| `wc -l tests/*.py` | 2,485 行 / 164 个 test 函数 |
+| `git ls-files \| wc -l` | 规模数字见 [status.md](./status.md)（随重构变化） |
+| `find src/agentkernel -name '*.py' \| xargs wc -l` | 见 [status.md](./status.md) |
+| `wc -l tests/*.py` | 测试行数/函数数见 [status.md](./status.md) |
 | `ls .github/workflows/ci.yml` / `ls uv.lock Makefile` | 均存在（P0-1/P0-2 交付） |
-| `docker ps` | `agentkernel-mysql  docker.m.daocloud.io/library/mysql:8.0  Up (healthy)`；compose 已改 `8.0.46`（digest 待补 G-45） |
+| `docker ps` | MySQL 8.0.46@sha256 已固定（G-45）；`make doctor` 7 项通过 |
 | `git log -10 --date=short` | 最近 10 次提交 2026-08-31 ~ 2026-09-28，最后一次 `73537e9` |
 | `git show --stat 1597ec4` | 死锁修复：`memory/mysql_store.py` +112/-…、`rag/mysql_store.py`、`tests/test_mysql_integration.py` |
 | `.venv/bin/python -m ruff format --check .` | `32 files would be reformatted, 20 files already formatted` → 格式化门禁需单独一次提交，不能塞进 P0-1 |
