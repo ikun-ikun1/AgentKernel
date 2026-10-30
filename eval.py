@@ -17,10 +17,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from agentkernel.adapters.llm.openai_compatible import OpenAICompatibleClient
 from agentkernel.mcp.client import InProcessMCPClient, register_mcp_tools
 from agentkernel.mcp.server import KnowledgeMCPServer
+from agentkernel.ports.llm import LLMClient
 from agentkernel.rag.ingest import KnowledgeBase
-from agentkernel.runtime import agent as agent_module
 from agentkernel.runtime.agent import Agent
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
@@ -45,13 +46,32 @@ class MockLLM:
         return self.responses.pop(0)
 
 
-def build_agent(events: list[dict]) -> Agent:
+class ScriptedLLMClient:
+    """把脚本化 MockLLM 包装成 LLMClient，供 mock eval 注入。"""
+
+    def __init__(self) -> None:
+        self.handler: MockLLM | None = None
+
+    def chat(self, messages: list[dict[str, str]], **kwargs: object) -> str:
+        if self.handler is None:
+            raise RuntimeError("ScriptedLLMClient 尚未设置 handler")
+        return self.handler(messages)
+
+    def pop_usage(self) -> None:
+        return None
+
+    def last_model(self) -> str | None:
+        return "mock"
+
+
+def build_agent(events: list[dict], llm_client: LLMClient | None = None) -> Agent:
     registry = Registry()
     builtin.register_builtin(registry)
     kb = KnowledgeBase()
     kb.ingest_text("notes.md", KB_TEXT)
     register_mcp_tools(registry, InProcessMCPClient(KnowledgeMCPServer(kb)))
-    return Agent(registry, on_event=events.append)
+    client = llm_client or OpenAICompatibleClient()
+    return Agent(registry, llm_client=client, on_event=events.append)
 
 
 def load_cases(path: Path) -> list[dict]:
@@ -62,18 +82,15 @@ def load_cases(path: Path) -> list[dict]:
 
 def run_mock_case(case: dict) -> tuple[list[str], list[dict], list[dict], MockLLM]:
     events: list[dict] = []
-    agent = build_agent(events)
+    client = ScriptedLLMClient()
+    agent = build_agent(events, client)
     history: list[dict[str, str]] = []
     turns = case.get("turns") or [{"prompt": case["prompt"], "responses": case["responses"]}]
     mock = MockLLM([response for turn in turns for response in turn["responses"]])
-    original = agent_module.llm.chat
-    agent_module.llm.chat = mock  # type: ignore[assignment]
+    client.handler = mock
     replies: list[str] = []
-    try:
-        for turn in turns:
-            replies.append(agent.run(turn["prompt"], history))
-    finally:
-        agent_module.llm.chat = original  # type: ignore[assignment]
+    for turn in turns:
+        replies.append(agent.run(turn["prompt"], history))
     return replies, events, history, mock
 
 

@@ -5,12 +5,13 @@ from __future__ import annotations
 from agentkernel.runtime.agent import Agent
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
+from tests.llm_client_stub import RuntimeLLMClient
 
 
 def _make_agent(**kwargs) -> Agent:
     registry = Registry()
     builtin.register_builtin(registry)
-    return Agent(registry, max_steps=5, **kwargs)
+    return Agent(registry, llm_client=RuntimeLLMClient(), max_steps=5, **kwargs)
 
 
 def test_tool_call_budget_stops_turn(monkeypatch):

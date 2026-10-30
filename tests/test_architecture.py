@@ -66,6 +66,12 @@ def test_rag_core_is_free_of_adapters_and_cli() -> None:
     assert bad == []
 
 
+def test_agent_does_not_import_llm_shim_or_adapters() -> None:
+    modules = _imports(ROOT / "runtime" / "agent.py")
+    forbidden = ("agentkernel.runtime.llm", "agentkernel.adapters", "agentkernel.cli")
+    assert not [m for m in modules if m.startswith(forbidden)]
+
+
 def test_cli_main_does_not_import_adapters_directly() -> None:
     modules = _imports(ROOT / "cli" / "main.py")
     assert not [m for m in modules if m.startswith("agentkernel.adapters")]

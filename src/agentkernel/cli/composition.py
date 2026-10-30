@@ -14,6 +14,7 @@ import shlex
 import sys
 from pathlib import Path
 
+from agentkernel.adapters.llm.openai_compatible import OpenAICompatibleClient
 from agentkernel.mcp.client import InProcessMCPClient, MCPClient, StdioMCPClient, register_mcp_tools
 from agentkernel.mcp.profiles import (
     McpProfileError,
@@ -113,4 +114,4 @@ def build_agent(
         except Exception as e:  # 接入失败不阻塞启动
             print(f"接入外部 MCP server 失败：{type(e).__name__}: {observability.redact(str(e))}")
 
-    return Agent(registry), registry, kb, external_clients
+    return Agent(registry, llm_client=OpenAICompatibleClient()), registry, kb, external_clients

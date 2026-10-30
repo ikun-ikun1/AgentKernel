@@ -5,12 +5,13 @@ from __future__ import annotations
 from agentkernel.runtime.agent import Agent, ContextConfig
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
+from tests.llm_client_stub import RuntimeLLMClient
 
 
 def _make_agent(max_steps: int = 5, context: ContextConfig | None = None) -> Agent:
     registry = Registry()
     builtin.register_builtin(registry)
-    return Agent(registry, max_steps=max_steps, context=context)
+    return Agent(registry, llm_client=RuntimeLLMClient(), max_steps=max_steps, context=context)
 
 
 def test_final_answer_direct(monkeypatch):

@@ -21,6 +21,7 @@ from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry
 from agentkernel.utils import env as env_utils
 from agentkernel.utils import observability as obs
+from tests.llm_client_stub import RuntimeLLMClient
 
 env_utils.load_env()
 
@@ -39,7 +40,9 @@ def test_live_turn_records_usage_and_cost() -> None:
     events: list[dict] = []
     registry = Registry()
     builtin.register_builtin(registry)
-    agent = Agent(registry, on_event=events.append, session_id="live-smoke")
+    agent = Agent(
+        registry, llm_client=RuntimeLLMClient(), on_event=events.append, session_id="live-smoke"
+    )
 
     reply = agent.run("只回答一个数字：6*7 等于几？用 final_answer 输出。", [])
 

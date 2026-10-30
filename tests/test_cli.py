@@ -21,8 +21,8 @@ def _run(monkeypatch: pytest.MonkeyPatch, inputs: list[str], argv: list[str]) ->
 @pytest.fixture(autouse=True)
 def _fake_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "agentkernel.runtime.agent.llm.chat",
-        lambda messages: '{"action": "final_answer", "action_input": "ok"}',
+        "agentkernel.adapters.llm.openai_compatible.chat",
+        lambda messages, **kwargs: '{"action": "final_answer", "action_input": "ok"}',
     )
 
 
