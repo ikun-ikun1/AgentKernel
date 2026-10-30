@@ -7,7 +7,8 @@
 
 | 文档 | 内容 |
 |---|---|
-| [status.md](./status.md) | 测试/CI/镜像/观测现状、批一交付、未完成 Top 8、复现命令 |
+| [status.md](./status.md) | 测试/CI/镜像/观测现状、批一交付、未完成 Top 风险、复现命令 |
+| [production-problems.md](./production-problems.md) | **这个项目在解决/探讨哪些真实生产问题**：P1–P8 故障模式、设计、证据、残余风险 |
 | [production-standard.md](./production-standard.md) | 项目画像、SLO 与错误预算、威胁模型、六门禁阈值、发布回滚、豁免 |
 | [production-standard-gap.md](./production-standard-gap.md) | 41+ 项差距：现状证据、风险、优先级、验收标准 |
 | [reports/](./reports/) | `make report` 的 SLO 周报与索引（含真实 API 的 `2026-W44`）；`restore-drill-*.md` 为恢复演练证据；`incident-20261030-schema-drift.md` 为首次事故复盘 |
@@ -18,16 +19,17 @@
 |---|---|
 | [project-background.md](./project-background.md) | 为什么做、与实习项目 AI Agent Workbench 的互补关系 |
 | [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) | 技术选型、模块边界、硬边界、安全边界 |
-| [architecture.mmd](./architecture.mmd) / [architecture.png](./architecture.png) | 架构图（MySQL 事实源 + 观测 + MCP profile） |
+| [architecture.mmd](./architecture.mmd) / [architecture.png](./architecture.png) | 当前架构图（MySQL 事实源 + 观测 + MCP profile）；目标边界见 ADR-003 |
 | [Addendum/adr-001-mysql-primary-storage.md](./Addendum/adr-001-mysql-primary-storage.md) | ADR-001：MySQL 8 作为主存储 |
 | [Addendum/adr-002-cross-process-session-writes.md](./Addendum/adr-002-cross-process-session-writes.md) | ADR-002：跨进程会话写一致性（D4，Accepted） |
+| [Addendum/adr-003-production-architecture.md](./Addendum/adr-003-production-architecture.md) | ADR-003：生产级模块边界与增量重构（架构 A0，Proposed） |
 
 ## 3. 运行与交付
 
 | 文档 | 内容 |
 |---|---|
 | [runbook.md](./runbook.md) | 6 个事故场景：判定 → 止血 → 恢复 → 验证 → 回滚（含事故记录模板） |
-| [../CHANGELOG.md](../CHANGELOG.md) | 版本变更记录（Keep a Changelog，当前 `0.1.0`） |
+| [../CHANGELOG.md](../CHANGELOG.md) | 版本变更记录（Keep a Changelog，当前 `0.2.0`） |
 | [../README.md](../README.md) | 快速开始、常用命令、目录结构 |
 | [../mcp_profiles.example.toml](../mcp_profiles.example.toml) | MCP profile 示例（精确 argv + env 白名单） |
 | [Addendum/demo-script.md](./Addendum/demo-script.md) | 演示脚本（历史，命令以 README 为准） |

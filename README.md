@@ -3,21 +3,38 @@
 > 一个从零实现 ReAct Runtime、Tool Calling、MCP 协议与持久化检索的 **Python CLI 研究原型**；按「可上生产」的工程标准建设（门禁、可观测、可回滚、安全边界），但不发布为在线服务。
 
 [![CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml/badge.svg)](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml)
-[项目状态](docs/status.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [Runbook](docs/runbook.md) · [变更记录](CHANGELOG.md) · [架构图](docs/architecture.png)
+[项目状态](docs/status.md) · [生产问题](docs/production-problems.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [架构 ADR](docs/Addendum/adr-003-production-architecture.md) · [Runbook](docs/runbook.md) · [变更记录](CHANGELOG.md) · [架构图](docs/architecture.png)
 
-## 现状（2026-10-29）
+## 现状（2026-10-30）
 
 | 维度 | 数字 / 状态 |
 |---|---|
 | 测试 | **181 个**：本地 `175 passed / 6 skipped`（无 MySQL DSN），CI `180 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%，核心模块 ≥90%） |
 | 评测 | `make eval` → **50/50**（mock golden set）；`make eval-live` → 20 条真实调用 |
 | 真实模型 | 8 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
-| CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
+| CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`security`、`docker` |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 < 400MB |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 0001/0002 可往返 |
 | 观测 | JSONL 16 字段、trace/span 树、`make report / trace / prune` |
 
 完整状态、未完成项与复现命令见 **[docs/status.md](docs/status.md)**。
+
+## 这个项目在解决/探讨哪些真实生产问题
+
+> 不是「又一个能对话的 Agent demo」。AgentKernel 把 Agent 落地时最容易在生产里翻车的几类问题拆开，逐项实现、测试、评测，并记录残余风险。完整版见 **[docs/production-problems.md](docs/production-problems.md)**。
+
+| # | 真实生产问题 | 典型故障 | 项目里的做法 |
+|---|---|---|---|
+| P1 | 模型输出不可靠 | 坏 JSON、未知工具、超长 payload、代码围栏 | 提取 → 修复 → 工具名 allowlist → 256KB 上限 → 纯文本降级 |
+| P2 | 上下文膨胀 | 早期约束丢失、压缩失败、历史撑爆 | 保留首条要求 → compact 摘要 → 失败 truncate |
+| P3 | 多进程写同一会话 | 丢失更新、`updated_at` 回退、1213 死锁 | 会话行锁 `FOR UPDATE` + 有界 LRU + 指数退避（ADR-002） |
+| P4 | RAG 新鲜度/降级 | 重复入库、改文档不更新、向量不可用 | SHA-256 增量索引 + MySQL ngram 基线 + 可选向量回退 |
+| P5 | MCP/工具边界 | 任意命令、继承 API key、路径穿越 | 命名 profile + 精确 argv + env 白名单 + realpath 文档根 |
+| P6 | 观测与成本 | 不知道 token/成本/哪一步慢、日志带密钥 | JSONL 16 字段 + trace/span + 版本化定价 + 写库前脱敏 |
+| P7 | Schema/迁移安全 | `create_all` 与 Alembic 双轨、回滚后表被建回 | Alembic 往返测试 + 备份/恢复演练 + expand/contract |
+| P8 | 交付可重复 | 本地能跑 CI 不绿、镜像 root、体积失控 | `uv.lock` + CI 0-skip + 非 root 镜像 + 体积门禁 |
+
+> 面试/评审先看这张表：先讲问题，再讲取舍和证据，最后主动说剩余风险。架构目标与增量重构见 **[ADR-003](docs/Addendum/adr-003-production-architecture.md)**。
 
 ## 研究主线
 

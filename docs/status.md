@@ -65,6 +65,8 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 生产标准、SLO、门禁阈值 | [production-standard.md](./production-standard.md) |
 | 逐项差距与优先级 | [production-standard-gap.md](./production-standard-gap.md) |
 | 架构与数据流 | [architecture.png](./architecture.png) / [architecture.mmd](./architecture.mmd) |
+| 生产问题叙事 | [production-problems.md](./production-problems.md) |
+| 架构目标与重构 ADR | [Addendum/adr-003-production-architecture.md](./Addendum/adr-003-production-architecture.md) |
 | 项目背景与边界 | [project-background.md](./project-background.md) / [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 数据库决策 | [Addendum/adr-001-mysql-primary-storage.md](./Addendum/adr-001-mysql-primary-storage.md) |
 | 事故处置与复盘 | [runbook.md](./runbook.md) / [首次复盘](./reports/incident-20261030-schema-drift.md) |
