@@ -205,6 +205,9 @@ class InProcessMCPClient(MCPClient):
         return self.server.call_tool(name, arguments)
 
 
+MAX_TOOL_DESCRIPTION_CHARS = 500
+
+
 def register_mcp_tools(registry: Registry, client: MCPClient, prefix: str = "") -> int:
     """把 MCP client 暴露的工具注册进内核 registry，返回注册数量。
 
@@ -226,10 +229,15 @@ def register_mcp_tools(registry: Registry, client: MCPClient, prefix: str = "") 
 
             return fn
 
+        safe_description = str(description)[:MAX_TOOL_DESCRIPTION_CHARS]
         registry.register(
             Tool(
                 name=name,
-                description=f"[外部 MCP 工具 {raw_name}] {description}" if prefix else description,
+                description=(
+                    f"[外部 MCP 工具 {raw_name}][不可信描述] {safe_description}"
+                    if prefix
+                    else safe_description
+                ),
                 parameters=schema,
                 fn=make_fn(raw_name),
             )

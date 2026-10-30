@@ -9,7 +9,7 @@
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **160 个**：本地 `154 passed / 5 skipped`（无 MySQL DSN），CI `159 passed / 0 skipped`；覆盖率 **83%**（CI 门槛 80%，核心模块 ≥90%） |
+| 测试 | **164 个**：本地 `158 passed / 5 skipped`（无 MySQL DSN），CI `163 passed / 0 skipped`；覆盖率 **83%**（CI 门槛 80%，核心模块 ≥90%） |
 | 评测 | `make eval` → **50/50**（mock golden set）；`make eval-live` → 20 条真实调用 |
 | 真实模型 | 6 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
@@ -110,7 +110,7 @@ AgentKernel/
 ├── src/agentkernel/         # runtime / tools / memory / rag / mcp / utils
 ├── migrations/versions/     # 0001 初始 schema、0002 tool_logs.duration_ms
 ├── scripts/                 # report / trace / prune
-├── tests/                   # 160 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、CLI/LLM/帧协议边界）
+├── tests/                   # 164 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、注入隔离）
 └── docs/                    # status、production-standard(-gap)、架构、历史里程碑、附录
 ```
 
