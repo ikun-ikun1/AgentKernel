@@ -34,6 +34,7 @@ make doctor         # 7 项体检（python/.env/依赖/MySQL/迁移/口令/磁�
 make backup         # 迁移/打 tag 前备份
 make restore-drill  # 恢复到临时库并校验行数（月度/季度）
 make report         # SLO 周报（JSONL → docs/reports/）
+make bench          # 启动/单轮 ReAct/MCP/SQLite/MySQL 延迟基线（DSN 可选）
 make security       # gitleaks + semgrep（发布前）
 make audit          # pip-audit（需网络）
 make docker-build / docker-smoke / docker-size
@@ -80,5 +81,6 @@ make docker-build / docker-smoke / docker-size
 
 - 事故处置：[runbook.md](./runbook.md)（6 场景 + 模板）
 - 当前状态：[status.md](./status.md)
+- 性能基线快照：[reports/bench-20261030.md](./reports/bench-20261030.md)
 - 旧路径迁移：[migration-shims.md](./migration-shims.md)
 - 架构决策：[ADR-003](./Addendum/adr-003-production-architecture.md)
