@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -75,6 +76,8 @@ class Agent:
         on_tool_call: ToolObserver | None = None,
         on_event: EventObserver | None = None,
         session_id: str | None = None,
+        session_token_budget: int | None = None,
+        max_tool_calls_per_turn: int | None = None,
     ) -> None:
         self.registry = registry
         self.max_steps = max_steps
@@ -84,6 +87,18 @@ class Agent:
         self.session_id = session_id
         self.audit_failures = 0
         self._step = 0
+        # G-25：会话级预算（S8）；0/None 表示不限制
+        self.session_token_budget = (
+            session_token_budget
+            if session_token_budget is not None
+            else int(os.environ.get("AGENTKERNEL_MAX_SESSION_TOKENS", "150000"))
+        )
+        self.max_tool_calls_per_turn = (
+            max_tool_calls_per_turn
+            if max_tool_calls_per_turn is not None
+            else int(os.environ.get("AGENTKERNEL_MAX_TOOL_CALLS_PER_TURN", "5"))
+        )
+        self.session_tokens = 0
 
     def run(self, user_input: str, history: list[dict[str, str]]) -> str:
         """跑一轮对话，就地更新 history。返回最终回答。
@@ -103,11 +118,24 @@ class Agent:
             "model": None,
         }
         history.append({"role": "user", "content": user_input})
+        tool_calls_this_turn = 0
 
         try:
             for step in range(1, self.max_steps + 1):
                 self._step = step
                 stats["steps"] = step
+                if self.session_token_budget and self.session_tokens >= self.session_token_budget:
+                    self._emit_turn(
+                        trace_id,
+                        turn_id,
+                        turn_span_id,
+                        stats,
+                        started,
+                        success=False,
+                        error_type="TokenBudget",
+                    )
+                    self._emit_budget(trace_id, turn_id, turn_span_id, "TokenBudget")
+                    return "（已达到会话 token 预算上限，本轮停止；可 /new 开新会话）"
                 llm.pop_usage()
                 raw = llm.chat(self._build_messages(history))
                 usage = llm.pop_usage()
@@ -115,6 +143,7 @@ class Agent:
                     stats["usage_seen"] = True
                     stats["prompt_tokens"] += usage.prompt_tokens
                     stats["completion_tokens"] += usage.completion_tokens
+                    self.session_tokens += usage.prompt_tokens + usage.completion_tokens
                 model = llm.last_model()
                 if model:
                     stats["model"] = model
@@ -133,12 +162,30 @@ class Agent:
                     )
                     return action.text
 
+                if (
+                    isinstance(action, (contracts.ToolCall, contracts.ToolCalls))
+                    and tool_calls_this_turn >= self.max_tool_calls_per_turn
+                ):
+                    self._emit_turn(
+                        trace_id,
+                        turn_id,
+                        turn_span_id,
+                        stats,
+                        started,
+                        success=False,
+                        error_type="ToolCallBudget",
+                    )
+                    self._emit_budget(trace_id, turn_id, turn_span_id, "ToolCallBudget")
+                    return "（单轮工具调用超过上限，本轮停止）"
+
                 if isinstance(action, contracts.ToolCall):
+                    tool_calls_this_turn += 1
                     history.append({"role": "assistant", "content": raw})
                     self._execute_tool_call(action, history, trace_id, turn_id, turn_span_id)
                     continue  # 回到循环，让模型基于观察结果继续
 
                 if isinstance(action, contracts.ToolCalls):
+                    tool_calls_this_turn += len(action.calls)
                     # 多工具调用：当前按顺序执行（模型应按无依赖关系来给多个调用）。
                     # 若要做真并行，可在无依赖时用线程池；教学版保持串行以便解释观察回灌顺序。
                     history.append({"role": "assistant", "content": raw})
@@ -174,6 +221,24 @@ class Agent:
             trace_id, turn_id, turn_span_id, stats, started, success=False, error_type="MaxSteps"
         )
         return "（达到最大步数上限，未完成）"
+
+    def _emit_budget(self, trace_id: str, turn_id: str, turn_span_id: str, reason: str) -> None:
+        """G-25：预算拦截单独成事件，便于告警与成本归因。"""
+        self._emit(
+            self._base_event(
+                "budget_exceeded",
+                trace_id,
+                turn_id,
+                latency_ms=0.0,
+                model=None,
+                tokens=None,
+                success=False,
+                error_type=reason,
+                span_id=observability.new_span_id(),
+                parent_span_id=turn_span_id,
+                span_name="budget",
+            )
+        )
 
     def _execute_tool_call(
         self,
