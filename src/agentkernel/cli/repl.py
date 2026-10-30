@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 
 from agentkernel.cli.composition import ingest_path
-from agentkernel.memory.base import RuntimeStore
+from agentkernel.ports.runtime_store import RuntimeStore
 from agentkernel.rag.ingest import KnowledgeBase
 from agentkernel.runtime.agent import Agent
 from agentkernel.utils import observability
