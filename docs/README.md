@@ -26,6 +26,7 @@
 
 | 文档 | 内容 |
 |---|---|
+| [runbook.md](./runbook.md) | 6 个事故场景：判定 → 止血 → 恢复 → 验证 → 回滚（含事故记录模板） |
 | [../README.md](../README.md) | 快速开始、常用命令、目录结构 |
 | [../mcp_profiles.example.toml](../mcp_profiles.example.toml) | MCP profile 示例（精确 argv + env 白名单） |
 | [Addendum/demo-script.md](./Addendum/demo-script.md) | 演示脚本（历史，命令以 README 为准） |

@@ -8,7 +8,7 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 测试 | **168 个测试**；本地 `162 passed / 6 skipped`（无 DSN），CI `167 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（82.89%，CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 测试 | **174 个测试**；本地 `168 passed / 6 skipped`（无 DSN），CI `173 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
@@ -38,7 +38,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 | ✅ `make backup` / `make restore-drill`：最新演练 PASS（0.9s，行数全对），报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
 | 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 + 会话预算 | ✅ 会话预算（单会话 150k tokens / 单轮 5 次工具调用，`budget_exceeded` 事件）已落地，G-24/G-25/G-27 完成 |
 | 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 83% + 80%、golden set 50、三类扫描 | ✅ 基础 / **PARTIAL**：仅剩 G-33 fuzz 语料（可选） |
-| 可运维 | runbook / doctor / 定期恢复演练 | ❌ 批二（G-35/G-36/G-17） |
+| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景（`docs/runbook.md`）+ `make doctor` 7 项；恢复演练见 reports；仍缺 CHANGELOG/tag（G-39）与首次事故复盘 |
 
 ## 3. 批一交付（P0-1 ~ P0-5）
 
@@ -58,7 +58,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 1 | 迁移/DDL 双轨收口（G-16） | `create_all` 与 Alembic 并存 | 批二 |
 | 2 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
 | 3 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
-| 4 | runbook / make doctor（G-35/G-36） | 事故无步骤、无体检命令 | 批二 |
+| 4 | CHANGELOG + semver tag（G-39） | 变更不可追溯 | 批二 |
 
 ## 5. 文档地图
 
