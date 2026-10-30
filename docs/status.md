@@ -9,7 +9,7 @@
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 测试 | **160 个测试**；本地 `154 passed / 5 skipped`（无 DSN），CI `159 passed / 0 skipped`；覆盖率 **83%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
-| 评测 | `python eval.py` → 5/5 | 本机实测 |
+| 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 <400MB | `make docker-smoke` |
@@ -19,13 +19,14 @@
 ## 2. 测试与门禁
 
 ```bash
-make check        # lint + format-check + mypy + pytest(排除 live) + eval(mock)
+make check        # lint + format-check + mypy + pytest(排除 live) + eval(50 条 mock)
 make report       # 从 JSONL 生成 SLO 周报（docs/reports/）
 make trace        # 按 trace_id 打印 span 树
 make prune        # 日志 14 天 / DB 90 天（支持 dry-run）
 make test-live    # 真实 API 冒烟：1 次调用（需 AGENTKERNEL_LIVE_API=1 与 DEEPSEEK_API_KEY）
 make security     # gitleaks + semgrep（离线）
 make coverage     # 覆盖率报告；有 DSN 时自动 --cov-fail-under=80（CI 门槛）
+make eval-live    # golden set 20 条真实调用（需 DEEPSEEK_API_KEY）
 make audit        # pip-audit 审计 lock 依赖（需网络）
 make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 ```
@@ -36,7 +37,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 可观测 | JSONL 16 字段 + span + 成本 + 周报 | ✅（缺 OTLP，G-47） |
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 | ✅ `make backup` / `make restore-drill`：最新演练 PASS（0.9s，行数全对），报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
 | 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 | ✅ 基础 / **PARTIAL**：G-25 会话预算、G-27 工具结果隔离 批二（G-24 allowlist 已完成） |
-| 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 83% + 80% 门槛、三类扫描 | ✅ 基础 / **PARTIAL**：仅剩 G-32 golden set 50 条（G-33 fuzz 可选） |
+| 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 83% + 80%、golden set 50、三类扫描 | ✅ 基础 / **PARTIAL**：仅剩 G-33 fuzz 语料（可选） |
 | 可运维 | runbook / doctor / 定期恢复演练 | ❌ 批二（G-35/G-36/G-17） |
 
 ## 3. 批一交付（P0-1 ~ P0-5）
@@ -54,11 +55,10 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 
 | # | 项 | 影响 | 计划 |
 |---|---|---|---|
-| 1 | golden set 50 条（G-32） | S1/S2 统计意义不足 | 批二 |
-| 2 | 迁移/DDL 双轨收口（G-16） | `create_all` 与 Alembic 并存 | 批二 |
-| 3 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
-| 4 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
-| 5 | runbook / make doctor（G-35/G-36） | 事故无步骤、无体检命令 | 批二 |
+| 1 | 迁移/DDL 双轨收口（G-16） | `create_all` 与 Alembic 并存 | 批二 |
+| 2 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
+| 3 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
+| 4 | runbook / make doctor（G-35/G-36） | 事故无步骤、无体检命令 | 批二 |
 
 ## 5. 文档地图
 

@@ -73,8 +73,8 @@
 4. **接外部 MCP server（互操作验证）**：`--mcp "<命令>"` → shlex 解析 → stdio 子进程 → `initialize` 协商 → `tools/list` 注册（`mcp0_` 前缀）→ `tools/call`。
    成功标准：协议帧正确、协商版本被校验、异常不挂死。
    证据：`src/agentkernel/__main__.py:96-112`、`src/agentkernel/mcp/client.py:64-114`。
-5. **一键评测（交付物）**：`python eval.py` 5 用例全过、非零退出码即失败；`--live` 走真实模型。
-   证据：`eval.py:59-171,226-248`；实测 `通过 5/5`（附录 A）。
+5. **一键评测（交付物）**：`make eval` 跑 50 条 mock golden set（5 类 ×10），全过才退出 0；`make eval-live` 跑 20 条真实调用。
+   证据：`evals/golden_mock.jsonl`、`evals/golden_live.jsonl`；实测 `通过 50/50`（附录 A）。
 
 ### 1.2 明确不做（不是欠账，是边界）
 
@@ -100,8 +100,8 @@
 
 | ID | SLI | 定义（怎么算） | 目标 | 测量窗口 | 告警 / 阻断阈值 | 现状 |
 |---|---|---|---|---|---|---|
-| **S1** | 内核任务成功率 | golden set（mock 模式）50 条用例通过数 / 50；用例覆盖 5 类旅程 × 10 条（含失败路径） | **≥ 98%**（50 条最多 1 条失败） | 最近 5 次运行（250 条） | 单次 < 98% → 告警；单次 ≤ 94%（≥3 失败）→ **阻断合并** | ❌ 只有 5 条（`eval.py:59-171`），无 50 条 golden set |
-| **S2** | live 模型成功率 | live golden set 20 条真模型问答通过数 / 20 | **≥ 80%**（16/20） | 最近 4 周（80 条） | 单次 < 75%（≤15/20）→ 告警；连续 2 次 < 80% → 触发 prompt/模型变更评审 | ❌ 只有 4 条真模型 + 1 条解析（`eval.py:174-223`） |
+| **S1** | 内核任务成功率 | golden set（mock 模式）50 条用例通过数 / 50；用例覆盖 5 类旅程 × 10 条（含失败路径） | **≥ 98%**（50 条最多 1 条失败） | 最近 5 次运行（250 条） | 单次 < 98% → 告警；单次 ≤ 94%（≥3 失败）→ **阻断合并** | ✅ 50 条已就绪（`evals/golden_mock.jsonl`），`make check`/CI 每次跑；live 20 条数据就绪（未纳入 CI） |
+| **S2** | live 模型成功率 | live golden set 20 条真模型问答通过数 / 20 | **≥ 80%**（16/20） | 最近 4 周（80 条） | 单次 < 75%（≤15/20）→ 告警；连续 2 次 < 80% → 触发 prompt/模型变更评审 | ⚠️ 20 条 live 数据就绪（`evals/golden_live.jsonl`），按成本手动跑 `make eval-live` |
 | **S3** | 协议与解析正确性（零容忍） | 500 条坏 JSON 语料 + 100 条非法帧语料中：①未注册工具被执行次数 ②未捕获异常次数 ③单条解析 p99 耗时 | ①=0 ②=0 ③≤50ms；JSON 修复成功率 ≥ 90% | 每次发布 | 任意一次 ① 或 ② → **阻断发布并回滚** | ⚠️ 有 13 条 json_repair 用例与 5 条 framing 用例，但无 fuzz 语料（`tests/test_json_repair.py`、`tests/test_mcp.py:97-124`） |
 | **S4** | 单轮延迟 | 一次 `agent.run()` 端到端（含工具执行）耗时 | mock 模式 p95 ≤ 300ms、p99 ≤ 800ms；live 模式 p95 ≤ 12s、p99 ≤ 25s | 每次 eval + 每周 20 轮真实使用采样 | live p95 > 15s 连续 2 周 → 告警（检查 provider 与重试） | ⚠️ 无计时埋点（`registry.py:126-133` 只算工具耗时且不落库） |
 | **S5** | 启动与恢复 | ①冷启动到可交互耗时 ②干净 clone → 首轮对话耗时 ③重启后消息条数/顺序一致性 | ① p95 ≤ 3s（DB 已就绪）② ≤ 15 分钟 ③ 100% 一致 | 每月演练 1 次 | ② 失败或 ③ 出现差异 → 阻断发布 | ⚠️ 无测量；`/history` 从 DB 重载（`__main__.py:212`）但无恢复测试 |
@@ -246,8 +246,8 @@
 | 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `154 passed, 5 skipped`；CI `159 passed / 0 skipped`（覆盖率 83%） |
 | 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%；`__main__.py` ≥ 70% | ✅ 总 **83%**（CI 门槛 80%）；核心：json_repair 96 / contracts 100 / registry 97 / framing 96 / base 100；`__main__.py` 73%；剩余低覆盖集中在非核心 MySQL/服务循环模块 |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy `Success: no issues found in 28 source files` |
-| Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
-| eval 门禁 | mock 100% 必过 5 条验收 + 总体 ≥ 98%；live ≥ 80%；进 `make check` 与 CI | ✅ CI 两个入口都跑：`test` job 的 `make check`（含 mock eval）与 `eval-minimal` job |
+| Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ✅ mock 50（qa/tool/json/rag/context 各 10）、live 20；覆盖未知工具/坏 JSON/降级/引用等失败路径 |
+| eval 门禁 | mock 50 条 100% 通过才退出 0；live ≥80%；进 `make check` 与 CI | ✅ CI 两个入口都跑 50 条 mock（`test` 的 `make check`、`eval-minimal`）；live 手动 |
 | 模糊测试 | 500 条坏 JSON + 100 条非法帧，0 崩溃 0 挂起（单条 > 2s 视为挂起） | ❌ 无 fuzz 语料 |
 | 并发压测 | **多进程 × 20 并发写同一会话**，0 丢失 0 重复 0 死锁逃逸 | ✅ `tests/test_mysql_multiprocess.py`（20 进程 × 20 写）在 CI 通过；线程级用例保留但不作为证据 |
 | 安全扫描 | gitleaks 0、semgrep 0 high、pip-audit 0 high | ✅ `make security`（gitleaks + 本仓 `.semgrep.yml` 规则）与 `make audit`（pip-audit 审计 lock 导出）；CI `security` job；实测 gitleaks 0、semgrep 0、lock 0 漏洞 |
@@ -392,7 +392,7 @@ OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval �
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `All checks passed!`（EXIT=0） |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 28 source files` |
-| `.venv/bin/python eval.py` | `通过 5/5`，退出码 0 |
+| `.venv/bin/python eval.py` | `通过 50/50`，退出码 0 |
 | `git ls-files \| wc -l` | 59 |
 | `find src/agentkernel -name '*.py' \| xargs wc -l` | 3,317 行 / 25 文件 |
 | `wc -l tests/*.py` | 2,306 行 / 160 个 test 函数 |
