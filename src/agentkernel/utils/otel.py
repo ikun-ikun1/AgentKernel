@@ -24,6 +24,8 @@ import urllib.request
 import uuid
 from typing import Any
 
+from agentkernel import __version__
+
 SERVICE_NAME = "agentkernel"
 MAX_QUEUE = 256
 HTTP_TIMEOUT_SECONDS = 2.0
@@ -112,7 +114,7 @@ def build_payload(event: str, fields: dict[str, Any]) -> dict[str, Any]:
                         {
                             "key": "service.version",
                             "value": {
-                                "stringValue": os.environ.get("AGENTKERNEL_VERSION", "0.1.0")
+                                "stringValue": os.environ.get("AGENTKERNEL_VERSION", __version__)
                             },
                         },
                     ]

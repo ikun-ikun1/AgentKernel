@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | 1 | 可重复 | **PARTIAL** | 锁文件/解释器/`make check`/CI/格式化门禁已就绪；仍缺镜像 digest（G-04/G-45/G-46）与默认口令清理（G-06） | G-04, G-06, G-45, G-46 |
 | 2 | 可观测 | **PASS** | JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`、可选 OTLP/HTTP 导出；周报调度仍手动（非门禁） | — |
-| 3 | 可回滚 | **PARTIAL** | 迁移测试、备份/恢复演练、`v0.1.0` tag 已就绪；仍缺 wheel 产物与 `v0.2.0` 发布验证 | G-19 |
+| 3 | 可回滚 | **PASS** | 迁移测试、备份/恢复演练、`v0.2.0` tag + wheel + 干净 venv 安装/CLI smoke、回滚步骤（runbook） | — |
 | 4 | 可控制 | **PASS** | 白名单/无 shell/只读 KB/MCP profile/文档根/allowlist/结果隔离/会话预算（token + 单轮调用数）均达标 | — |
 | 5 | 可验证 | **PASS** | CI 全绿 + mypy + eval 50/50 + 三类扫描 + 覆盖率 83%（门槛 80%）+ 500/100 条 fuzz 语料（0 崩溃/0 挂起） | — |
 | 6 | 可运维 | **PASS** | ADR、降级路径、runbook 6 场景、`make doctor` 7 项、SLO 周报、事故模板 + 首次复盘、CHANGELOG + `v0.1.0` tag | — |
@@ -64,7 +64,7 @@
 | G-16 | DDL 单一来源 | ✅ **已实现**：删除两处 `create_all` 与 ALTER 兜底；改为 `ensure_schema()` 校验 `alembic_version` + 必需表/列，缺失时提示 `--migrate` | `memory/mysql_store.py`、`rag/mysql_store.py`、`memory/factory.py`、`rag/ingest.py`；集成/多进程测试改为先 `alembic upgrade head` | 低：首次使用必须显式迁移（README 已写） | — | 无 schema 时两条错误路径实测给出可执行指引 |
 | G-17 | 备份策略（RPO ≤24h） | ✅ **已实现** | `scripts/backup.py` + `make backup`：`mysqldump --single-transaction`、口令走 `MYSQL_PWD`、保留 7 份 + sha256；产物在 `backups/`（已 gitignore） | 低：依赖 mysqldump/docker 客户端 | — | 首次备份已生成（2.2KB）；演练中暴露并修掉「`--databases` 会把 USE 带回源库」的坑 |
 | G-18 | 恢复演练（≤30 天） | ✅ **已完成 1 次** | `scripts/restore_drill.py` + `make restore-drill`：恢复到临时库、比对 5 张表行数、计时；报告 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)（PASS，0.9s，行数全对） | 低：临时库需要管理员权限（root） | — | 下次演练 ≤30 天内；CI 未接（属运维动作） |
-| G-19 | 版本化发布与回滚单元 | ⚠️ **部分**：已有 `v0.1.0` tag + CHANGELOG + 回滚步骤（runbook）；wheel 产物未入库，版本仍为 `0.1.0` | `pyproject.toml:7`、`CHANGELOG.md`、`docs/runbook.md`；`git tag v0.1.0` | 低：回滚已有锚点，缺可安装产物 | P1 | `v0.2.0` tag + `uv build` 产物 + 回滚步骤验证 |
+| G-19 | 版本化发布与回滚单元 | ✅ **已完成**：`0.2.0` 版本、`uv build` wheel/sdist、`v0.2.0` tag；在 `--system-site-packages` 干净 venv 安装 wheel 并跑 CLI smoke（版本 0.2.0、EXIT=0）；回滚步骤见 runbook | `pyproject.toml:7`、`CHANGELOG.md`、`docs/runbook.md`、`dist/`（gitignore，发布产物不入库） | — | — | `v0.2.0` tag + `uv build` 产物 + 回滚步骤验证 |
 
 ---
 
@@ -107,7 +107,7 @@
 | G-36 | `make doctor` 体检 | ✅ **已完成**：python/.env 权限/依赖/MySQL 连通/迁移版本/默认口令/磁盘余量 7 项；DSN 全脱敏，`--json` / `--strict` 可选；实测抓出本地库 0001→0002 漂移并修复 | `scripts/doctor.py`、`Makefile`、`tests/test_doctor.py` | — | — | 一条命令输出 7 项体检结果 |
 | G-37 | SLO 周报 | ✅ **已有**：`make report` 生成 `docs/reports/YYYY-Www.md` 并维护索引，`2026-W44` 为真实调用数据 | `scripts/report.py`、`docs/reports/index.md` | 低：定时调度未接入 | — | `make report` 生成周报并入库 |
 | G-38 | 事故模板/复盘 | ✅ **已完成**：runbook 附录含模板；首次复盘见 schema 漂移事件（doctor 发现、核对后 stamp、7 项复检 PASS） | `docs/runbook.md` 附录、`docs/reports/incident-20261030-schema-drift.md` | — | — | 模板 + 首次复盘记录 |
-| G-39 | CHANGELOG + semver tag | ✅ **已完成**：`CHANGELOG.md`（Keep a Changelog）+ `v0.1.0` annotated tag | `CHANGELOG.md`；`git tag v0.1.0` | — | — | 首个 tag 与 CHANGELOG |
+| G-39 | CHANGELOG + semver tag | ✅ **已完成**：`CHANGELOG.md`（Keep a Changelog）+ `v0.1.0`/`v0.2.0` annotated tag | `CHANGELOG.md`；`git tag -l` | — | — | 首个 tag 与 CHANGELOG |
 | G-40 | 依赖降级路径 | ✅ 模型失败不崩、向量缺失回退 ngram | `__main__.py:205-209`；`rag/ingest.py:484-499` | — | — | 保持 |
 
 ---
@@ -148,7 +148,7 @@
 
 ### 8.2 P1（1–2 个迭代）
 
-G-19（wheel 产物 + `v0.2.0`）。
+无（P1 已清空；剩余 P0 短项为镜像 digest G-45/G-46）。
 
 ### 8.3 P2
 

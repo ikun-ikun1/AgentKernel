@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentkernel"
-version = "0.1.0"
+version = "0.2.0"
 description = "从零实现的 Agent Runtime 与 MCP 协议实验（不依赖任何 Agent 框架）"
 readme = "README.md"
 requires-python = ">=3.11"
