@@ -1,32 +1,76 @@
-flowchart LR
-    User[CLI / MCP Host]
-    Agent[Agent Runtime\nReAct Loop + Context Policy]
-    LLM[LLM Adapter\nOpenAI-compatible]
-    Registry[Tool Registry\nContract + Schema + Errors]
-    MCPClient[MCP Client\nJSON-RPC + stdio]
-    Profiles[MCP Profiles\nnamed argv + env allowlist]
-    MCPServer[MCP Server\nRead-only knowledge tools]
-    RAG[RAG Infrastructure\nIngestion + Retrieval]
-    Catalog[(MySQL 8\nDocuments + Chunks + ngram)]
-    Vector[(Chroma\nOptional vectors)]
-    Source[PDF / Markdown / TXT]
-    Memory[(MySQL Runtime Store\nSessions + Messages + Tool Logs)]
-    Obs[Observability\nJSONL spans + report / trace]
+flowchart TB
+    subgraph CLI["CLI / Composition Root (current)"]
+        Main["cli/main.py<br/>argparse · exit codes · cleanup"]
+        Repl["cli/repl.py<br/>commands · persistence"]
+        Comp["cli/composition.py<br/>tools · KB · MCP wiring"]
+    end
 
-    User --> Agent
-    Agent --> LLM
-    Agent --> Registry
-    Agent --> Memory
-    Agent --> Obs
-    Registry --> MCPClient
-    MCPClient --> Profiles
-    Profiles --> MCPServer
-    MCPServer --> RAG
-    Source --> RAG
-    RAG --> Catalog
-    RAG -. optional semantic index .-> Vector
+    subgraph APP["Application"]
+        Agent["Agent Runtime<br/>ReAct loop · context policy"]
+        McpTools["application/mcp_tools.py<br/>MCP tool bridge"]
+        KbApp["rag/knowledge.py<br/>ingest · query orchestration"]
+    end
 
-    classDef core fill:#e8f0fe,stroke:#315ea8,stroke-width:1px;
-    classDef storage fill:#fff4d6,stroke:#a36b00,stroke-width:1px;
-    class Agent,LLM,Registry,MCPClient,Profiles,MCPServer,RAG,Obs core;
-    class Catalog,Vector,Memory storage;
+    subgraph PORTS["Ports"]
+        StorePort["RuntimeStore"]
+        LLMPort["LLMClient"]
+        TransportPort["MCPTransport"]
+    end
+
+    subgraph ADAPTERS["Adapters"]
+        MySQLStore["adapters/memory/mysql_store.py"]
+        SQLiteStore["adapters/memory/sqlite_store.py"]
+        OpenAI["adapters/llm/openai_compatible.py"]
+        McpAdapter["adapters/mcp/client.py + knowledge_server.py"]
+        KnowledgeAdapter["adapters/knowledge/*"]
+    end
+
+    subgraph CORE["Domain / Protocol"]
+        Contracts["tools/contracts.py + registry"]
+        RagModels["rag/models.py + loaders.py + chunking.py"]
+        Framing["protocol/mcp_framing.py"]
+        Events["observability/events.py"]
+    end
+
+    subgraph EXTERNAL["External systems"]
+        MySQL[("MySQL 8")]
+        Chroma[("Chroma (optional)")]
+        LLM["DeepSeek / OpenAI-compatible"]
+        McpServers["External MCP servers"]
+    end
+
+    Main --> Comp
+    Comp --> Repl
+    Repl --> Agent
+    Comp --> Agent
+    Comp --> KbApp
+    Comp --> McpTools
+    Agent --> Events
+    Agent --> Contracts
+    KbApp --> RagModels
+    McpTools --> TransportPort
+    Agent --> LLMPort
+    Repl --> StorePort
+    StorePort -. implemented by .-> MySQLStore
+    StorePort -. implemented by .-> SQLiteStore
+    LLMPort -. implemented by .-> OpenAI
+    TransportPort -. implemented by .-> McpAdapter
+    KbApp --> KnowledgeAdapter
+    KnowledgeAdapter --> MySQL
+    KnowledgeAdapter -. optional .-> Chroma
+    OpenAI --> LLM
+    McpAdapter --> McpServers
+    Framing -. used by .-> McpAdapter
+
+    classDef cli fill:#e8f0fe,stroke:#315ea8,stroke-width:1px;
+    classDef app fill:#eaf7ea,stroke:#2f7d32,stroke-width:1px;
+    classDef port fill:#fff4d6,stroke:#a36b00,stroke-width:1px;
+    classDef adapter fill:#f3e8ff,stroke:#6a3d9a,stroke-width:1px;
+    classDef core fill:#f5f5f5,stroke:#666,stroke-width:1px;
+    classDef external fill:#fff,stroke:#999,stroke-width:1px;
+    class Main,Repl,Comp cli;
+    class Agent,McpTools,KbApp app;
+    class StorePort,LLMPort,TransportPort port;
+    class MySQLStore,SQLiteStore,OpenAI,McpAdapter,KnowledgeAdapter adapter;
+    class Contracts,RagModels,Framing,Events core;
+    class MySQL,Chroma,LLM,McpServers external;

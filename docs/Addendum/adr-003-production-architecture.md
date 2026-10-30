@@ -2,7 +2,7 @@
 
 ## 状态
 
-Proposed（A0 文档先行；A1–A6 分批实施，不做大爆炸重构）
+Accepted（A0→A6 分批完成；旧 import shim 保留一个版本后删除，不改变 CLI/schema/安全/D4 语义）
 
 ## 背景
 
@@ -110,7 +110,7 @@ domain        ← application ← ports
 | **A3** | `LLMClient`、`EventSink` port；OpenAI 适配器；事件组装从 Agent 拆出 | ✅ 已完成：`ports/llm.py` + `adapters/llm/openai_compatible.py`（旧 `runtime/llm.py` shim）；事件组装移到 `observability/events.py`；181 tests 绿，JSONL/OTLP 字段与 budget 事件不变 |
 | **A4** | 拆 `rag/ingest.py`：loaders/chunking/indexes/application；MySQL/Chroma 适配器 | ✅ 已完成：`rag/{models,loaders,chunking,indexes,knowledge}.py`；MySQL ngram/Chroma 移到 `adapters/knowledge/`；旧 `rag/{ingest,mysql_store}.py` shim；RAG 测试全绿 |
 | **A5** | MCP 拆 protocol/transport/handler/bridge | ✅ 已完成：`protocol/mcp_framing.py`、`adapters/mcp/{client,knowledge_server}.py`、`application/mcp_tools.py`、`ports/mcp_transport.py`；旧 `mcp/{framing,client,server}.py` shim；MCP/安全测试全绿 |
-| **A6** | 架构测试 + 目标架构图 + 文档回填 | `tests/test_architecture.py` 绿；`docs/architecture.mmd` 反映目标边界 |
+| **A6** | 架构测试 + 目标架构图 + 文档回填 | ✅ 已完成：`tests/test_architecture.py` 5 条分层断言；`architecture.mmd`/PNG 改为 ports & adapters 分层图；ADR 状态 Accepted |
 
 原则：
 
