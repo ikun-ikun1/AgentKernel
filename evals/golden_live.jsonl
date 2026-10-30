@@ -1,0 +1,20 @@
+{"id":"live-01","prompt":"只回答一个数字：6*7 等于几？","expect_contains":"42"}
+{"id":"live-02","prompt":"用一句话说明什么是 MCP。","expect_contains":"MCP"}
+{"id":"live-03","prompt":"列出你当前可用的工具名称。","expect_contains":"calculator"}
+{"id":"live-04","prompt":"用一句话说明 ReAct。","expect_contains":"ReAct"}
+{"id":"live-05","prompt":"只回答：中国的首都是哪里？","expect_contains":"北京"}
+{"id":"live-06","prompt":"1+1 等于几？只回答数字。","expect_contains":"2"}
+{"id":"live-07","prompt":"用英文回答：what is an agent?","expect_contains":"agent"}
+{"id":"live-08","prompt":"用一句话解释上下文窗口。","expect_contains":"上下文"}
+{"id":"live-09","prompt":"只回答：2 的 10 次方是多少？","expect_contains":"1024"}
+{"id":"live-10","prompt":"用一句话说明工具调用为什么需要参数校验。","expect_contains":"校验"}
+{"id":"live-11","prompt":"把 hello 翻译成中文，只回答译文。","expect_contains":"你好"}
+{"id":"live-12","prompt":"用一句话说明 JSON 修复的作用。","expect_contains":"JSON"}
+{"id":"live-13","prompt":"只回答：一周有几天？","expect_contains":"7"}
+{"id":"live-14","prompt":"用一句话解释 Embedding。","expect_contains":"向量"}
+{"id":"live-15","prompt":"只回答：水的化学式是什么？","expect_contains":"H2O"}
+{"id":"live-16","prompt":"用一句话说明什么是 SLO。","expect_contains":"SLO"}
+{"id":"live-17","prompt":"只回答：3 的平方是多少？","expect_contains":"9"}
+{"id":"live-18","prompt":"用一句话说明灰度发布的优点。","expect_contains":"灰度"}
+{"id":"live-19","prompt":"只回答：HTTP 状态码 404 表示什么？","expect_contains":"找不到"}
+{"id":"live-20","prompt":"用一句话说明为什么要锁定依赖版本。","expect_contains":"版本"}
