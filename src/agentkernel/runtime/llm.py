@@ -35,7 +35,8 @@ def _get_client() -> Any:
         raise LLMError("未安装 openai SDK：pip install openai") from e
 
     key = env.get_api_key()
-    base_url = env.get_base_url()
+    # G-24：出站端点必须命中 allowlist，防止 key 被发往任意主机
+    base_url = env.validate_base_url(env.get_base_url())
     model = env.get_model()
     signature = (key, base_url, model)
     if _client is None or _client_env != signature:
