@@ -8,7 +8,7 @@ from typing import ClassVar
 
 import pytest
 
-from agentkernel.runtime import llm
+from agentkernel.adapters.llm import openai_compatible as llm
 from agentkernel.utils.errors import LLMError
 from agentkernel.utils.observability import Usage
 

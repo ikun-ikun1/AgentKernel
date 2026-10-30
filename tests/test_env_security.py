@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentkernel.runtime import llm
+from agentkernel.adapters.llm import openai_compatible as llm
 from agentkernel.utils import env
 
 

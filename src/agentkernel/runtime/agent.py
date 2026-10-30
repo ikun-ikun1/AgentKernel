@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from agentkernel.observability import events
 from agentkernel.runtime import llm
 from agentkernel.tools import contracts, json_repair
 from agentkernel.tools.registry import Registry
@@ -225,18 +226,13 @@ class Agent:
     def _emit_budget(self, trace_id: str, turn_id: str, turn_span_id: str, reason: str) -> None:
         """G-25：预算拦截单独成事件，便于告警与成本归因。"""
         self._emit(
-            self._base_event(
-                "budget_exceeded",
+            events.budget_event(
                 trace_id,
                 turn_id,
-                latency_ms=0.0,
-                model=None,
-                tokens=None,
-                success=False,
-                error_type=reason,
-                span_id=observability.new_span_id(),
-                parent_span_id=turn_span_id,
-                span_name="budget",
+                turn_span_id,
+                reason,
+                session_id=self.session_id,
+                step=self._step,
             )
         )
 
@@ -319,22 +315,22 @@ class Agent:
         span_name: str,
         tool_name: str | None = None,
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "event": event,
-            "trace_id": trace_id,
-            "session_id_hash": observability.hash_session(self.session_id),
-            "turn_id": turn_id,
-            "step": self._step,
-            "latency_ms": latency_ms,
-            "model": model,
-            "tokens": tokens,
-            "success": success,
-            "error_type": error_type,
-            "span": {"id": span_id, "parent_id": parent_span_id, "name": span_name},
-        }
-        if tool_name is not None:
-            payload["tool_name"] = tool_name
-        return payload
+        return events.base_event(
+            event,
+            trace_id,
+            turn_id,
+            session_id=self.session_id,
+            step=self._step,
+            latency_ms=latency_ms,
+            model=model,
+            tokens=tokens,
+            success=success,
+            error_type=error_type,
+            span_id=span_id,
+            parent_span_id=parent_span_id,
+            span_name=span_name,
+            tool_name=tool_name,
+        )
 
     def _emit_turn(
         self,
@@ -347,32 +343,19 @@ class Agent:
         success: bool,
         error_type: str | None,
     ) -> None:
-        usage = (
-            observability.Usage(
-                prompt_tokens=int(stats["prompt_tokens"]),
-                completion_tokens=int(stats["completion_tokens"]),
+        self._emit(
+            events.turn_event(
+                trace_id,
+                turn_id,
+                turn_span_id,
+                stats,
+                started,
+                session_id=self.session_id,
+                step=self._step,
+                success=success,
+                error_type=error_type,
             )
-            if stats["usage_seen"]
-            else None
         )
-        tokens = {"in": usage.prompt_tokens, "out": usage.completion_tokens} if usage else None
-        payload = self._base_event(
-            "turn",
-            trace_id,
-            turn_id,
-            latency_ms=round((time.perf_counter() - started) * 1000, 1),
-            model=stats["model"],
-            tokens=tokens,
-            success=success,
-            error_type=error_type,
-            span_id=turn_span_id,
-            parent_span_id=None,
-            span_name="turn",
-        )
-        payload["cost_usd"] = observability.cost_usd(stats["model"], usage)
-        if usage is not None:
-            payload["pricing_table_version"] = observability.PRICING_TABLE_VERSION
-        self._emit(payload)
 
     def _emit(self, payload: dict[str, Any]) -> None:
         if self.on_event is None:
