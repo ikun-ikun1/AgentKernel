@@ -10,7 +10,7 @@
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 测试 | **114 个测试**；本地 `108 passed / 5 skipped`（无 DSN），CI `113 passed / 0 skipped` | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `python eval.py` → 5/5 | 本机实测 |
-| 真实模型 | 7 次 live 调用（含 `make test-live` 冒烟），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
+| 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 3 个 job：`test`（MySQL 8 service）、`eval-minimal`、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 <400MB | `make docker-smoke` |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 迁移 0001/0002 | `make check` + `test_migrations.py` |
