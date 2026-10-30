@@ -8,7 +8,7 @@
 #
 # 本地若 docker.io 不可达，可用国内镜像覆盖基础镜像：
 #   docker build --build-arg PYTHON_IMAGE=docker.m.daocloud.io/library/python:3.11-slim -t agentkernel:local .
-ARG PYTHON_IMAGE=python:3.11.15-slim
+ARG PYTHON_IMAGE=python:3.11.15-slim@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff
 
 FROM ${PYTHON_IMAGE} AS builder
 ENV UV_LINK_MODE=copy \

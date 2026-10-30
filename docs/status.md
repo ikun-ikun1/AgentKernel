@@ -34,7 +34,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 
 | 门禁 | 阈值（项目级） | 当前 |
 |---|---|---|
-| 可重复 | `uv.lock` + `.python-version` + `make sync` | ✅ 基础 / **PARTIAL**：镜像 digest（G-45/G-46）待补；默认口令已清理（G-06） |
+| 可重复 | `uv.lock` + `.python-version` + `make sync` + 镜像 digest | ✅ 全部：MySQL/Python 基础镜像已 pin docker.io manifest digest（G-45/G-46）；默认口令已清理（G-06） |
 | 可观测 | JSONL 16 字段 + span + 成本 + 周报 + OTLP | ✅ 可选 OTLP/HTTP 导出（`OTEL_EXPORTER_OTLP_ENDPOINT`，本地假 collector 测试）；周报仍手动 |
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 + tag/wheel | ✅ `v0.2.0` tag + wheel（干净 venv 安装/CLI smoke EXIT=0）；`make backup` / `make restore-drill` 最新演练 PASS（报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)） |
 | 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 + 会话预算 | ✅ 会话预算（单会话 150k tokens / 单轮 5 次工具调用，`budget_exceeded` 事件）已落地，G-24/G-25/G-27 完成 |
@@ -56,8 +56,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 
 | # | 项 | 影响 | 计划 |
 |---|---|---|---|
-| 1 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
-| 2 | A7.4：架构图/v0.3.0 发布 | 代码拆分已完成，发布收口未完成 | 继续 A7 |
+| — | 无 P0/P1 阻塞 | — | 维护/性能/新功能 |
 
 ## 5. 文档地图
 

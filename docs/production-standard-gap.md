@@ -12,7 +12,7 @@
 
 | # | 门禁 | 结论 | 一句话理由 | 阻断项 |
 |---|---|---|---|---|
-| 1 | 可重复 | **PARTIAL** | 锁文件/解释器/`make check`/CI/格式化门禁已就绪；仍缺镜像 digest（G-04/G-45/G-46）与默认口令清理（G-06） | G-04, G-06, G-45, G-46 |
+| 1 | 可重复 | **PASS** | 锁文件/解释器/`make check`/CI/格式化门禁 + 镜像 digest（G-04/G-45/G-46）；默认口令已清理（G-06） | — |
 | 2 | 可观测 | **PASS** | JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`、可选 OTLP/HTTP 导出；周报调度仍手动（非门禁） | — |
 | 3 | 可回滚 | **PASS** | 迁移测试、备份/恢复演练、`v0.2.0` tag + wheel + 干净 venv 安装/CLI smoke、回滚步骤（runbook） | — |
 | 4 | 可控制 | **PASS** | 白名单/无 shell/只读 KB/MCP profile/文档根/allowlist/结果隔离/会话预算（token + 单轮调用数）均达标 | — |
@@ -30,13 +30,13 @@
 | G-01 | 提交 `uv.lock`，`uv sync --frozen` | ✅ **已实现** | `uv.lock`（158 包）；CI `uv lock --check` + `uv sync --frozen`；PR #1 干净 runner 首次全绿 | — | — | 空环境 `uv sync --frozen` 成功且 pytest 全绿（CI 已证） |
 | G-02 | 解释器固定 + `.python-version` | ✅ **已实现** | `.python-version`=`3.11.15`；CI `setup-uv` 读取该文件；README/status 注明 | — | — | 保持 |
 | G-03 | 依赖必须可重建 | ✅ **已实现** | 干净 runner 由 `uv sync --frozen` 建环境（CI 三次全绿：PR #1/#2/#5） | — | — | 保持 |
-| G-04 | MySQL 镜像固定 digest | ⚠️ **部分**：已从浮动 `8.0` 改为精确 `8.0.46`（compose + CI），**digest 未固定** | `docker-compose.yml`、`.github/workflows/ci.yml`；本机无法访问 `registry-1.docker.io` | 中：上游重推 tag 会静默变内容 | **P0（短）** | 两处改 `image@sha256:...`（并入 G-45） |
+| G-04 | MySQL 镜像固定 digest | ✅ **已完成**：`8.0.46@sha256:7dcddc...`（GitHub runner 从 docker.io 取得，CI 实际拉取） | `.github/workflows/ci.yml`、`docker-compose.yml` | — | — | 两处 `image@sha256:...` |
 | G-05 | `make check` 单入口且 0 退出 | ✅ **已实现** | `Makefile`（sync/check/report/trace/prune/docker-*）；`make check` EXIT=0；CI 三个 job 复用同一入口 | — | — | 保持 |
 | G-06 | 代码中不得有真实默认口令 | ✅ **已实现** | 删除 `DEFAULT_MYSQL_DSN`；`create_runtime_store()` 缺 DSN 直接报错并给出指引；`alembic.ini` 不再带口令；`__main__ --migrate` 同样要求显式 DSN | — | — | `tests/test_config_defaults.py` 3 例，含「仓库内不得出现 agentkernel:agentkernel」的回归扫描 |
 | G-42 | 应用镜像：多阶段、非 root、可构建（D1 新增） | **本地已实现并验证**（CI build job 待首次运行） | `Dockerfile` 多阶段，基础镜像 `python:3.11.15-slim`（Debian trixie）；`docker images` **310MB**（未压缩），`inspect .Size` **69MB**（压缩层）；`id -u` → `10001`；smoke `printf '/quit\n' \| docker run -i --rm agentkernel:local python -m agentkernel --db :memory: --kb-db :memory: --kb-backend lexical` → EXIT=0 + 启动横幅；镜像内 `chromadb` 不可导入（rag 未装）、`/app` 无 `.env`；`docker compose --profile app config` 通过（app 不默认启动） | 低：本地 build 用 daocloud 镜像源（`--build-arg`），CI 用 docker.io，默认路径由 CI 首次 build 证明；体积门禁用 `docker images` 口径（inspect 是压缩层，不能混用） | **P0（收尾）** | CI `docker` job 首次绿（含 <400MB 门禁）；smoke 只宣称「能启动」，不宣称 MySQL/运行态已验证 |
-| G-46 | Python 基础镜像未 pin digest（P0-3 新增） | 已从浮动 `python:3.11-slim` 改为精确 `python:3.11.15-slim`，**仍无 digest** | `Dockerfile` `ARG PYTHON_IMAGE=python:3.11.15-slim`；`Makefile` `DOCKER_BASE` 同值；本机无法访问 `registry-1.docker.io` | 中：上游重推 tag 会静默改变基础镜像内容 | **P0（短）** | 改为 `python:3.11.15-slim@sha256:...`；digest 必须在 docker.io 侧取得（daocloud 的 digest 不能直接信任） |
+| G-46 | Python 基础镜像未 pin digest（P0-3 新增） | ✅ **已完成**：`python:3.11.15-slim@sha256:90744c...`（GitHub runner 从 docker.io 取得；Dockerfile/Makefile/compose 同步） | `Dockerfile`、`Makefile`、`docker-compose.yml` | — | — | 改为 `python:3.11.15-slim@sha256:...` |
 | G-47 | OTLP/外部看板未接（P0-4b 遗留） | ✅ **已完成**：`OTEL_EXPORTER_OTLP_ENDPOINT` 开关，异步有界队列导出 OTLP/HTTP JSON；失败静默降级不影响主流程；本地假 collector 测试验证路径/字段/脱敏 | `utils/otel.py`、`utils/observability.py`、`tests/test_otel.py` | — | — | 本地假 collector 收到 `/v1/traces`，span 字段与脱敏断言通过 |
-| G-45 | MySQL 镜像未固定 digest（P0-2 引入的临时状态） | 两处已统一为精确 tag `8.0.46`，**仍无 digest** | `.github/workflows/ci.yml` service image `mysql:8.0.46`；`docker-compose.yml:3` `docker.m.daocloud.io/library/mysql:8.0.46`；本机无法访问 `registry-1.docker.io` 取 digest | 中：上游重推 tag 会静默改变行为 | **P0（短）** | 两处都改成 `image@sha256:...`，并在 CI 里验证可拉取 |
+| G-45 | MySQL 镜像未固定 digest（P0-2 引入的临时状态） | ✅ **已完成**：CI service 与 compose 均为 `8.0.46@sha256:7dcddc...`（docker.io manifest digest，GitHub runner 取得） | `.github/workflows/ci.yml`、`docker-compose.yml` | — | — | 两处 `image@sha256:...`，CI 实际拉取验证 |
 | G-43 | 格式化门禁 | ✅ **已实现** | `style` 提交（32 文件，AST 等价校验）+ `format --check` 进入 `make check`/CI；`.git-blame-ignore-revs` 已加 | — | — | 保持 |
 
 ---

@@ -21,9 +21,8 @@ jobs:
 
     services:
       mysql:
-        # 固定到 8.0.46（与本地验证版本一致）。
-        # TODO(G-45): 补 @sha256 digest；本机无法访问 registry-1.docker.io，取不到 docker.io 的 digest。
-        image: mysql:8.0.46
+        # G-45：8.0.46 + docker.io manifest digest（GitHub runner 取得）
+        image: mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
         env:
           MYSQL_ROOT_PASSWORD: root-ci-password
           MYSQL_DATABASE: agentkernel_test
