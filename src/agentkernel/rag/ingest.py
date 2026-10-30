@@ -5,6 +5,10 @@
 
 from __future__ import annotations
 
+from agentkernel._compat import warn_deprecated
+
+warn_deprecated("agentkernel.rag.ingest", "agentkernel.rag.knowledge")
+
 from agentkernel.rag.chunking import ShingleIndex, chunk_text
 from agentkernel.rag.indexes import SQLiteIndex
 from agentkernel.rag.knowledge import KnowledgeBase

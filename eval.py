@@ -18,10 +18,11 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from agentkernel.adapters.llm.openai_compatible import OpenAICompatibleClient
-from agentkernel.mcp.client import InProcessMCPClient, register_mcp_tools
-from agentkernel.mcp.server import KnowledgeMCPServer
+from agentkernel.adapters.mcp.client import InProcessMCPClient
+from agentkernel.adapters.mcp.knowledge_server import KnowledgeMCPServer
+from agentkernel.application.mcp_tools import register_mcp_tools
 from agentkernel.ports.llm import LLMClient
-from agentkernel.rag.ingest import KnowledgeBase
+from agentkernel.rag.knowledge import KnowledgeBase
 from agentkernel.runtime.agent import Agent
 from agentkernel.tools import builtin
 from agentkernel.tools.registry import Registry

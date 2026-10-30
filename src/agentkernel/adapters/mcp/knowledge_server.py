@@ -13,7 +13,8 @@ import os
 import sys
 from typing import Any
 
-from agentkernel.rag.ingest import KnowledgeBase, SearchResult
+from agentkernel.rag.knowledge import KnowledgeBase
+from agentkernel.rag.models import SearchResult
 from agentkernel.tools.registry import validate_parameters
 from agentkernel.utils import paths as path_utils
 from agentkernel.utils.errors import AgentKernelError

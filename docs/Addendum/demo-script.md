@@ -73,7 +73,7 @@ python -m agentkernel \
 ## 4. MCP 独立链路
 
 ```bash
-python -m agentkernel.mcp.server \
+python -m agentkernel.mcp_server \
   --kb-db mysql+pymysql://agentkernel:agentkernel@127.0.0.1:3306/agentkernel \
   --backend lexical \
   ./demo-notes.md

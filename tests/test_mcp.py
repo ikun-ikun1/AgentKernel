@@ -9,15 +9,15 @@ from pathlib import Path
 
 import pytest
 
-from agentkernel.mcp.client import (
+from agentkernel.adapters.mcp.client import (
     InProcessMCPClient,
     StdioMCPClient,
     _frame_message,
     _read_frame,
-    register_mcp_tools,
 )
-from agentkernel.mcp.server import KnowledgeMCPServer, handle_json_rpc
-from agentkernel.rag.ingest import KnowledgeBase
+from agentkernel.adapters.mcp.knowledge_server import KnowledgeMCPServer, handle_json_rpc
+from agentkernel.application.mcp_tools import register_mcp_tools
+from agentkernel.rag.knowledge import KnowledgeBase
 from agentkernel.tools.registry import Registry
 from agentkernel.utils.errors import ToolParamError
 
@@ -70,7 +70,7 @@ def test_register_mcp_tools_with_prefix():
 
 
 def test_extract_tool_result_structured_content():
-    from agentkernel.mcp.client import StdioMCPClient
+    from agentkernel.adapters.mcp.client import StdioMCPClient
 
     text = StdioMCPClient._extract_tool_result("demo", {"structuredContent": {"items": [1, 2]}})
     assert text == '{"items": [1, 2]}'
@@ -147,7 +147,7 @@ def test_stdio_client_against_self_hosted_server(tmp_path):
         [
             sys.executable,
             "-m",
-            "agentkernel.mcp.server",
+            "agentkernel.mcp_server",
             "--kb-db",
             str(tmp_path / "kb"),
             str(doc),

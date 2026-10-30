@@ -16,7 +16,7 @@ def _make_agent(**kwargs) -> Agent:
 
 def test_tool_call_budget_stops_turn(monkeypatch):
     monkeypatch.setattr(
-        "agentkernel.runtime.llm.chat",
+        "agentkernel.adapters.llm.openai_compatible.chat",
         lambda messages: '{"action": "calculator", "action_input": {"expression": "1+1"}}',
     )
     seen: list[str] = []
@@ -37,7 +37,7 @@ def test_session_token_budget_stops_before_llm_call(monkeypatch):
     def _boom(messages):
         raise AssertionError("超预算后不应再调用 LLM")
 
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", _boom)
+    monkeypatch.setattr("agentkernel.adapters.llm.openai_compatible.chat", _boom)
     events: list[dict] = []
     agent = _make_agent(session_token_budget=100)
     agent.session_tokens = 100
@@ -57,7 +57,7 @@ def test_budget_defaults_from_env(monkeypatch):
 
 def test_budget_disabled_by_zero(monkeypatch):
     monkeypatch.setattr(
-        "agentkernel.runtime.llm.chat",
+        "agentkernel.adapters.llm.openai_compatible.chat",
         lambda messages: '{"action": "final_answer", "action_input": "ok"}',
     )
     agent = _make_agent(session_token_budget=0, max_tool_calls_per_turn=0)

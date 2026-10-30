@@ -6,8 +6,8 @@ import pathlib
 
 import pytest
 
+from agentkernel.adapters.memory.sqlite_store import SQLiteStore
 from agentkernel.memory.factory import create_runtime_store
-from agentkernel.memory.sqlite_store import SQLiteStore
 
 
 def test_missing_dsn_raises(monkeypatch: pytest.MonkeyPatch) -> None:

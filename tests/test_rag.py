@@ -4,14 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from agentkernel.rag.ingest import (
-    Chunk,
-    KnowledgeBase,
-    RAGError,
-    ShingleIndex,
-    chunk_text,
-    load_document,
-)
+from agentkernel.rag.chunking import ShingleIndex, chunk_text
+from agentkernel.rag.knowledge import KnowledgeBase
+from agentkernel.rag.loaders import load_document
+from agentkernel.rag.models import Chunk, RAGError
 
 
 def test_chunk_text_overlap():

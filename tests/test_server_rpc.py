@@ -7,9 +7,9 @@ import json
 
 import pytest
 
-from agentkernel.mcp.framing import MCPFramingError, frame_message, read_frame
-from agentkernel.mcp.server import KnowledgeMCPServer, handle_json_rpc, run_stdio
-from agentkernel.rag.ingest import KnowledgeBase
+from agentkernel.adapters.mcp.knowledge_server import KnowledgeMCPServer, handle_json_rpc, run_stdio
+from agentkernel.protocol.mcp_framing import MCPFramingError, frame_message, read_frame
+from agentkernel.rag.knowledge import KnowledgeBase
 
 
 @pytest.fixture()

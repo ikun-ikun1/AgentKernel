@@ -12,7 +12,7 @@ import time
 import warnings
 from io import BytesIO
 
-from agentkernel.mcp.framing import MCPFramingError, read_frame
+from agentkernel.protocol.mcp_framing import MCPFramingError, read_frame
 from agentkernel.tools.json_repair import parse_json
 
 JSON_COUNT = 500

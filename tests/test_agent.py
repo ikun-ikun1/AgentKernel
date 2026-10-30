@@ -16,7 +16,7 @@ def _make_agent(max_steps: int = 5, context: ContextConfig | None = None) -> Age
 
 def test_final_answer_direct(monkeypatch):
     monkeypatch.setattr(
-        "agentkernel.runtime.llm.chat",
+        "agentkernel.adapters.llm.openai_compatible.chat",
         lambda messages: '{"action": "final_answer", "action_input": "你好"}',
     )
     agent = _make_agent()
@@ -33,7 +33,9 @@ def test_tool_call_then_answer(monkeypatch):
             '{"action": "final_answer", "action_input": "3"}',
         ]
     )
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: next(outputs))
+    monkeypatch.setattr(
+        "agentkernel.adapters.llm.openai_compatible.chat", lambda messages: next(outputs)
+    )
     agent = _make_agent()
     history: list[dict[str, str]] = []
     assert agent.run("1+2 等于几", history) == "3"
@@ -50,7 +52,9 @@ def test_multi_tool_call_executes_all_then_answers(monkeypatch):
             '{"action": "final_answer", "action_input": "分别是 3 和 20"}',
         ]
     )
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: next(outputs))
+    monkeypatch.setattr(
+        "agentkernel.adapters.llm.openai_compatible.chat", lambda messages: next(outputs)
+    )
     seen: list[str] = []
     agent = _make_agent()
     agent.on_tool_call = lambda name, args, result: seen.append(name)
@@ -70,7 +74,9 @@ def test_tool_observer_receives_tool_calls(monkeypatch):
             '{"action": "final_answer", "action_input": "3"}',
         ]
     )
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: next(outputs))
+    monkeypatch.setattr(
+        "agentkernel.adapters.llm.openai_compatible.chat", lambda messages: next(outputs)
+    )
     seen: list[tuple[str, dict, str]] = []
     agent = _make_agent()
     agent.on_tool_call = lambda name, args, result: seen.append((name, args, result))
@@ -83,7 +89,7 @@ def test_tool_observer_receives_tool_calls(monkeypatch):
 
 def test_bad_json_degrades_to_plain_text(monkeypatch):
     raw = "我算不出来"
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: raw)
+    monkeypatch.setattr("agentkernel.adapters.llm.openai_compatible.chat", lambda messages: raw)
     agent = _make_agent()
     history: list[dict[str, str]] = []
     assert agent.run("帮我算一下", history) == raw
@@ -92,7 +98,7 @@ def test_bad_json_degrades_to_plain_text(monkeypatch):
 
 def test_unregistered_tool_is_not_called(monkeypatch):
     raw = '{"action": "dangerous_tool", "action_input": {}}'
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", lambda messages: raw)
+    monkeypatch.setattr("agentkernel.adapters.llm.openai_compatible.chat", lambda messages: raw)
     agent = _make_agent()
     history: list[dict[str, str]] = []
     # 未注册工具命中 allowlist 过滤 → 降级为纯文本，不执行
@@ -101,7 +107,7 @@ def test_unregistered_tool_is_not_called(monkeypatch):
 
 def test_max_steps_guard(monkeypatch):
     monkeypatch.setattr(
-        "agentkernel.runtime.llm.chat",
+        "agentkernel.adapters.llm.openai_compatible.chat",
         lambda messages: '{"action": "get_current_time", "action_input": {}}',
     )
     agent = _make_agent(max_steps=3)
@@ -114,7 +120,7 @@ def test_context_truncate_keeps_first_user_message(monkeypatch):
     def boom(messages):
         raise RuntimeError("模型不可用")
 
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", boom)
+    monkeypatch.setattr("agentkernel.adapters.llm.openai_compatible.chat", boom)
     context = ContextConfig(max_history_chars=100, compact_trigger_chars=60, keep_recent_chars=40)
     agent = _make_agent(context=context)
     history = [{"role": "user", "content": "记住：我叫小明，我喜欢蓝色。"}]
@@ -130,7 +136,7 @@ def test_context_compact_falls_back_to_truncate_when_llm_fails(monkeypatch):
     def boom(messages):
         raise RuntimeError("模型不可用")
 
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", boom)
+    monkeypatch.setattr("agentkernel.adapters.llm.openai_compatible.chat", boom)
     context = ContextConfig(max_history_chars=40, compact_trigger_chars=30, keep_recent_chars=20)
     agent = _make_agent(context=context)
     history = [{"role": "user", "content": "记住：我叫小明。"}] + [
@@ -146,7 +152,7 @@ def test_context_compact_uses_summary(monkeypatch):
         # 第一次调用是 compact 摘要，第二次调用是正常回答
         return "用户叫小明"
 
-    monkeypatch.setattr("agentkernel.runtime.llm.chat", fake_chat)
+    monkeypatch.setattr("agentkernel.adapters.llm.openai_compatible.chat", fake_chat)
     context = ContextConfig(max_history_chars=40, compact_trigger_chars=30, keep_recent_chars=20)
     agent = _make_agent(context=context)
     history = [{"role": "user", "content": "记住：我叫小明，我喜欢蓝色。"}] + [
