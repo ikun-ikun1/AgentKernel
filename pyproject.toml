@@ -80,4 +80,5 @@ skip_covered = false
 exclude_lines = [
   "pragma: no cover",
   "if __name__ == .__main__.:",
+  "^\\s*\\.\\.\\.\\s*$",   # Protocol 的 ... 占位不是可执行代码
 ]

@@ -18,6 +18,13 @@ from agentkernel.tools.registry import Registry
 from agentkernel.utils import observability as obs
 
 
+@pytest.fixture(autouse=True)
+def _reset_logging():
+    obs.reset_for_tests()
+    yield
+    obs.reset_for_tests()
+
+
 def _registry() -> Registry:
     registry = Registry()
     builtin.register_builtin(registry)

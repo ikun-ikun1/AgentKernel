@@ -16,7 +16,7 @@
 | 2 | 可观测 | **PARTIAL（接近完成）** | 已实现 JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`；仍缺 OTLP 导出与定时调度 | G-07…G-13、G-47 |
 | 3 | 可回滚 | **PARTIAL** | 0001 迁移有对称 downgrade；但无迁移测试、无备份/恢复演练、DDL 双轨（启动 `create_all`）、无 tag/wheel | G-14…G-19 |
 | 4 | 可控制 | **PARTIAL** | 工具白名单、无 shell/eval、AST 计算器、只读 KB 已达标；但外部 MCP 任意命令继承 key、`/ingest` 无根目录、无 token 预算、base_url 无 allowlist | G-20…G-27 |
-| 5 | 可验证 | **PARTIAL** | CI 全绿 + mypy + eval + 三类扫描；覆盖率工具已接入（实测 **72%**，无阈值）；仍缺 G-30 阈值与补测、G-32 golden set、G-33 fuzz | G-30, G-32, G-33 |
+| 5 | 可验证 | **PARTIAL** | CI 全绿 + mypy + eval + 三类扫描 + 覆盖率 **83%**（门槛 80%，核心模块 ≥90）；仍缺 G-32 golden set 50、G-33 fuzz | G-32, G-33 |
 | 6 | 可运维 | **PARTIAL** | 有 ADR、有降级路径；但无 runbook、无 `make doctor`、无 SLO 周报、无事故模板、无 CHANGELOG/tag | G-35…G-40 |
 
 > 说明：`PARTIAL` 不等于「差不多可以上线」，只表示该门禁已有可复用的实现或文档，缺的是证据链与自动化。
@@ -87,15 +87,15 @@
 
 | # | 标准要求（§4.5） | 现状 | 证据 | 风险 | 优先级 | 验收标准 |
 |---|---|---|---|---|---|---|
-| G-28 | 测试全绿 | ✅ 本地 111 passed/5 skipped；**CI 116 passed / 0 skipped**（117 个测试函数） | 本地 `.venv/bin/python -m pytest -q`；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
+| G-28 | 测试全绿 | ✅ 本地 154 passed/5 skipped；**CI 159 passed / 0 skipped**（160 个测试函数；覆盖率 83%） | 本地 `.venv/bin/python -m pytest -q`；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml | — | — | 保持；CI 强制 0 skip（`grep -q SKIPPED`） |
 | G-29 | MySQL 集成测试必须真跑 | ✅ CI 已真跑（MySQL 8.0.46 service + DSN，0 skip） | `.github/workflows/ci.yml` test job；PR #1 全绿合并 `20f2b0c`（用户确认；CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 保持；PDF 用例由 `pdf` extra 真跑，`grep -q SKIPPED` 强制 0 skip |
-| G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | ⚠️ **PR1 已完成（只报告，无阈值）**：`pytest-cov` 进 dev extras + lock；`make coverage` 输出 term + XML；CI 上传 artifact；实测 **72%**（2123 stmts / 588 miss） | `pyproject.toml` `[tool.coverage.*]`；`Makefile` `coverage`；CI `test` job 上传 `coverage.xml`；低覆盖：`__main__.py` 21%、`llm.py` 49%、`mcp/server.py` 52%、`memory/base.py` 57%、`mysql_store.py` 67%、`rag/mysql_store.py` 69%、`rag/ingest.py` 74% | 高：改坏关键路径无自动拦截 | **P0（进行中）** | PR2：补 `__main__`/`llm`/`mysql_store`/`rag/mysql_store` 关键路径 → 阈值 ratchet 到 80%；不得 omit 核心模块（Protocol stub 用 `...` 排除属合理） |
+| G-30 | 覆盖率门槛 ≥80%，核心 ≥90% | ✅ **已完成**：总覆盖率 **83%**（2117 stmts / 363 miss），阈值 80%；核心模块 `json_repair` 96、`contracts` 100、`registry` 97、`framing` 96、`memory/base` 100（Protocol `...` 排除） | `make coverage` 在 DSN 下带 `--cov-fail-under=80`；CI `test` job 上传 `coverage.xml`；新增 CLI/LLM/帧协议/server/契约/JSON 修复边界测试 42 例 | 低：非核心模块仍低（`mysql_store` 67、`rag/mysql_store` 69、`server` 69、`ingest` 74），按需 ratchet | — | 后续可把非核心模块也纳入 80% 门槛 |
 | G-44 | 干净环境安装验收（P0-1 遗留） | ✅ **已关闭**：PR #1 CI 首次全绿（`uv sync --frozen --extra dev --extra mysql --extra pdf` 在干净 runner 完成；当时 68 passed / 0 skipped，当前 99/0） | PR #1 → merge commit `20f2b0c`；workflow `.github/workflows/ci.yml`（权限 `contents: read`）；用户确认 2026-10-29（CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 已关闭；后续干净环境验收复用 CI，不再用本地 worktree |
 | G-31 | 静态检查 0 退出 | ✅ **已实现** | `ruff check` → `All checks passed!`；`ruff format --check` → 全部已格式化；`mypy src` → 28 文件 0 错误；均在 `make check` 内 | — | — | 保持 |
 | G-32 | golden set ≥50（mock）/≥20（live） | 5 条 mock + 4 条 live | `eval.py:59-171,174-223` | 高：S1/S2 无统计意义 | **P0** | 50/20 条，进 `make check` 与 CI |
 | G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |
 | G-34 | 安全扫描（gitleaks/semgrep/pip-audit） | ✅ **已接入** | `make security`：gitleaks 8.30.1（`.gitleaks.toml` 白名单测试假密钥）+ semgrep 本地规则 `.semgrep.yml`（eval/exec、shell=True、verify=False、硬编码凭据）；`make audit`：`uv export` 锁文件 → pip-audit；CI 新增 `security` job | 低：semgrep 用本地规则（非 registry 全量规则）；pip-audit 依赖网络 | — | 实测：gitleaks 0、semgrep 0、lock 导出 0 漏洞；负向控制 `eval()` 被拦截 |
-| G-41 | 文档与实测一致 | ✅ **已修复**：README 重写为「117 个测试；本地 111/5、CI 116/0」双口径；里程碑/面试材料加历史标注 | `README.md`、`docs/status.md`、`docs/README.md`；一致性由 `status.md` 单点维护 | — | — | 后续数字只改 `status.md`，其他文档引用它 |
+| G-41 | 文档与实测一致 | ✅ **已修复**：README 重写为「160 个测试；本地 154/5、CI 159/0」双口径；里程碑/面试材料加历史标注 | `README.md`、`docs/status.md`、`docs/README.md`；一致性由 `status.md` 单点维护 | — | — | 后续数字只改 `status.md`，其他文档引用它 |
 
 ---
 
@@ -162,7 +162,7 @@ G-26（schema 长度/格式）、G-38（事故模板）、OTLP 导出、mypy `--
 cd /home/ikun/AgentKernel
 
 # 测试与静态检查
-.venv/bin/python -m pytest -q              # 111 passed, 5 skipped（有 DSN 时 116 passed）
+.venv/bin/python -m pytest -q              # 154 passed, 5 skipped（有 DSN 时 159 passed）
 .venv/bin/python -m ruff check .           # All checks passed!（EXIT=0）
 .venv/bin/python -m mypy src               # Success: no issues found in 25 source files
 .venv/bin/python -m pytest --cov=agentkernel --cov-report=term-missing -q   # 不支持 --cov（pytest-cov 未装）
