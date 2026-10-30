@@ -112,8 +112,8 @@ domain        ← application ← ports
 | **A5** | MCP 拆 protocol/transport/handler/bridge | ✅ 已完成：`protocol/mcp_framing.py`、`adapters/mcp/{client,knowledge_server}.py`、`application/mcp_tools.py`、`ports/mcp_transport.py`；旧 `mcp/{framing,client,server}.py` shim；MCP/安全测试全绿 |
 | **A6** | 架构测试 + 目标架构图 + 文档回填 | ✅ 已完成：`tests/test_architecture.py` 分层断言；`architecture.mmd`/PNG 改为 ports & adapters 分层图；**外围分层完成，核心 Agent 拆分在 A7.2** |
 | **A7.1** | `Agent` 接收 `LLMClient`；composition/eval 注入 adapter；内部不再 import shim | ✅ 已完成：`OpenAICompatibleClient` 注入；`tests/test_agent_llm_port.py`；架构断言 `runtime/agent.py` 不 import shim/adapters |
-| **A7.2** | 拆 Agent：上下文策略 + 工具执行 + 观察格式化；Agent <200 行 | 待做 |
-| **A7.3** | EventSink/KnowledgeStore 取舍；架构断言扩展到 application/runtime | 待做 |
+| **A7.2** | 拆 Agent：上下文策略 + 工具执行 + 观察格式化；Agent <200 行 | ✅ 已完成：`domain/context_policy.py`、`application/{context,tool_executor,run_turn}.py`；`runtime/agent.py` **184 行**（facade）；190 tests 绿 |
+| **A7.3** | EventSink/KnowledgeStore 取舍；架构断言扩展到 application/runtime | 待做（当前 events 函数式 sink；application 已禁止 import runtime/adapters/cli） |
 | **A7.4** | 文档/架构图回填；v0.3.0 发布；shim 删除计划 | 待做 |
 
 原则：
