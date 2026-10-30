@@ -60,6 +60,16 @@ jobs:
           set -euo pipefail
           make check 2>&1 | tee check.log
 
+      - name: coverage（只报告，不设阈值）
+        run: make coverage
+
+      - name: 上传 coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
       - name: 强制 0 skip
         shell: bash
         run: |

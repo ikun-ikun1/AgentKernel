@@ -25,6 +25,7 @@ make trace        # 按 trace_id 打印 span 树
 make prune        # 日志 14 天 / DB 90 天（支持 dry-run）
 make test-live    # 真实 API 冒烟：1 次调用（需 AGENTKERNEL_LIVE_API=1 与 DEEPSEEK_API_KEY）
 make security     # gitleaks + semgrep（离线）
+make coverage     # 覆盖率报告（G-30 PR1：只报告，阈值待 PR2）
 make audit        # pip-audit 审计 lock 依赖（需网络）
 make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 ```
@@ -35,7 +36,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 可观测 | JSONL 16 字段 + span + 成本 + 周报 | ✅（缺 OTLP，G-47） |
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 | ✅ `make backup` / `make restore-drill`：最新演练 PASS（0.9s，行数全对），报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
 | 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 | ✅ 基础 / **PARTIAL**：G-25 会话预算、G-27 工具结果隔离 批二（G-24 allowlist 已完成） |
-| 可验证 | 0 skip、迁移往返、真实 MySQL | ✅ 基础 / **PARTIAL**：G-30 覆盖率、G-32 golden set 50 条 批二 |
+| 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率工具 | ✅ 基础 / **PARTIAL**：覆盖率仅 **72%**（无阈值，PR2 补测+ratchet）、G-32 golden set 50 条 |
 | 可运维 | runbook / doctor / 定期恢复演练 | ❌ 批二（G-35/G-36/G-17） |
 
 ## 3. 批一交付（P0-1 ~ P0-5）

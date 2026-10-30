@@ -9,7 +9,7 @@
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **117 个**：本地 `111 passed / 5 skipped`（无 MySQL DSN），CI `116 passed / 0 skipped` |
+| 测试 | **117 个**：本地 `111 passed / 5 skipped`（无 MySQL DSN），CI `116 passed / 0 skipped`；覆盖率 **72%**（工具已接入，阈值待 ratchet） |
 | 评测 | `python eval.py` → 5/5（mock，无需 API Key） |
 | 真实模型 | 6 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
@@ -75,6 +75,7 @@ make backup       # MySQL 逻辑备份（保留 7 份，口令走 env）
 make restore-drill # 恢复最新备份到临时库并校验行数（产报告）
 make security     # gitleaks 密钥扫描 + semgrep 本地 SAST（离线）
 make audit        # pip-audit 审计 lock 依赖（需网络）
+make coverage     # 覆盖率报告（term + coverage.xml）
 ```
 
 CLI 内置命令：`/new`、`/sessions`、`/history`、`/ingest <路径>`、`/docs`、`/logs`、`/help`、`/quit`。
