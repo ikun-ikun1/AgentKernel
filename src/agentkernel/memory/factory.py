@@ -12,8 +12,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from agentkernel.memory.base import RuntimeStore
-from agentkernel.memory.sqlite_store import SQLiteStore
+from agentkernel.adapters.memory.sqlite_store import SQLiteStore
+from agentkernel.ports.runtime_store import RuntimeStore
 from agentkernel.utils import env
 
 env.load_env()
@@ -33,7 +33,7 @@ def create_runtime_store(dsn: str | None = None) -> RuntimeStore:
         )
 
     if _is_mysql_dsn(resolved):
-        from agentkernel.memory.mysql_store import MySQLRuntimeStore
+        from agentkernel.adapters.memory.mysql_store import MySQLRuntimeStore
 
         store = MySQLRuntimeStore(resolved)
         # G-16：schema 只由 Alembic 管理；缺失时抛错并给出 --migrate 指引
