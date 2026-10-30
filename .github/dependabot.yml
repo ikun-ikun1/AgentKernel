@@ -1,0 +1,19 @@
+version: 2
+
+updates:
+  # 固定 digest 不等于永远安全：每周检查 Dockerfile / compose 的镜像更新。
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+    groups:
+      docker-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 2
