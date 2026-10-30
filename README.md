@@ -3,15 +3,15 @@
 > 一个从零实现 ReAct Runtime、Tool Calling、MCP 协议与持久化检索的 **Python CLI 研究原型**；按「可上生产」的工程标准建设（门禁、可观测、可回滚、安全边界），但不发布为在线服务。
 
 [![CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml/badge.svg)](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml)
-[项目状态](docs/status.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [架构图](docs/architecture.png)
+[项目状态](docs/status.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [Runbook](docs/runbook.md) · [架构图](docs/architecture.png)
 
 ## 现状（2026-10-29）
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **164 个**：本地 `158 passed / 5 skipped`（无 MySQL DSN），CI `163 passed / 0 skipped`；覆盖率 **83%**（CI 门槛 80%，核心模块 ≥90%） |
+| 测试 | **174 个**：本地 `168 passed / 6 skipped`（无 MySQL DSN），CI `173 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%，核心模块 ≥90%） |
 | 评测 | `make eval` → **50/50**（mock golden set）；`make eval-live` → 20 条真实调用 |
-| 真实模型 | 6 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
+| 真实模型 | 8 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`docker` |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 < 400MB |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 0001/0002 可往返 |
@@ -48,27 +48,30 @@
 # 1. 安装（锁定依赖；pdf 是轻量 PDF 解析，rag/mcp 按需）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 
-# 2. 一键检查：ruff + format + mypy + pytest(排除 live) + eval(mock)
+# 2. 一键体检：python/.env/依赖/MySQL/迁移/口令/磁盘（7 项）
+make doctor
+
+# 3. 一键检查：ruff + format + mypy + pytest(排除 live) + eval(mock)
 make check
 # 可选：真实 API 冒烟（1 次调用，约 $0.0002）
 AGENTKERNEL_LIVE_API=1 make test-live
 
-# 3. 起 MySQL（本地开发）
+# 4. 起 MySQL（本地开发）
 docker compose up -d mysql
-# 4. 配环境变量（.env，勿提交）
+# 5. 配环境变量（.env，勿提交）
 cp .env.example .env   # 填 DEEPSEEK_API_KEY、DSN；按需设 AGENTKERNEL_DOC_ROOTS
 # 未配置 DSN 时 CLI 会直接报错（G-06：不再内置默认口令）
 
-# 5. 首次初始化 schema（G-16：只走 Alembic，不再自动建表）
+# 6. 首次初始化 schema（G-16：只走 Alembic，不再自动建表）
 python -m agentkernel --migrate
-# 6. 跑 CLI（默认 MySQL；无 MySQL 时用内存库）
+# 7. 跑 CLI（默认 MySQL；无 MySQL 时用内存库）
 python -m agentkernel --kb-backend lexical
 
-# 7. 外部 MCP server：只接受 profile 声明的命令
+# 8. 外部 MCP server：只接受 profile 声明的命令
 cp mcp_profiles.example.toml mcp_profiles.toml   # 修改 command / args
 python -m agentkernel --mcp-profile kb-server
 
-# 7. 观测与运维
+# 9. 观测与运维
 AGENTKERNEL_LOG=~/.agentkernel/logs/agentkernel.jsonl python -m agentkernel
 make report       # SLO 周报 → docs/reports/
 make trace        # 按 trace_id 打印 span 树
@@ -110,7 +113,7 @@ AgentKernel/
 ├── src/agentkernel/         # runtime / tools / memory / rag / mcp / utils
 ├── migrations/versions/     # 0001 初始 schema、0002 tool_logs.duration_ms
 ├── scripts/                 # report / trace / prune
-├── tests/                   # 164 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、注入隔离）
+├── tests/                   # 174 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、注入隔离）
 └── docs/                    # status、production-standard(-gap)、架构、历史里程碑、附录
 ```
 

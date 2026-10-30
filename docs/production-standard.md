@@ -258,8 +258,8 @@
 
 | 要求 | 阈值 / 做法 | 现状证据 |
 |---|---|---|
-| Runbook | 至少 6 个场景：启动失败、MySQL 不可用、key 无效、迁移失败、死锁复现、检索退化为纯词法 | ❌ 无 `docs/runbook.md` |
-| 一键体检 | `make doctor`：python 版本、`.env` 存在与权限、MySQL 连通、迁移版本、依赖完整性、默认口令检测、磁盘余量 | ❌ 无 |
+| Runbook | 至少 6 个场景：启动失败、MySQL 不可用、key 无效、迁移失败、死锁复现、检索退化为纯词法 | ✅ `docs/runbook.md`：每场景含判定命令、止血、恢复、验证、回滚、升级条件；附事故记录模板 |
+| 一键体检 | `make doctor`：python 版本、`.env` 存在与权限、MySQL 连通、迁移版本、依赖完整性、默认口令检测、磁盘余量 | ✅ `scripts/doctor.py` 7 项；SQLite 模式相关项为 WARN；`--json` / `--strict`；6 条测试 |
 | SLO 报表 | `make report` → `docs/reports/YYYY-Www.md`（S1–S9 达成、失败用例、成本） | ❌ 无 |
 | 事件流程 | 模板：现象/影响/时间线/根因/修复/回归用例；复盘 ≤ 7 天 | ❌ 无 |
 | 成本运营 | 月度成本报告；80% 预算告警；超预算停 live eval | ❌ 无 |
@@ -334,7 +334,7 @@
 
 ### 8.2 P1（批二，按风险排序）
 
-备份/恢复演练脚本与首次演练（G-17/G-18）；双轨 DDL 消除（G-16）；MCP client 捕获 `UnicodeDecodeError` 与总时长上限；检索 golden 查询 30 条 + Recall@5 阈值；`make doctor`；runbook 6 场景；`/delete` 命令 + 90 天清理；semver tag + CHANGELOG。
+备份/恢复演练脚本与首次演练（G-17/G-18）；双轨 DDL 消除（G-16）；MCP client 捕获 `UnicodeDecodeError` 与总时长上限；检索 golden 查询 30 条 + Recall@5 阈值；`/delete` 命令 + 90 天清理；semver tag + CHANGELOG。
 
 ### 8.3 P2（有余力再做）
 
