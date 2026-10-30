@@ -8,8 +8,8 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 架构 | A0–A6 + A7.1 LLM 注入 + A7.2 Agent 184 行 facade + A7.3 端口取舍/断言；仅 A7.4 发布与文档收口待做 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
-| 测试 | **192 个测试**；本地 `186 passed / 6 skipped`（无 DSN），CI `191 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 架构 | **A0–A7 完成**：外围分层 + LLM 端口注入 + Agent 184 行 facade（ReAct/context/tool 外移）+ 端口取舍 + 架构图/v0.3.0 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
+| 测试 | **192 个测试**；本地 `186 passed / 6 skipped`（无 DSN），CI `191 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |

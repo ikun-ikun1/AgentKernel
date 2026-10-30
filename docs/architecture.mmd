@@ -6,7 +6,10 @@ flowchart TB
     end
 
     subgraph APP["Application"]
-        Agent["Agent Runtime<br/>ReAct loop · context policy"]
+        Agent["Agent facade<br/>184 lines"]
+        RunTurn["application/run_turn.py<br/>ReAct loop"]
+        Context["application/context.py<br/>domain/context_policy.py"]
+        ToolExec["application/tool_executor.py<br/>execution + observation"]
         McpTools["application/mcp_tools.py<br/>MCP tool bridge"]
         KbApp["rag/knowledge.py<br/>ingest · query orchestration"]
     end
@@ -27,6 +30,7 @@ flowchart TB
 
     subgraph CORE["Domain / Protocol"]
         Contracts["tools/contracts.py + registry"]
+        Prompt["SYSTEM_PROMPT + JSON repair"]
         RagModels["rag/models.py + loaders.py + chunking.py"]
         Framing["protocol/mcp_framing.py"]
         Events["observability/events.py"]
@@ -45,11 +49,17 @@ flowchart TB
     Comp --> Agent
     Comp --> KbApp
     Comp --> McpTools
+    Agent --> RunTurn
+    RunTurn --> Context
+    RunTurn --> ToolExec
+    RunTurn --> Events
+    RunTurn --> LLMPort
+    RunTurn --> Contracts
+    ToolExec --> Contracts
     Agent --> Events
     Agent --> Contracts
     KbApp --> RagModels
     McpTools --> TransportPort
-    Agent --> LLMPort
     Repl --> StorePort
     StorePort -. implemented by .-> MySQLStore
     StorePort -. implemented by .-> SQLiteStore
@@ -69,8 +79,8 @@ flowchart TB
     classDef core fill:#f5f5f5,stroke:#666,stroke-width:1px;
     classDef external fill:#fff,stroke:#999,stroke-width:1px;
     class Main,Repl,Comp cli;
-    class Agent,McpTools,KbApp app;
+    class Agent,RunTurn,Context,ToolExec,McpTools,KbApp app;
     class StorePort,LLMPort,TransportPort port;
     class MySQLStore,SQLiteStore,OpenAI,McpAdapter,KnowledgeAdapter adapter;
-    class Contracts,RagModels,Framing,Events core;
+    class Contracts,Prompt,RagModels,Framing,Events core;
     class MySQL,Chroma,LLM,McpServers external;

@@ -9,7 +9,7 @@
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **192 个**：本地 `186 passed / 6 skipped`（无 MySQL DSN），CI `191 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%，核心模块 ≥90%） |
+| 测试 | **192 个**：本地 `186 passed / 6 skipped`（无 MySQL DSN），CI `191 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84%**（CI 门槛 80%，核心模块 ≥90%） |
 | 评测 | `make eval` → **50/50**（mock golden set）；`make eval-live` → 20 条真实调用 |
 | 真实模型 | 8 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`security`、`docker` |

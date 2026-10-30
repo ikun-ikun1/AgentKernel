@@ -103,9 +103,10 @@ def main() -> None:
         ((100, 145, 430, 210), "cli/main.py\nargparse + exit codes", CORE, EDGE),
         ((450, 145, 780, 210), "cli/repl.py\ncommands + persistence", CORE, EDGE),
         ((800, 145, 1140, 210), "cli/composition.py\ntools + KB + MCP wiring", CORE, EDGE),
-        ((100, 285, 430, 365), "Agent Runtime\nReAct + context policy", APP, "#2f7d32"),
-        ((450, 285, 780, 365), "application/mcp_tools.py\nMCP tool bridge", APP, "#2f7d32"),
-        ((800, 285, 1140, 365), "rag/knowledge.py\ningest + query", APP, "#2f7d32"),
+        ((100, 285, 340, 365), "Agent facade\n184 lines", APP, "#2f7d32"),
+        ((360, 285, 600, 365), "run_turn + context\nReAct + policy", APP, "#2f7d32"),
+        ((620, 285, 860, 365), "tool_executor + mcp_tools\nexecution + bridge", APP, "#2f7d32"),
+        ((880, 285, 1120, 365), "rag/knowledge\ningest + query", APP, "#2f7d32"),
         ((100, 450, 430, 515), "RuntimeStore\nProtocol", PORT, "#a36b00"),
         ((450, 450, 780, 515), "LLMClient\nProtocol", PORT, "#a36b00"),
         ((800, 450, 1140, 515), "MCPTransport\nProtocol", PORT, "#a36b00"),
@@ -126,8 +127,10 @@ def main() -> None:
     for box in external:
         _box(draw, box[0], box[1], box[2], box[3])
 
-    for y in (225, 390, 540):
-        _arrow(draw, (620, y), (620, y + 20))
+    _arrow(draw, (620, 225), (620, 245))
+    for x in (220, 480, 740, 1000):
+        _arrow(draw, (x, 390), (x, 410))
+    _arrow(draw, (620, 540), (620, 560))
 
     _arrow(draw, (320, 475), (340, 610), dashed=True)
     _arrow(draw, (580, 475), (460, 600), dashed=True)
@@ -139,8 +142,8 @@ def main() -> None:
 
     draw.text(
         (60, 730),
-        "Current: shims keep old imports working | Target: domain/ + application/ depend only on ports | "
-        "No DI container, no async rewrite",
+        "A7: Agent is a 184-line facade | application depends on ports, not adapters | "
+        "Legacy import shims stay until v0.4.0 | No DI container, no async rewrite",
         fill=INK,
         font=_font(19),
     )

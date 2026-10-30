@@ -2,7 +2,7 @@
 
 ## 状态
 
-Accepted（A0→A6 完成；A7.1 LLM 端口已接线，A7.2–A7.4 进行中；旧 import shim 保留一个版本后删除，不改变 CLI/schema/安全/D4 语义）
+Accepted（A0→A7 完成；旧 import shim 保留到 v0.4.0 删除，不改变 CLI/schema/安全/D4 语义）
 
 ## 背景
 
@@ -114,7 +114,7 @@ domain        ← application ← ports
 | **A7.1** | `Agent` 接收 `LLMClient`；composition/eval 注入 adapter；内部不再 import shim | ✅ 已完成：`OpenAICompatibleClient` 注入；`tests/test_agent_llm_port.py`；架构断言 `runtime/agent.py` 不 import shim/adapters |
 | **A7.2** | 拆 Agent：上下文策略 + 工具执行 + 观察格式化；Agent <200 行 | ✅ 已完成：`domain/context_policy.py`、`application/{context,tool_executor,run_turn}.py`；`runtime/agent.py` **184 行**（facade）；190 tests 绿 |
 | **A7.3** | EventSink/KnowledgeStore 取舍；架构断言扩展到 application/runtime | ✅ 已完成：**不新增 EventSink Protocol**（on_event callback + `observability/events.py` 函数式 sink 已是单一实现，加 Protocol 是空接口）；**不新增 KnowledgeStore port**（`rag/knowledge.py` 是应用 facade，MySQL/Chroma 已是 adapters，单消费者不值得抽象）；断言扩展到 ports/adapters/observability |
-| **A7.4** | 文档/架构图回填；v0.3.0 发布；shim 删除计划 | 待做 |
+| **A7.4** | 文档/架构图回填；v0.3.0 发布；shim 删除计划 | ✅ 已完成：架构图补齐 `run_turn/context/tool_executor` 与 LLM 接线；v0.3.0 wheel/tag；shim 计划 v0.4.0 删除 |
 
 原则：
 
