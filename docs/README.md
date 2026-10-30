@@ -10,7 +10,7 @@
 | [status.md](./status.md) | 测试/CI/镜像/观测现状、批一交付、未完成 Top 8、复现命令 |
 | [production-standard.md](./production-standard.md) | 项目画像、SLO 与错误预算、威胁模型、六门禁阈值、发布回滚、豁免 |
 | [production-standard-gap.md](./production-standard-gap.md) | 41+ 项差距：现状证据、风险、优先级、验收标准 |
-| [reports/](./reports/) | `make report` 的 SLO 周报与索引（含真实 API 的 `2026-W44`）；`restore-drill-*.md` 为恢复演练证据 |
+| [reports/](./reports/) | `make report` 的 SLO 周报与索引（含真实 API 的 `2026-W44`）；`restore-drill-*.md` 为恢复演练证据；`incident-20261030-schema-drift.md` 为首次事故复盘 |
 
 ## 2. 设计与边界
 
@@ -27,6 +27,7 @@
 | 文档 | 内容 |
 |---|---|
 | [runbook.md](./runbook.md) | 6 个事故场景：判定 → 止血 → 恢复 → 验证 → 回滚（含事故记录模板） |
+| [../CHANGELOG.md](../CHANGELOG.md) | 版本变更记录（Keep a Changelog，当前 `0.1.0`） |
 | [../README.md](../README.md) | 快速开始、常用命令、目录结构 |
 | [../mcp_profiles.example.toml](../mcp_profiles.example.toml) | MCP profile 示例（精确 argv + env 白名单） |
 | [Addendum/demo-script.md](./Addendum/demo-script.md) | 演示脚本（历史，命令以 README 为准） |

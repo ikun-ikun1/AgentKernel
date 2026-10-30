@@ -1,6 +1,6 @@
 # AgentKernel 项目状态（单一事实源）
 
-> 更新时间：2026-10-29 · 维护者：ikun-ikun1
+> 更新时间：2026-10-30 · 维护者：ikun-ikun1
 > 本页只放「当前是什么状态」；标准与阈值见 [production-standard.md](./production-standard.md)，逐项差距见 [production-standard-gap.md](./production-standard-gap.md)。
 
 ## 1. 一眼结论
@@ -38,7 +38,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 | ✅ `make backup` / `make restore-drill`：最新演练 PASS（0.9s，行数全对），报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
 | 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 + 会话预算 | ✅ 会话预算（单会话 150k tokens / 单轮 5 次工具调用，`budget_exceeded` 事件）已落地，G-24/G-25/G-27 完成 |
 | 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 83% + 80%、golden set 50、三类扫描 | ✅ 基础 / **PARTIAL**：仅剩 G-33 fuzz 语料（可选） |
-| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景（`docs/runbook.md`）+ `make doctor` 7 项；恢复演练见 reports；仍缺 CHANGELOG/tag（G-39）与首次事故复盘 |
+| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.1.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
 
 ## 3. 批一交付（P0-1 ~ P0-5）
 
@@ -55,10 +55,10 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 
 | # | 项 | 影响 | 计划 |
 |---|---|---|---|
-| 1 | 迁移/DDL 双轨收口（G-16） | `create_all` 与 Alembic 并存 | 批二 |
-| 2 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
-| 3 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
-| 4 | CHANGELOG + semver tag（G-39） | 变更不可追溯 | 批二 |
+| 1 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
+| 2 | fuzz 语料 500+100 条（G-33） | 解析层边界靠定点用例 | 批二（可选） |
+| 3 | wheel 产物与 `v0.2.0` 发布验证（G-19） | 回滚有 tag，但缺可安装产物 | 批二 |
+| 4 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
 
 ## 5. 文档地图
 
@@ -70,6 +70,8 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 架构与数据流 | [architecture.png](./architecture.png) / [architecture.mmd](./architecture.mmd) |
 | 项目背景与边界 | [project-background.md](./project-background.md) / [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 数据库决策 | [Addendum/adr-001-mysql-primary-storage.md](./Addendum/adr-001-mysql-primary-storage.md) |
+| 事故处置与复盘 | [runbook.md](./runbook.md) / [首次复盘](./reports/incident-20261030-schema-drift.md) |
+| 变更记录 | [CHANGELOG.md](../CHANGELOG.md) |
 | 历史里程碑（2026-09） | [milestone-1](./milestone-1-kernel.md) / [milestone-2](./milestone-2-mcp.md) / [milestone-3](./milestone-3-deliverables.md) |
 
 ## 6. 复现命令

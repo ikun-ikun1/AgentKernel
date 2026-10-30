@@ -3,7 +3,7 @@
 > 一个从零实现 ReAct Runtime、Tool Calling、MCP 协议与持久化检索的 **Python CLI 研究原型**；按「可上生产」的工程标准建设（门禁、可观测、可回滚、安全边界），但不发布为在线服务。
 
 [![CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml/badge.svg)](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml)
-[项目状态](docs/status.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [Runbook](docs/runbook.md) · [架构图](docs/architecture.png)
+[项目状态](docs/status.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [Runbook](docs/runbook.md) · [变更记录](CHANGELOG.md) · [架构图](docs/architecture.png)
 
 ## 现状（2026-10-29）
 

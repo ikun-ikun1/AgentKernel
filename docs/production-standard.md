@@ -215,7 +215,7 @@
 
 | 要求 | 阈值 / 做法 | 现状证据 |
 |---|---|---|
-| 发布单元 | git tag `vX.Y.Z` + wheel 产物；回滚 = 切 tag + `uv sync --frozen` | ❌ 无 tag、无 wheel；版本固定 `0.1.0`（`pyproject.toml:7`） |
+| 发布单元 | git tag `vX.Y.Z` + wheel 产物；回滚 = 切 tag + `uv sync --frozen` | ⚠️ `v0.1.0` tag + CHANGELOG 已有，回滚步骤见 runbook；wheel 产物与 `v0.2.0` 发布待 G-19 |
 | 迁移策略 | 只 expand/contract；单版本不得删列/改类型；删除延后一版 | ⚠️ 0001 有对称 `downgrade`（`0001_initial.py:78-88`），但无迁移测试 |
 | 迁移测试 | `test_migrations.py`：`upgrade head → downgrade base → upgrade head`，断言 `duration_ms` 列 | ✅ 已实现（CI 有 DSN 真跑） |
 | DDL 单一来源 | 删除启动时 `create_all`，只走 Alembic | ✅ 已删除 `create_all`；`ensure_schema()` 校验 `alembic_version`/表/列，缺失提示 `--migrate` |
@@ -261,9 +261,9 @@
 | Runbook | 至少 6 个场景：启动失败、MySQL 不可用、key 无效、迁移失败、死锁复现、检索退化为纯词法 | ✅ `docs/runbook.md`：每场景含判定命令、止血、恢复、验证、回滚、升级条件；附事故记录模板 |
 | 一键体检 | `make doctor`：python 版本、`.env` 存在与权限、MySQL 连通、迁移版本、依赖完整性、默认口令检测、磁盘余量 | ✅ `scripts/doctor.py` 7 项；SQLite 模式相关项为 WARN；`--json` / `--strict`；6 条测试 |
 | SLO 报表 | `make report` → `docs/reports/YYYY-Www.md`（S1–S9 达成、失败用例、成本） | ❌ 无 |
-| 事件流程 | 模板：现象/影响/时间线/根因/修复/回归用例；复盘 ≤ 7 天 | ❌ 无 |
+| 事件流程 | 模板：现象/影响/时间线/根因/修复/回归用例；复盘 ≤ 7 天 | ✅ 模板在 `docs/runbook.md` 附录；首次复盘 `docs/reports/incident-20261030-schema-drift.md` |
 | 成本运营 | 月度成本报告；80% 预算告警；超预算停 live eval | ❌ 无 |
-| 变更记录 | ADR（已有 1 篇）+ CHANGELOG + semver tag | ⚠️ 只有 `docs/Addendum/adr-001-mysql-primary-storage.md`；无 CHANGELOG/tag |
+| 变更记录 | ADR（已有 1 篇）+ CHANGELOG + semver tag | ✅ ADR-001/002 + `CHANGELOG.md` + `v0.1.0` tag |
 | 依赖降级 | 模型不可用时 CLI 不崩（降级为错误提示）、向量不可用时回退 ngram | ✅ `__main__.py:205-209`、`rag/ingest.py:484-499` |
 
 ---
@@ -334,7 +334,7 @@
 
 ### 8.2 P1（批二，按风险排序）
 
-备份/恢复演练脚本与首次演练（G-17/G-18）；双轨 DDL 消除（G-16）；MCP client 捕获 `UnicodeDecodeError` 与总时长上限；检索 golden 查询 30 条 + Recall@5 阈值；`/delete` 命令 + 90 天清理；semver tag + CHANGELOG。
+wheel 产物与 `v0.2.0` 发布验证（G-19）；fuzz 语料 500+100 条（G-33）；镜像 digest 固定（G-45/G-46）。
 
 ### 8.3 P2（有余力再做）
 
