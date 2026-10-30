@@ -35,10 +35,10 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 |---|---|---|
 | 可重复 | `uv.lock` + `.python-version` + `make sync` | ✅ 基础 / **PARTIAL**：镜像 digest（G-45/G-46）待补；默认口令已清理（G-06） |
 | 可观测 | JSONL 16 字段 + span + 成本 + 周报 + OTLP | ✅ 可选 OTLP/HTTP 导出（`OTEL_EXPORTER_OTLP_ENDPOINT`，本地假 collector 测试）；周报仍手动 |
-| 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 | ✅ `make backup` / `make restore-drill`：最新演练 PASS（0.9s，行数全对），报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
+| 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 + tag/wheel | ✅ `v0.2.0` tag + wheel（干净 venv 安装/CLI smoke EXIT=0）；`make backup` / `make restore-drill` 最新演练 PASS（报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)） |
 | 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 + 会话预算 | ✅ 会话预算（单会话 150k tokens / 单轮 5 次工具调用，`budget_exceeded` 事件）已落地，G-24/G-25/G-27 完成 |
 | 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 83% + 80%、golden set 50、三类扫描、fuzz 语料 | ✅ 500 条坏 JSON + 100 条非法帧（0 崩溃/0 挂起），G-33 完成 |
-| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.1.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
+| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.2.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
 
 ## 3. 批一交付（P0-1 ~ P0-5）
 
@@ -56,7 +56,6 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | # | 项 | 影响 | 计划 |
 |---|---|---|---|
 | 1 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
-| 2 | wheel 产物与 `v0.2.0` 发布验证（G-19） | 回滚有 tag，但缺可安装产物 | 批二 |
 
 ## 5. 文档地图
 

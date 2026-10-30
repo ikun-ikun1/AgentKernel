@@ -2,7 +2,7 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)；格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [Unreleased]
+## [0.2.0] - 2026-10-30
 
 ### Added
 
@@ -12,6 +12,11 @@
 ### Fixed
 
 - 深层嵌套 JSON 触发 `RecursionError` 时不再向上抛，按不可修复降级为纯文本。
+
+### Tests
+
+- 181 个测试；CI `180 passed / 1 deselected(live) / 0 skipped`；覆盖率 83.34%（门槛 80%）。
+- `uv build` 产出 wheel/sdist；在干净 venv 安装 wheel，`agentkernel.__version__ == 0.2.0`，CLI smoke EXIT=0。
 
 ## [0.1.0] - 2026-10-30
 
@@ -54,4 +59,5 @@
 - 174 个测试；CI `173 passed / 1 deselected(live) / 0 skipped`；覆盖率 82.89%（门槛 80%）。
 - `make eval`：mock golden set 50/50；live set 20 条数据就绪。
 
+[0.2.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.1.0
