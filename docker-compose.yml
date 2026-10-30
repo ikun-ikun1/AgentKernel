@@ -1,7 +1,7 @@
 services:
   mysql:
-    # G-45：精确 tag 8.0.46；digest 待补（本机无法访问 registry-1.docker.io）
-    image: docker.m.daocloud.io/library/mysql:8.0.46
+    # G-45：8.0.46 + docker.io manifest digest（镜像站与 docker.io 同为内容寻址）
+    image: docker.m.daocloud.io/library/mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
     container_name: agentkernel-mysql
     restart: unless-stopped
     environment:
@@ -27,7 +27,7 @@ services:
     build:
       context: .
       args:
-        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11.15-slim}
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11.15-slim@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff}
     image: agentkernel:local
     depends_on:
       mysql:

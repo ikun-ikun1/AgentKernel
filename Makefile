@@ -19,7 +19,7 @@ DB_DAYS ?= 90
 BACKUP_DIR ?= backups
 DOCKER_IMAGE ?= agentkernel:local
 # 本地 docker.io 不可达时可覆盖，例如 make docker-build DOCKER_BASE=docker.m.daocloud.io/library/python:3.11-slim
-DOCKER_BASE ?= python:3.11.15-slim
+DOCKER_BASE ?= python:3.11.15-slim@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff
 
 .PHONY: help require-env sync sync-all format format-check lint type test coverage test-live eval eval-live fuzz report trace prune backup restore-drill doctor security audit check docker-build docker-smoke docker-nonroot docker-size
 
