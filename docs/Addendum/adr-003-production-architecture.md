@@ -105,7 +105,7 @@ domain        ← application ← ports
 | 切片 | 内容 | 验收 |
 |---|---|---|
 | **A0** | 本 ADR + 目标图 + 依赖规则 + 生产问题叙事 | 文档评审通过；不改代码 |
-| **A1** | 抽 `config/settings.py` 与 `cli/composition.py`；`__main__.py` 变薄；REPL 移到 `cli/repl.py` | CLI 参数/输出/退出码不变；`make check` 同测试数；无 adapter 泄漏 |
+| **A1** | 抽 `config/settings.py` 与 `cli/composition.py`；`__main__.py` 变薄；REPL 移到 `cli/repl.py` | ✅ 已完成：`cli/{main,repl,composition}.py` + `config/settings.py`；181 tests 全绿；CLI help/smoke/退出码 2 不变；`__main__.py` 仅入口 + 兼容别名 |
 | **A2** | `RuntimeStore` 移到 ports；MySQL/SQLite 移到 adapters；保留旧路径 shim | D4 多进程用例仍绿；迁移/备份测试仍绿；测试数相同 |
 | **A3** | `LLMClient`、`EventSink` port；OpenAI 适配器；事件组装从 Agent 拆出 | fake LLM 测试不变；live 冒烟通过；JSONL 字段不变 |
 | **A4** | 拆 `rag/ingest.py`：loaders/chunking/indexes/application；MySQL/Chroma 适配器 | RAG 测试全绿；ingest/query 行为不变；0 skip |
