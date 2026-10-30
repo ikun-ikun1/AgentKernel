@@ -215,7 +215,7 @@
 
 | 要求 | 阈值 / 做法 | 现状证据 |
 |---|---|---|
-| 发布单元 | git tag `vX.Y.Z` + wheel 产物；回滚 = 切 tag + `uv sync --frozen` | ✅ `v0.2.0` tag + wheel/sdist；干净 venv 安装 wheel 并跑 CLI smoke；回滚步骤见 runbook |
+| 发布单元 | git tag `vX.Y.Z` + wheel 产物；回滚 = 切 tag + `uv sync --frozen` | ✅ `v0.4.0` tag + wheel/sdist；干净 venv 安装 wheel 并跑 CLI smoke；v0.4.0 为 Breaking（删除 shim），回滚可切 `v0.2.0`/`v0.3.1`；步骤见 runbook |
 | 迁移策略 | 只 expand/contract；单版本不得删列/改类型；删除延后一版 | ⚠️ 0001 有对称 `downgrade`（`0001_initial.py:78-88`），但无迁移测试 |
 | 迁移测试 | `test_migrations.py`：`upgrade head → downgrade base → upgrade head`，断言 `duration_ms` 列 | ✅ 已实现（CI 有 DSN 真跑） |
 | DDL 单一来源 | 删除启动时 `create_all`，只走 Alembic | ✅ 已删除 `create_all`；`ensure_schema()` 校验 `alembic_version`/表/列，缺失提示 `--migrate` |
