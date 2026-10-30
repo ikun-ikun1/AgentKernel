@@ -59,10 +59,12 @@ docker compose up -d mysql
 cp .env.example .env   # 填 DEEPSEEK_API_KEY、DSN；按需设 AGENTKERNEL_DOC_ROOTS
 # 未配置 DSN 时 CLI 会直接报错（G-06：不再内置默认口令）
 
-# 5. 跑 CLI（默认 MySQL；无 MySQL 时用内存库）
+# 5. 首次初始化 schema（G-16：只走 Alembic，不再自动建表）
+python -m agentkernel --migrate
+# 6. 跑 CLI（默认 MySQL；无 MySQL 时用内存库）
 python -m agentkernel --kb-backend lexical
 
-# 6. 外部 MCP server：只接受 profile 声明的命令
+# 7. 外部 MCP server：只接受 profile 声明的命令
 cp mcp_profiles.example.toml mcp_profiles.toml   # 修改 command / args
 python -m agentkernel --mcp-profile kb-server
 

@@ -23,7 +23,7 @@ def _is_mysql_dsn(dsn: str) -> bool:
     return dsn.startswith("mysql://") or dsn.startswith("mysql+pymysql://")
 
 
-def create_runtime_store(dsn: str | None = None, *, auto_create: bool = True) -> RuntimeStore:
+def create_runtime_store(dsn: str | None = None) -> RuntimeStore:
     """按 DSN 创建 Runtime 存储；没有 DSN 时报错，不使用内置默认口令。"""
     resolved = dsn or os.environ.get("AGENTKERNEL_DB_URL")
     if not resolved:
@@ -36,8 +36,8 @@ def create_runtime_store(dsn: str | None = None, *, auto_create: bool = True) ->
         from agentkernel.memory.mysql_store import MySQLRuntimeStore
 
         store = MySQLRuntimeStore(resolved)
-        if auto_create:
-            store._ensure_tables()  # dev 兜底；生产路径使用 Alembic 迁移
+        # G-16：schema 只由 Alembic 管理；缺失时抛错并给出 --migrate 指引
+        store.ensure_schema()
         return store
 
     if resolved == ":memory:" or resolved.startswith("sqlite://"):

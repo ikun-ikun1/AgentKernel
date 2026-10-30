@@ -61,7 +61,7 @@
 |---|---|---|---|---|---|---|
 | G-14 | 迁移必须有 downgrade | ✅ 0001 有对称 downgrade | `migrations/versions/0001_initial.py:78-88` 反序删表/索引 | — | — | 保持；新增迁移同规则 |
 | G-15 | 迁移往返测试 | ✅ **已实现**（本地无 DSN 跳过，CI 真跑） | `tests/test_migrations.py`：清表 → upgrade head → 断言 `duration_ms` → downgrade base → 断言表已删 → upgrade head；CI service 提供 DSN 时 0 skip；**该测试当场暴露并修掉两个真实缺陷**：0001 downgrade 先 DROP INDEX 触发 MySQL 1553（已改为先删子表）、老库 create_all 不补 duration_ms（已加等价 ALTER 兜底） | — | — | CI 首次带该用例的全绿为最终证据 |
-| G-16 | DDL 单一来源 | 启动时 `create_all` 与 Alembic 双轨 | `src/agentkernel/memory/factory.py:36`；`memory/mysql_store.py:78-118`；`rag/mysql_store.py:58-122` | 高：schema 漂移、迁移回滚后又被自动建回 | **P0** | 删除 `create_all`，仅 `--migrate`/Alembic 建表 |
+| G-16 | DDL 单一来源 | ✅ **已实现**：删除两处 `create_all` 与 ALTER 兜底；改为 `ensure_schema()` 校验 `alembic_version` + 必需表/列，缺失时提示 `--migrate` | `memory/mysql_store.py`、`rag/mysql_store.py`、`memory/factory.py`、`rag/ingest.py`；集成/多进程测试改为先 `alembic upgrade head` | 低：首次使用必须显式迁移（README 已写） | — | 无 schema 时两条错误路径实测给出可执行指引 |
 | G-17 | 备份策略（RPO ≤24h） | ✅ **已实现** | `scripts/backup.py` + `make backup`：`mysqldump --single-transaction`、口令走 `MYSQL_PWD`、保留 7 份 + sha256；产物在 `backups/`（已 gitignore） | 低：依赖 mysqldump/docker 客户端 | — | 首次备份已生成（2.2KB）；演练中暴露并修掉「`--databases` 会把 USE 带回源库」的坑 |
 | G-18 | 恢复演练（≤30 天） | ✅ **已完成 1 次** | `scripts/restore_drill.py` + `make restore-drill`：恢复到临时库、比对 5 张表行数、计时；报告 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)（PASS，0.9s，行数全对） | 低：临时库需要管理员权限（root） | — | 下次演练 ≤30 天内；CI 未接（属运维动作） |
 | G-19 | 版本化发布与回滚单元 | 版本恒为 `0.1.0`，无 tag/wheel | `pyproject.toml:7`；`git tag` 无输出 | 中：回滚无锚点 | P1 | `v0.2.0` tag + `uv build` 产物 + 回滚步骤验证 |
@@ -148,7 +148,7 @@
 
 ### 8.2 P1（1–2 个迭代）
 
-G-15/G-16（迁移测试 + 去双轨 DDL）、G-17/G-18（备份与首次恢复演练）、G-19（tag+CHANGELOG）、G-10/G-11（指标与耗时落库）、G-24（base_url allowlist）、G-25（会话预算）、G-27（不可信数据隔离）、G-33（fuzz 语料）、G-35/G-36/G-37（runbook + doctor + 周报）。
+G-17/G-18（备份与首次恢复演练）、G-19（tag+CHANGELOG）、G-10/G-11（指标与耗时落库）、G-24（base_url allowlist）、G-25（会话预算）、G-27（不可信数据隔离）、G-33（fuzz 语料）、G-35/G-36/G-37（runbook + doctor + 周报）。
 
 ### 8.3 P2
 

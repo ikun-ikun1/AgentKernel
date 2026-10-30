@@ -91,78 +91,28 @@ class MySQLRuntimeStore(RuntimeStore):
             self._engine.dispose()
             self._engine = None
 
-    def _ensure_tables(self) -> None:
-        """ADR-001 要求 Alembic 管理迁移；这里仅做开发兜底。"""
+    def ensure_schema(self) -> None:
+        """校验 schema 已由 Alembic 管理（G-16：不再自动建表）。"""
         try:
-            from sqlalchemy import (
-                Column,
-                Float,
-                ForeignKey,
-                Index,
-                Integer,
-                MetaData,
-                String,
-                Table,
-                Text,
-            )
+            from sqlalchemy import inspect
         except ImportError as exc:
             raise MySQLStoreError(
                 "MySQL 主存储需要 SQLAlchemy/PyMySQL：pip install -e '.[mysql]'"
             ) from exc
 
-        metadata = MetaData()
-        Table(
-            "sessions",
-            metadata,
-            Column("id", String(64), primary_key=True),
-            Column("title", String(255), nullable=False, server_default=""),
-            Column("created_at", String(64), nullable=False),
-            Column("updated_at", String(64), nullable=False),
-        )
-        Table(
-            "messages",
-            metadata,
-            Column("id", Integer, primary_key=True, autoincrement=True),
-            Column(
-                "session_id",
-                String(64),
-                ForeignKey("sessions.id", ondelete="CASCADE"),
-                nullable=False,
-            ),
-            Column("role", String(32), nullable=False),
-            Column("content", Text, nullable=False),
-            Column("created_at", String(64), nullable=False),
-        )
-        Table(
-            "tool_logs",
-            metadata,
-            Column("id", Integer, primary_key=True, autoincrement=True),
-            Column(
-                "session_id",
-                String(64),
-                ForeignKey("sessions.id", ondelete="CASCADE"),
-                nullable=False,
-            ),
-            Column("tool_name", String(128), nullable=False),
-            Column("input_json", Text, nullable=False),
-            Column("output_json", Text, nullable=False),
-            Column("success", Integer, nullable=False, server_default="1"),
-            Column("duration_ms", Float(), nullable=True),
-            Column("created_at", String(64), nullable=False),
-        )
-        Index("idx_messages_session_id", metadata.tables["messages"].c.session_id)
-        Index("idx_tool_logs_session_id", metadata.tables["tool_logs"].c.session_id)
-        metadata.create_all(self.engine)
-        # 向前兼容：老库已存在 tool_logs 但没有 duration_ms 时补列（与迁移 0002 等价）。
-        # 这是 G-16「DDL 双轨」的过渡措施；最终收口是只走 Alembic。
-        try:
-            from sqlalchemy import inspect, text
-        except ImportError:  # pragma: no cover - 上面已保证可导入
-            return
-        with self.engine.begin() as conn:
-            columns = {col["name"] for col in inspect(conn).get_columns("tool_logs")}
-            if "duration_ms" not in columns:
-                conn.execute(text("ALTER TABLE tool_logs ADD COLUMN duration_ms FLOAT NULL"))
+        inspector = inspect(self.engine)
+        tables = set(inspector.get_table_names())
+        required = {"sessions", "messages", "tool_logs"}
+        if "alembic_version" not in tables or not required <= tables:
+            raise MySQLStoreError(
+                "MySQL schema 未初始化：请先执行 "
+                "`python -m agentkernel --migrate`（等价于 `alembic upgrade head`）"
+            )
+        columns = {column["name"] for column in inspector.get_columns("tool_logs")}
+        if "duration_ms" not in columns:
+            raise MySQLStoreError(
+                "MySQL schema 过期（tool_logs 缺 duration_ms）：请执行 `python -m agentkernel --migrate`"
+            )
 
     # ---- 会话 ----
 

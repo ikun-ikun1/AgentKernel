@@ -156,7 +156,7 @@
 | R4 | 数据泄露（本地明文） | `tool_logs`/`messages` 明文存对话与工具入参；`/logs` 打印 | 同机其他进程/备份可读；误发截图泄露 | `.env` 权限 600、`.gitignore:7`、DSN 打印脱敏（`__main__.py:38-40`） | **低（P0-4b/P0-5 后）**：写库前已 redact + 4KB 截断；compose 3306 已只绑 `127.0.0.1`；`/history` 仍按设计展示正文 |
 | R5 | 越权 / 会话隔离 | 任意 session_id 可读写；`list_sessions` 返回全库 | 单机下影响有限；若多人共用一库则互相可读 | CLI 不提供 `--session`（`__main__.py:118,151`） | **低**（A2 单用户）；多人场景需重做 |
 | R6 | 模型/供应商故障 | DeepSeek 超时、返回非 JSON、限流 | 单轮失败、CLI 卡住 | timeout 60s + max_retries 2（`env.py:40-47`、`llm.py:35-40`）；解析失败降级纯文本（`agent.py:93-95`）；`LLMError` 统一（`llm.py:62-65`） | **中**：无 fallback 模型；compact 调用失败静默降级（`agent.py:168-178`） |
-| R7 | 迁移/数据损坏 | 双轨 DDL（`create_all` + Alembic）；downgrade 无测试；时间字段是字符串 | schema 漂移、降级失败、排序错乱 | 0001 有对称 downgrade（`migrations/versions/0001_initial.py:78-88`）；事务边界显式（`memory/mysql_store.py:129-136`） | **中**：迁移往返已有测试；仍存 `create_all` 双轨（G-16）与 `created_at` 字符串时间（`0001_initial.py:26-27`） |
+| R7 | 迁移/数据损坏 | 双轨 DDL（`create_all` + Alembic）；downgrade 无测试；时间字段是字符串 | schema 漂移、降级失败、排序错乱 | 0001 有对称 downgrade（`migrations/versions/0001_initial.py:78-88`）；事务边界显式（`memory/mysql_store.py:129-136`） | **低**：迁移往返有测试；DDL 单一来源（G-16 已收口）；仍存 `created_at` 字符串时间（`0001_initial.py:26-27`） |
 | R8 | 依赖漂移 | `>= ` 版本范围、无锁文件、镜像 tag `8.0` | 「昨天能跑今天不能跑」 | 无 | **高**：`pyproject.toml:11-34`、`docker-compose.yml:3` |
 | R9 | 成本失控 | 无 token 统计；模型可能循环调用工具 | 账单超支 | `MAX_STEPS`=10（`agent.py:59,72`）、payload 256KB 上限（`json_repair.py:22`） | **中**：无 token/成本计数，无会话级预算 |
 | R10 | 跨进程并发写（D4） | 多进程写同一会话 | 死锁/丢失更新/updated_at 回退 | 事务内 `SELECT … FOR UPDATE` 锁会话行 + 有界 LRU 进程内锁 + 指数退避重试（`memory/mysql_store.py`）；ADR-002 | **低**：多进程 20×20 用例在 CI 通过；进程内锁仅作优化 |
@@ -218,7 +218,7 @@
 | 发布单元 | git tag `vX.Y.Z` + wheel 产物；回滚 = 切 tag + `uv sync --frozen` | ❌ 无 tag、无 wheel；版本固定 `0.1.0`（`pyproject.toml:7`） |
 | 迁移策略 | 只 expand/contract；单版本不得删列/改类型；删除延后一版 | ⚠️ 0001 有对称 `downgrade`（`0001_initial.py:78-88`），但无迁移测试 |
 | 迁移测试 | `test_migrations.py`：`upgrade head → downgrade base → upgrade head`，断言 `duration_ms` 列 | ✅ 已实现（CI 有 DSN 真跑） |
-| DDL 单一来源 | 删除启动时 `create_all`，只走 Alembic | ❌ `memory/factory.py:36`、`mysql_store.py:78-118`、`rag/mysql_store.py:58-122` 双轨 |
+| DDL 单一来源 | 删除启动时 `create_all`，只走 Alembic | ✅ 已删除 `create_all`；`ensure_schema()` 校验 `alembic_version`/表/列，缺失提示 `--migrate` |
 | 备份 | 每次迁移/打 tag 前 `mysqldump`，保留 7 份；**RPO ≤ 24h、RTO ≤ 30min** | ✅ `make backup`（`scripts/backup.py`，口令走 env，sha256，保留 7 份） |
 | 恢复演练 | **每月 1 次**真实恢复（与基线「最近 30 天内」一致），记录报告 | ✅ 首次演练 PASS：恢复 0.9s、5 张表行数全对，[reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
 | Kill switch | `AGENTKERNEL_DISABLE_MCP=1` 禁用外部 MCP；`--kb-backend lexical` 降级检索；`AGENTKERNEL_MAX_STEPS` 降步数 | ⚠️ 只有 `--kb-backend` 与 `--mcp` 不传即不启用（`__main__.py:96-112,235-240`），无环境级开关 |

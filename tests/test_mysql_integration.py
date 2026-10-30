@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -16,12 +17,29 @@ MYSQL_TEST_DSN = os.environ.get("AGENTKERNEL_MYSQL_TEST_DSN")
 pytestmark = pytest.mark.skipif(not MYSQL_TEST_DSN, reason="未配置 AGENTKERNEL_MYSQL_TEST_DSN")
 
 
+def _migrate_schema() -> None:
+    """G-16：集成测试也走 Alembic，不再依赖 create_all。"""
+    from alembic import command
+    from alembic.config import Config
+
+    repo = Path(__file__).resolve().parents[1]
+    os.environ["AGENTKERNEL_DB_URL"] = MYSQL_TEST_DSN
+    cfg = Config(str(repo / "alembic.ini"))
+    cfg.set_main_option("script_location", str(repo / "migrations"))
+    command.upgrade(cfg, "head")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _schema():
+    _migrate_schema()
+
+
 @pytest.fixture()
 def mysql_runtime_store():
     from agentkernel.memory.mysql_store import MySQLRuntimeStore
 
     store = MySQLRuntimeStore(MYSQL_TEST_DSN)
-    store._ensure_tables()
+    store.ensure_schema()
     yield store
     store.close()
 
@@ -31,7 +49,7 @@ def mysql_knowledge_store():
     from agentkernel.rag.mysql_store import MySQLKnowledgeStore
 
     store = MySQLKnowledgeStore(MYSQL_TEST_DSN)
-    store.ensure_tables()
+    store.ensure_schema()
     yield store
     store.close()
 
