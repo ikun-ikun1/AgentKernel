@@ -8,7 +8,7 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 架构 | **A0–A7 完成**：外围分层 + LLM 端口注入 + Agent 184 行 facade + 端口取舍 + 架构图；v0.3.1 旧路径已弃用、内部引用清零 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
+| 架构 | **A0–A7 完成**：外围分层 + LLM 端口注入 + Agent 184 行 facade + 端口取舍 + 架构图；v0.4.0 旧 shim 已删除（Breaking），canonical 路径为唯一入口 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
 | 测试 | **203 个测试**；本地 `197 passed / 6 skipped`（无 DSN），CI `202 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |

@@ -1,7 +1,7 @@
-# 兼容 shim 迁移表（v0.3.1 → v0.4.0）
+# 兼容 shim 迁移表（v0.3.1 弃用 → v0.4.0 已删除）
 
-> v0.3.1 起旧 import 路径仍可用，但 import 时发 `DeprecationWarning`；**v0.4.0 删除**。
-> 内部代码已清零旧路径，只有兼容测试还会 import 它们。
+> **v0.4.0 已删除全部 shim**：旧 import 现在直接 `ModuleNotFoundError`。
+> 本表保留用于从 ≤v0.3.1 升级；v0.3.1 时旧路径会发 `DeprecationWarning`。
 
 ## 1. 路径映射
 

@@ -2,6 +2,17 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)；格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.4.0] - 2026-10-30
+
+### Breaking
+
+- 删除全部兼容 shim：`memory/{base,mysql_store,sqlite_store}.py`、`runtime/llm.py`、`rag/{ingest,mysql_store}.py`、`mcp/{framing,client,server}.py`。旧 import 现在直接 `ModuleNotFoundError`，迁移表见 `docs/migration-shims.md`。
+- 删除旧入口 `python -m agentkernel.mcp.server`；使用 `python -m agentkernel.mcp_server`。
+
+### Changed
+
+- 全仓内部引用已清零旧路径；兼容测试改为断言旧路径必须 ImportError、canonical 路径可用。
+
 ## [0.3.1] - 2026-10-30
 
 ### Deprecated
@@ -87,6 +98,7 @@
 - 174 个测试；CI `173 passed / 1 deselected(live) / 0 skipped`；覆盖率 82.89%（门槛 80%）。
 - `make eval`：mock golden set 50/50；live set 20 条数据就绪。
 
+[0.4.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.4.0
 [0.3.1]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.3.1
 [0.3.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.2.0
