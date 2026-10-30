@@ -27,6 +27,7 @@ jobs:
 
           targets = [
               ("python", "3.11.15-slim", "Dockerfile", r"ARG PYTHON_IMAGE=python:3\.11\.15-slim@sha256:([0-9a-f]+)"),
+              ("python", "3.11.15-slim", "Makefile", r"DOCKER_BASE \?= python:3\.11\.15-slim@sha256:([0-9a-f]+)"),
               ("mysql", "8.0.46", "docker-compose.yml", r"mysql:8\.0\.46@sha256:([0-9a-f]+)"),
           ]
 

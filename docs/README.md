@@ -28,6 +28,7 @@
 
 | 文档 | 内容 |
 |---|---|
+| [maintenance.md](./maintenance.md) | 冻结维护手册：支持边界、日常命令、digest/依赖更新、发版回滚、扩展点 |
 | [runbook.md](./runbook.md) | 6 个事故场景：判定 → 止血 → 恢复 → 验证 → 回滚（含事故记录模板） |
 | [migration-shims.md](./migration-shims.md) | v0.3.1 弃用 → v0.4.0 删除的旧 import / 入口迁移表 |
 | [../CHANGELOG.md](../CHANGELOG.md) | 版本变更记录（Keep a Changelog，当前 `0.4.0`） |

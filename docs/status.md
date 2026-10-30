@@ -70,6 +70,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 架构目标与重构 ADR | [Addendum/adr-003-production-architecture.md](./Addendum/adr-003-production-architecture.md) |
 | 项目背景与边界 | [project-background.md](./project-background.md) / [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 数据库决策 | [Addendum/adr-001-mysql-primary-storage.md](./Addendum/adr-001-mysql-primary-storage.md) |
+| 维护手册（冻结） | [maintenance.md](./maintenance.md) |
 | 事故处置与复盘 | [runbook.md](./runbook.md) / [首次复盘](./reports/incident-20261030-schema-drift.md) |
 | 变更记录 | [CHANGELOG.md](../CHANGELOG.md) |
 | 历史里程碑（2026-09） | [milestone-1](./milestone-1-kernel.md) / [milestone-2](./milestone-2-mcp.md) / [milestone-3](./milestone-3-deliverables.md) |
