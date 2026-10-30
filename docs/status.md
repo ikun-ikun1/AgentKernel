@@ -8,7 +8,7 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 测试 | **177 个测试**；本地 `171 passed / 6 skipped`（无 DSN），CI `176 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 测试 | **181 个测试**；本地 `175 passed / 6 skipped`（无 DSN），CI `180 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
@@ -34,7 +34,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 门禁 | 阈值（项目级） | 当前 |
 |---|---|---|
 | 可重复 | `uv.lock` + `.python-version` + `make sync` | ✅ 基础 / **PARTIAL**：镜像 digest（G-45/G-46）待补；默认口令已清理（G-06） |
-| 可观测 | JSONL 16 字段 + span + 成本 + 周报 | ✅（缺 OTLP，G-47） |
+| 可观测 | JSONL 16 字段 + span + 成本 + 周报 + OTLP | ✅ 可选 OTLP/HTTP 导出（`OTEL_EXPORTER_OTLP_ENDPOINT`，本地假 collector 测试）；周报仍手动 |
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 | ✅ `make backup` / `make restore-drill`：最新演练 PASS（0.9s，行数全对），报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md) |
 | 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 + 会话预算 | ✅ 会话预算（单会话 150k tokens / 单轮 5 次工具调用，`budget_exceeded` 事件）已落地，G-24/G-25/G-27 完成 |
 | 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 83% + 80%、golden set 50、三类扫描、fuzz 语料 | ✅ 500 条坏 JSON + 100 条非法帧（0 崩溃/0 挂起），G-33 完成 |
@@ -57,7 +57,6 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 |---|---|---|---|
 | 1 | MySQL/Python 基础镜像 digest（G-45/G-46） | tag 重推会静默变内容 | 待网络可达 |
 | 2 | wheel 产物与 `v0.2.0` 发布验证（G-19） | 回滚有 tag，但缺可安装产物 | 批二 |
-| 3 | OTLP/外部看板（G-47） | 只有本地 JSONL | 接在线服务前 |
 
 ## 5. 文档地图
 
