@@ -160,6 +160,7 @@ def configure(*, path: str | None = None, level: int = logging.INFO) -> None:
     if _configured:
         return
     logger = logging.getLogger(LOGGER_NAME)
+    logger.disabled = False  # alembic fileConfig 等可能把 logger 禁用掉
     logger.setLevel(level)
     logger.propagate = False
     target = path or os.environ.get("AGENTKERNEL_LOG")
@@ -177,9 +178,12 @@ def reset_for_tests() -> None:
     """仅测试使用：清空 handler，避免跨用例重复输出。"""
     global _configured
     logger = logging.getLogger(LOGGER_NAME)
+    logger.disabled = False
     for handler in list(logger.handlers):
         logger.removeHandler(handler)
         handler.close()
+    # 恢复传播，避免影响 caplog 等依赖 root handler 的测试
+    logger.propagate = True
     _configured = False
 
 

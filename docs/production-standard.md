@@ -243,8 +243,8 @@
 
 | 要求 | 阈值 | 现状证据 |
 |---|---|---|
-| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `111 passed, 5 skipped`；CI `116 passed / 0 skipped` |
-| 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%（`tools/json_repair.py`、`tools/contracts.py`、`tools/registry.py`、`mcp/framing.py`、`memory/base.py`）；`__main__.py` ≥ 70% | ⚠️ 工具已接入（`make coverage`，CI 上传 XML），实测 **72%**；尚无阈值。低覆盖：`__main__.py` 21%、`llm.py` 49%、`mcp/server.py` 52%、`memory/base.py` 57%、`memory/mysql_store.py` 67%、`rag/mysql_store.py` 69% |
+| 单元 + 集成测试 | pytest 全绿；**CI 中 0 skip**：4 个 DSN 用例（3 集成 + 1 迁移往返）+ 多进程用例（20×20）由 service container 真跑；PDF 用例由 `pdf` extra 真跑；禁止整文件 `--ignore`；skip 用 `grep -q SKIPPED` 命令级强制 | ✅ 本地 `154 passed, 5 skipped`；CI `159 passed / 0 skipped`（覆盖率 83%） |
+| 覆盖率 | **总体 ≥ 80%**；核心模块 ≥ 90%；`__main__.py` ≥ 70% | ✅ 总 **83%**（CI 门槛 80%）；核心：json_repair 96 / contracts 100 / registry 97 / framing 96 / base 100；`__main__.py` 73%；剩余低覆盖集中在非核心 MySQL/服务循环模块 |
 | 静态检查 | `ruff check` 与 `ruff format --check` 必须 0 退出；mypy 0 错误（不新增 `# type: ignore`） | ✅ `ruff check` / `format --check` 均 0 退出（`make check` 已含）；mypy `Success: no issues found in 28 source files` |
 | Golden set | mock ≥ 50 条（5 类 × 10）；live ≥ 20 条；含失败路径与边界 | ❌ 5 条（`eval.py`）；与 pytest 用例零复用 |
 | eval 门禁 | mock 100% 必过 5 条验收 + 总体 ≥ 98%；live ≥ 80%；进 `make check` 与 CI | ✅ CI 两个入口都跑：`test` job 的 `make check`（含 mock eval）与 `eval-minimal` job |
@@ -388,14 +388,14 @@ OTLP/Langfuse 导出；mypy `--strict`；mutation testing；promptfoo 式 eval �
 | 命令 | 输出 |
 |---|---|
 | `.venv/bin/python -V` / `python3 -V` | 3.11.15 / 3.14.4 |
-| `.venv/bin/python -m pytest -q` | `111 passed, 5 skipped`（无 DSN）；有 DSN `116 passed` |
+| `.venv/bin/python -m pytest -q` | `154 passed, 5 skipped`（无 DSN）；有 DSN `159 passed`；覆盖率 83% |
 | `.venv/bin/python -m pytest --cov=...` | `error: unrecognized arguments: --cov`（pytest-cov 未安装） |
 | `.venv/bin/python -m ruff check .` | `All checks passed!`（EXIT=0） |
 | `.venv/bin/python -m mypy src` | `Success: no issues found in 28 source files` |
 | `.venv/bin/python eval.py` | `通过 5/5`，退出码 0 |
 | `git ls-files \| wc -l` | 59 |
 | `find src/agentkernel -name '*.py' \| xargs wc -l` | 3,317 行 / 25 文件 |
-| `wc -l tests/*.py` | 1,783 行 / 117 个 test 函数 |
+| `wc -l tests/*.py` | 2,306 行 / 160 个 test 函数 |
 | `ls .github/workflows/ci.yml` / `ls uv.lock Makefile` | 均存在（P0-1/P0-2 交付） |
 | `docker ps` | `agentkernel-mysql  docker.m.daocloud.io/library/mysql:8.0  Up (healthy)`；compose 已改 `8.0.46`（digest 待补 G-45） |
 | `git log -10 --date=short` | 最近 10 次提交 2026-08-31 ~ 2026-09-28，最后一次 `73537e9` |

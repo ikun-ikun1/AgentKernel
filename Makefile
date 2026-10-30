@@ -70,7 +70,8 @@ test:
 	$(PY) -m pytest -q -rs -m "not live" $(PYTEST_ARGS)
 
 coverage:
-	$(PY) -m pytest -q -m "not live" --cov=agentkernel --cov-report=term-missing --cov-report=xml $(PYTEST_ARGS)
+	$(PY) -m pytest -q -m "not live" --cov=agentkernel --cov-report=term-missing --cov-report=xml \
+		$(if $(AGENTKERNEL_MYSQL_TEST_DSN),--cov-fail-under=80,) $(PYTEST_ARGS)
 
 test-live:
 	AGENTKERNEL_LIVE_API=1 $(PY) -m pytest -q -m live $(PYTEST_ARGS)
