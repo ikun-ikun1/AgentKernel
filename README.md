@@ -73,6 +73,8 @@ make trace        # 按 trace_id 打印 span 树
 make prune        # 日志 14 天 / DB 90 天（--dry-run 可先看）
 make backup       # MySQL 逻辑备份（保留 7 份，口令走 env）
 make restore-drill # 恢复最新备份到临时库并校验行数（产报告）
+make security     # gitleaks 密钥扫描 + semgrep 本地 SAST（离线）
+make audit        # pip-audit 审计 lock 依赖（需网络）
 ```
 
 CLI 内置命令：`/new`、`/sessions`、`/history`、`/ingest <路径>`、`/docs`、`/logs`、`/help`、`/quit`。

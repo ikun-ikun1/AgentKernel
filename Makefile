@@ -21,7 +21,7 @@ DOCKER_IMAGE ?= agentkernel:local
 # 本地 docker.io 不可达时可覆盖，例如 make docker-build DOCKER_BASE=docker.m.daocloud.io/library/python:3.11-slim
 DOCKER_BASE ?= python:3.11.15-slim
 
-.PHONY: help require-env sync sync-all format format-check lint type test test-live eval report trace prune backup restore-drill check docker-build docker-smoke docker-nonroot docker-size
+.PHONY: help require-env sync sync-all format format-check lint type test test-live eval report trace prune backup restore-drill security audit check docker-build docker-smoke docker-nonroot docker-size
 
 help:
 	@echo "make sync         安装锁定依赖（uv sync --frozen $(EXTRAS)）"
@@ -39,6 +39,8 @@ help:
 	@echo "make prune        清理旧日志（LOG_DAYS=14）与旧 DB 行（DB_DAYS=90）"
 	@echo "make backup       MySQL 逻辑备份到 $(BACKUP_DIR)/（保留 7 份）"
 	@echo "make restore-drill 把最新备份恢复到临时库并校验行数（产报告）"
+	@echo "make security     gitleaks 密钥扫描 + semgrep 本地 SAST"
+	@echo "make audit        pip-audit 审计 lock 依赖（需网络）"
 	@echo "make check        lint + format-check + type + test + eval"
 	@echo "make docker-smoke 构建镜像并跑启动 smoke（--db :memory:，只证明能启动）"
 
@@ -86,6 +88,13 @@ backup:
 
 restore-drill:
 	$(PY) scripts/restore_drill.py --out docs/reports
+
+security:
+	gitleaks detect --source . --redact --no-banner --config .gitleaks.toml
+	SEMGREP_SEND_METRICS=off semgrep --config .semgrep.yml --error --quiet --disable-version-check .
+
+audit:
+	@tmp=$$(mktemp); $(UV) export --frozen --no-hashes --format requirements-txt $(EXTRAS) -o $$tmp; 		pip-audit -r $$tmp --progress-spinner off; status=$$?; rm -f $$tmp; exit $$status
 
 check: require-env lint format-check type test eval
 	@echo "make check: OK"

@@ -91,6 +91,35 @@ jobs:
       - name: eval（mock）
         run: make eval
 
+  security:
+    name: security（gitleaks + semgrep + pip-audit）
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version-file: .python-version
+
+      - name: 安装扫描工具（gitleaks 版本固定）
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin gitleaks
+          uv tool install semgrep
+          uv tool install pip-audit
+
+      - name: gitleaks + semgrep
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          make security
+
+      - name: pip-audit（lock 依赖）
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          make audit
+
   docker:
     name: docker build + smoke（core+mysql，非 root）
     runs-on: ubuntu-latest
