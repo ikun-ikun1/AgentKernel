@@ -16,7 +16,7 @@
 | 2 | 可观测 | **PARTIAL（接近完成）** | 已实现 JSONL 字段表、trace/span 树、token/成本与定价版本、写库脱敏、审计失败可见、`duration_ms` 落库、`make report` + 索引、`make prune`；仍缺 OTLP 导出与定时调度 | G-07…G-13、G-47 |
 | 3 | 可回滚 | **PARTIAL** | 迁移测试、备份/恢复演练、`v0.1.0` tag 已就绪；仍缺 wheel 产物与 `v0.2.0` 发布验证 | G-19 |
 | 4 | 可控制 | **PASS** | 白名单/无 shell/只读 KB/MCP profile/文档根/allowlist/结果隔离/会话预算（token + 单轮调用数）均达标 | — |
-| 5 | 可验证 | **PARTIAL** | CI 全绿 + mypy + eval 50/50 + 三类扫描 + 覆盖率 83%（门槛 80%）；仅剩 G-33 fuzz 语料（可选） | G-33 |
+| 5 | 可验证 | **PASS** | CI 全绿 + mypy + eval 50/50 + 三类扫描 + 覆盖率 83%（门槛 80%）+ 500/100 条 fuzz 语料（0 崩溃/0 挂起） | — |
 | 6 | 可运维 | **PASS** | ADR、降级路径、runbook 6 场景、`make doctor` 7 项、SLO 周报、事故模板 + 首次复盘、CHANGELOG + `v0.1.0` tag | — |
 
 > 说明：`PARTIAL` 不等于「差不多可以上线」，只表示该门禁已有可复用的实现或文档，缺的是证据链与自动化。
@@ -93,7 +93,7 @@
 | G-44 | 干净环境安装验收（P0-1 遗留） | ✅ **已关闭**：PR #1 CI 首次全绿（`uv sync --frozen --extra dev --extra mysql --extra pdf` 在干净 runner 完成；当时 68 passed / 0 skipped，当前 99/0） | PR #1 → merge commit `20f2b0c`；workflow `.github/workflows/ci.yml`（权限 `contents: read`）；用户确认 2026-10-29（CI：https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml） | — | — | 已关闭；后续干净环境验收复用 CI，不再用本地 worktree |
 | G-31 | 静态检查 0 退出 | ✅ **已实现** | `ruff check` → `All checks passed!`；`ruff format --check` → 全部已格式化；`mypy src` → 28 文件 0 错误；均在 `make check` 内 | — | — | 保持 |
 | G-32 | golden set ≥50（mock）/≥20（live） | ✅ **已实现**：mock 50 条（qa/tool/json/rag/context 各 10）、live 20 条 | `evals/golden_mock.jsonl`、`evals/golden_live.jsonl`；`eval.py` 数据驱动；`make check`/CI 跑 mock；`make eval-live` 手动跑 live | — | — | mock 实测 50/50；live 数据就绪（未跑，按成本手动） |
-| G-33 | 模糊测试（坏 JSON/非法帧） | 有 13+5 条定点用例，无 fuzz 语料 | `tests/test_json_repair.py`；`tests/test_mcp.py:97-124` | 中：解析层边界靠运气 | P1 | 500+100 条语料，0 崩溃 0 挂起 |
+| G-33 | 模糊测试（坏 JSON/非法帧） | ✅ **已完成**：固定种子生成 500 条坏 JSON + 100 条非法 MCP 帧，每次 CI 全跑；0 未捕获异常、0 挂起；顺带修复深嵌套 `RecursionError` 未降级缺口 | `tests/test_fuzz_corpus.py`、`make fuzz`、`tools/json_repair.py` | — | — | 500+100 条语料，0 崩溃 0 挂起 |
 | G-34 | 安全扫描（gitleaks/semgrep/pip-audit） | ✅ **已接入** | `make security`：gitleaks 8.30.1（`.gitleaks.toml` 白名单测试假密钥）+ semgrep 本地规则 `.semgrep.yml`（eval/exec、shell=True、verify=False、硬编码凭据）；`make audit`：`uv export` 锁文件 → pip-audit；CI 新增 `security` job | 低：semgrep 用本地规则（非 registry 全量规则）；pip-audit 依赖网络 | — | 实测：gitleaks 0、semgrep 0、lock 导出 0 漏洞；负向控制 `eval()` 被拦截 |
 | G-41 | 文档与实测一致 | ✅ **已修复**：README 重写为「160 个测试；本地 154/5、CI 159/0」双口径；里程碑/面试材料加历史标注 | `README.md`、`docs/status.md`、`docs/README.md`；一致性由 `status.md` 单点维护 | — | — | 后续数字只改 `status.md`，其他文档引用它 |
 
@@ -148,7 +148,7 @@
 
 ### 8.2 P1（1–2 个迭代）
 
-G-19（wheel 产物 + `v0.2.0`）、G-33（fuzz 语料）。
+G-19（wheel 产物 + `v0.2.0`）。
 
 ### 8.3 P2
 
