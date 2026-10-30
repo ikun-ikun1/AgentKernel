@@ -22,7 +22,7 @@
 | [architecture.mmd](./architecture.mmd) / [architecture.png](./architecture.png) | 当前分层架构图（CLI → Application → Ports ← Adapters；含旧 import shim 标注） |
 | [Addendum/adr-001-mysql-primary-storage.md](./Addendum/adr-001-mysql-primary-storage.md) | ADR-001：MySQL 8 作为主存储 |
 | [Addendum/adr-002-cross-process-session-writes.md](./Addendum/adr-002-cross-process-session-writes.md) | ADR-002：跨进程会话写一致性（D4，Accepted） |
-| [Addendum/adr-003-production-architecture.md](./Addendum/adr-003-production-architecture.md) | ADR-003：生产级模块边界与增量重构（A1–A6，Accepted） |
+| [Addendum/adr-003-production-architecture.md](./Addendum/adr-003-production-architecture.md) | ADR-003：生产级模块边界与增量重构（A0–A7，Accepted） |
 
 ## 3. 运行与交付
 

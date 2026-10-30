@@ -2,7 +2,7 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)；格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [Unreleased]
+## [0.3.0] - 2026-10-30
 
 ### Changed
 
@@ -10,6 +10,10 @@
 - A7.1：`Agent` 接收注入的 `LLMClient`，composition/eval 创建 adapter；`runtime/agent.py` 不再 import `runtime.llm` shim。
 - A7.2：ReAct 循环、上下文策略、工具执行/观察格式化外移到 `application/` + `domain/`；`Agent` 变为 184 行 facade。
 - A7.3：明确不新增空 EventSink/KnowledgeStore 接口；架构断言覆盖 ports/adapters/observability。
+
+### Tests
+
+- 192 个测试；CI `191 passed / 1 deselected(live) / 0 skipped`；覆盖率 84.4%（门槛 80%）。
 
 ## [0.2.0] - 2026-10-30
 
@@ -68,5 +72,6 @@
 - 174 个测试；CI `173 passed / 1 deselected(live) / 0 skipped`；覆盖率 82.89%（门槛 80%）。
 - `make eval`：mock golden set 50/50；live set 20 条数据就绪。
 
+[0.3.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.1.0
