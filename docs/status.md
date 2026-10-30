@@ -8,7 +8,7 @@
 | 维度 | 状态 | 证据 |
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
-| 测试 | **168 个测试**；本地 `162 passed / 6 skipped`（无 DSN），CI `168 passed / 0 skipped`；覆盖率 **83%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 测试 | **168 个测试**；本地 `162 passed / 6 skipped`（无 DSN），CI `167 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **83%**（82.89%，CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
@@ -78,5 +78,5 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 make check
 AGENTKERNEL_MYSQL_TEST_DSN='mysql+pymysql://agentkernel:***@127.0.0.1:3306/agentkernel_test' \
-  .venv/bin/python -m pytest -q      # 168 passed / 0 skipped；覆盖率 83%（CI，含 MySQL 集成）
+  .venv/bin/python -m pytest -q      # 167 passed / 1 deselected（live）/ 0 skipped；覆盖率 82.89%（CI，含 MySQL 集成）
 ```
