@@ -107,7 +107,7 @@
 | **S5** | 启动与恢复 | ①冷启动到可交互耗时 ②干净 clone → 首轮对话耗时 ③重启后消息条数/顺序一致性 | ① p95 ≤ 3s（DB 已就绪）② ≤ 15 分钟 ③ 100% 一致 | 每月演练 1 次 | ② 失败或 ③ 出现差异 → 阻断发布 | ⚠️ 无测量；`/history` 从 DB 重载（`__main__.py:212`）但无恢复测试 |
 | **S6** | 检索质量与入库一致性 | ①golden 查询 30 条的 Recall@5 ②回答引用命中率（含正确文档名）③重复入库新增 chunk 数 ④单文档（≤2MB）入库 p95 | ①≥0.85 ②≥90% ③=0 ④≤10s | 检索相关变更 + 每月 1 次 | ①<0.8 或 ②<85% → 阻断发布；③>0 → 按数据缺陷处理 | ⚠️ ③有幂等实现与用例（`rag/ingest.py:517-520`、`tests/test_rag.py:76-93`），①②无 golden 集 |
 | **S7** | 数据一致性与并发 | **多进程 × 20 并发写同一会话**：丢失/重复/死锁逃逸条数；迁移 upgrade→downgrade→upgrade 三轮成功率 | ①②③=0；迁移 100% | 每次发布 | 任意失败 → 阻断发布 | ✅ 迁移往返与多进程一致性用例均进 CI（20 进程 × 20 写，0 失败）；线程级用例不再作为唯一证据 |
-| **S8** | 成本与资源 | ①单轮 input/output token ②单会话累计 token ③每千轮成本 ④月度花费 | ①≤8k in / 2k out ②≤150k ③≤$3/千轮【待实测】④≤$5/月 | 每月 | ②>100k 或 ④>80% 预算 → 告警；④超额 → 停 live eval | ❌ `resp.usage` 从不读取（`llm.py:60-61`） |
+| **S8** | 成本与资源 | ①单轮 input/output token ②单会话累计 token ③每千轮成本 ④月度花费 | ①≤8k in / 2k out ②≤150k ③≤$3/千轮【待实测】④≤$5/月 | 每月 | ②>100k 或 ④>80% 预算 → 告警；④超额 → 停 live eval | ✅ `resp.usage` 已读取并写入 turn 事件（`llm.py`/`observability.py`），`make report` 聚合成本；单会话 150k 上限强制执行（G-25）；③④为运营指标待实测 |
 | **S9** | 安全 | ①密钥扫描高危数 ②SAST 高危数 ③依赖高危漏洞数 ④工具越权（读非授权根、执行 shell）次数 | ①=0 ②=0 ③=0 ④=0 | 每次发布 | 任意 >0 → 阻断发布 | ❌ 无 gitleaks/semgrep/pip-audit；④见 4.4 控制项 |
 
 ### 2.2 错误预算
@@ -232,7 +232,7 @@
 | 参数校验 | JSON Schema 子集（type/required/enum/items/additionalProperties）；新增 `maxLength`/`pattern` 支持 | ⚠️ `registry.py:47-97` 无长度/格式约束；内置与 MCP 工具均未设 `additionalProperties:false` |
 | 文件读取边界 | `/ingest`、`--docs`、MCP server 位置参数都限定在 `AGENTKERNEL_DOC_ROOTS`（默认 cwd）内；**判定用 realpath + is_relative_to**，目录遍历 `followlinks=False` 并剔除符号链接目录，每个文件再复核一次；文件/数量/深度上限 20MB / 200 / 4 | ✅ `utils/paths.py`；负向测试覆盖 `../`、根内 symlink→根外文件、symlink 目录、超大小、超数量 |
 | 外部 MCP | 只接受 `--mcp-profile <name>`：命令与参数来自 profile 文件（**精确 argv 数组**，CLI 不能追加参数）；`command` 必须是 realpath 绝对路径；解释器（sh/python/node…）需显式 `allow_interpreter`；子进程 env 只注入白名单且强制剔除 `DEEPSEEK_*`/`AGENTKERNEL_*`/`OPENAI_*`/`AWS_*`；`--mcp` 任意命令需 `AGENTKERNEL_ALLOW_RAW_MCP=1` 逃生口 | ✅ `mcp/profiles.py` + `StdioMCPClient(env=…)`；14 个安全测试覆盖 unknown profile、相对路径、解释器、`-c`、env 泄漏 |
-| 预算与限流 | `MAX_STEPS` ≤ 10、单轮工具调用 ≤ 5、payload ≤ 256KB、LLM timeout ≤ 60s、retries ≤ 2、单会话 ≤150k tokens | ⚠️ 前四项已有（`agent.py:59`、`json_repair.py:22`、`env.py:40-47`）；无调用数上限、无 token 预算 |
+| 预算与限流 | `MAX_STEPS` ≤ 10、单轮工具调用 ≤ 5、payload ≤ 256KB、LLM timeout ≤ 60s、retries ≤ 2、单会话 ≤150k tokens | ✅ `MAX_STEPS`（`agent.py`）；单轮调用 ≤5 与会话 token ≤150k 强制执行并写 `budget_exceeded`（G-25，`AGENTKERNEL_MAX_SESSION_TOKENS`/`AGENTKERNEL_MAX_TOOL_CALLS_PER_TURN`）；payload 256KB；timeout/retries 见 `env.py` |
 | 密钥管理 | key 只在 `.env`（600）或进程环境；禁止硬编码口令；启动校验 DSN 不是默认弱口令 | ⚠️ key 合规（`env.py:21-29`）；`factory.py:20`/`alembic.ini:4` 硬编码 |
 | 网络出口 | `DEEPSEEK_BASE_URL` 必须命中 `AGENTKERNEL_ALLOWED_LLM_HOSTS`（默认 `api.deepseek.com`），强制 https（本机回环除外），拒绝带凭据 URL | ✅ `env.validate_base_url()`；CLI 启动与 `llm._get_client()` 双重校验；8 个测试 |
 | 输出隔离 | 工具结果入历史时必须包裹为「不可信数据」标记；外部 MCP 描述限长 | ✅ `<untrusted_tool_result>` 包裹 + 逃逸剔除 + 8KB 截断；外部描述 500 字符上限；SYSTEM_PROMPT 含不可信数据规则 |
@@ -334,7 +334,7 @@
 
 ### 8.2 P1（批二，按风险排序）
 
-备份/恢复演练脚本与首次演练（G-17/G-18）；双轨 DDL 消除（G-16）；MCP client 捕获 `UnicodeDecodeError` 与总时长上限；检索 golden 查询 30 条 + Recall@5 阈值；`make doctor`；runbook 6 场景；`/delete` 命令 + 90 天清理；semver tag + CHANGELOG；S8 预算执行（会话级 token 上限）。
+备份/恢复演练脚本与首次演练（G-17/G-18）；双轨 DDL 消除（G-16）；MCP client 捕获 `UnicodeDecodeError` 与总时长上限；检索 golden 查询 30 条 + Recall@5 阈值；`make doctor`；runbook 6 场景；`/delete` 命令 + 90 天清理；semver tag + CHANGELOG。
 
 ### 8.3 P2（有余力再做）
 
