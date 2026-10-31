@@ -10,7 +10,7 @@
 | 维度 | 数字 / 状态 |
 |---|---|
 | 测试 | **227 个**：本地 `221 passed / 6 skipped`（无 MySQL DSN），CI `226 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **85%**（CI 门槛 80%，核心模块 ≥90%） |
-| 评测 | `make eval` → **50/50**（mock）；`make eval-live-p02` → **24/24** 真实任务（100%，p95 1.77s，$0.006988） |
+| 评测 | `make eval` → **50/50**（mock）；`make eval-live-p02` → 首轮 **23/24**，澄清 1 条歧义任务后 **24/24**（100% 仅限该任务集，p95 1.77s，$0.006988） |
 | 真实模型 | 8 次冒烟 + P0-2 24 条任务；P0-2 成本 $0.006988，累计 < $0.02 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`security`、`docker` |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 < 400MB |
