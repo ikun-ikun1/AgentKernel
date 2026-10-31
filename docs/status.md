@@ -28,6 +28,7 @@ make test-live    # 真实 API 冒烟：1 次调用（需 AGENTKERNEL_LIVE_API=1
 make security     # gitleaks + semgrep（离线）
 make coverage     # 覆盖率报告；有 DSN 时自动 --cov-fail-under=80（CI 门槛）
 make eval-live    # golden set 20 条真实调用（需 DEEPSEEK_API_KEY）
+make eval-live-p02 # P0-2 24 条真实任务 + JSON/MD 报告（成本上限 $1）
 make audit        # pip-audit 审计 lock 依赖（需网络）
 make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 ```
@@ -36,10 +37,10 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 |---|---|---|
 | 可重复 | `uv.lock` + `.python-version` + `make sync` + 镜像 digest | ✅ 全部：MySQL/Python 基础镜像已 pin docker.io manifest digest（G-45/G-46）；默认口令已清理（G-06） |
 | 可观测 | JSONL 12 核心 + 条件字段 + span + 成本 + 周报 + OTLP | ✅ 审批/幂等审计字段（decision/reviewer/key/timestamp/summary）；可选 OTLP/HTTP 导出；周报仍手动 |
-| 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 + tag/wheel | ✅ `v0.4.0` tag + wheel（干净 venv 安装/CLI smoke EXIT=0；v0.4.0 为 Breaking：删除 shim，回滚仍可切 `v0.2.0`/`v0.3.1`）；`make backup` / `make restore-drill` 最新演练 PASS（报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)） |
+| 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 + tag/wheel | ✅ `v0.5.0` tag + wheel（干净 venv 安装/CLI smoke EXIT=0；v0.4.0 为 Breaking：删除 shim，回滚仍可切 `v0.2.0`/`v0.3.1`/`v0.4.0`）；`make backup` / `make restore-drill` 最新演练 PASS（报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)） |
 | 可控制 | MCP profile + 文档根/env 白名单 + 会话预算 + 写工具审批/沙箱 | ✅ 会话预算、`write_workspace_file` 的 y/N 审批 + 工作区/大小限制 + 单进程幂等已落地 |
 | 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 84% + 80%、golden set 50、三类扫描、fuzz 语料 | ✅ 500 条坏 JSON + 100 条非法帧（0 崩溃/0 挂起），G-33 完成 |
-| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.4.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
+| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.5.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
 
 ## 3. 批一交付（P0-1 ~ P0-5）
 
@@ -81,5 +82,5 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 make check
 AGENTKERNEL_MYSQL_TEST_DSN='mysql+pymysql://agentkernel:***@127.0.0.1:3306/agentkernel_test' \
-  .venv/bin/python -m pytest -q      # 167 passed / 1 deselected（live）/ 0 skipped；覆盖率 82.89%（CI，含 MySQL 集成）
+  .venv/bin/python -m pytest -q      # 221 passed / 6 skipped（无 DSN）；覆盖率 84.87%（CI，含 MySQL 集成）
 ```
