@@ -9,9 +9,9 @@
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 架构 | **A0–A7 完成**：外围分层 + LLM 端口注入 + Agent 184 行 facade + 端口取舍 + 架构图；v0.4.0 旧 shim 已删除（Breaking），canonical 路径为唯一入口 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
-| 测试 | **223 个测试**；本地 `217 passed / 6 skipped`（无 DSN），CI `222 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84.87%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
-| 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
-| 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
+| 测试 | **227 个测试**；本地 `221 passed / 6 skipped`（无 DSN），CI `226 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84.87%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 评测 | `make eval` → **50/50**（mock）；P0-2 `make eval-live-p02` → **24/24**，成功率 **100%**，工具/参数 **100%**，p95 **1769.88ms**，成本 **$0.006988** | [eval-live-20261031.md](./reports/eval-live-20261031.md) |
+| 真实模型 | 8 次冒烟 + P0-2 24 条任务（tokens/cost 非空）；P0-2 成本 **$0.006988**（单次上限 $1），累计 < $0.02 | [eval-live-20261031.md](./reports/eval-live-20261031.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 <400MB | `make docker-smoke` |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 迁移 0001/0002 | `make check` + `test_migrations.py` |

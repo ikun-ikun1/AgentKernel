@@ -9,9 +9,9 @@
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **223 个**：本地 `217 passed / 6 skipped`（无 MySQL DSN），CI `222 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **85%**（CI 门槛 80%，核心模块 ≥90%） |
-| 评测 | `make eval` → **50/50**（mock golden set）；`make eval-live` → 20 条真实调用 |
-| 真实模型 | 8 次 live 调用，tokens / cost 记账非空，成本 < $0.001 |
+| 测试 | **227 个**：本地 `221 passed / 6 skipped`（无 MySQL DSN），CI `226 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **85%**（CI 门槛 80%，核心模块 ≥90%） |
+| 评测 | `make eval` → **50/50**（mock）；`make eval-live-p02` → **24/24** 真实任务（100%，p95 1.77s，$0.006988） |
+| 真实模型 | 8 次冒烟 + P0-2 24 条任务；P0-2 成本 $0.006988，累计 < $0.02 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`security`、`docker` |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 < 400MB |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 0001/0002 可往返 |
@@ -130,7 +130,7 @@ AgentKernel/
 ├── src/agentkernel/         # runtime / tools / memory / rag / mcp / utils
 ├── migrations/versions/     # 0001 初始 schema、0002 tool_logs.duration_ms
 ├── scripts/                 # report / trace / prune
-├── tests/                   # 223 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、注入隔离）
+├── tests/                   # 227 个测试（含 MySQL 集成、迁移往返、D4 多进程、备份演练、注入隔离）
 └── docs/                    # status、production-standard(-gap)、架构、历史里程碑、附录
 ```
 

@@ -15,6 +15,7 @@ UV ?= uv
 EXTRAS ?= --extra dev --extra mysql --extra pdf
 PYTEST_ARGS ?=
 RUNS ?= 20
+LIVE_MAX_COST ?= 1
 LOG_DAYS ?= 14
 DB_DAYS ?= 90
 BACKUP_DIR ?= backups
@@ -22,7 +23,7 @@ DOCKER_IMAGE ?= agentkernel:local
 # 本地 docker.io 不可达时可覆盖，例如 make docker-build DOCKER_BASE=docker.m.daocloud.io/library/python:3.11-slim
 DOCKER_BASE ?= python:3.11.15-slim@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff
 
-.PHONY: help require-env sync sync-all format format-check lint type test coverage test-live eval eval-live fuzz report trace prune backup restore-drill doctor security audit bench check docker-build docker-smoke docker-nonroot docker-size
+.PHONY: help require-env sync sync-all format format-check lint type test coverage test-live eval eval-live eval-live-p02 fuzz report trace prune backup restore-drill doctor security audit bench check docker-build docker-smoke docker-nonroot docker-size
 
 help:
 	@echo "make sync         安装锁定依赖（uv sync --frozen $(EXTRAS)）"
@@ -37,6 +38,7 @@ help:
 	@echo "make test-live    真实 API 冒烟（需 AGENTKERNEL_LIVE_API=1 与 DEEPSEEK_API_KEY，1 次调用）"
 	@echo "make eval         golden set 50 条（mock，无需 API Key）"
 	@echo "make eval-live    golden set 20 条真实调用（需 DEEPSEEK_API_KEY）"
+	@echo "make eval-live-p02 P0-2 24 条真实任务 + JSON/MD 报告（LIVE_MAX_COST=1）"
 	@echo "make fuzz         500 条坏 JSON + 100 条非法 MCP 帧（G-33）"
 	@echo "make bench        启动/单轮 ReAct/MCP/SQLite/MySQL 延迟基线（RUNS=20，DSN 可选）"
 	@echo "make report       从 JSONL 日志生成 SLO 周报（AGENTKERNEL_LOG 指向日志文件）"
@@ -86,6 +88,9 @@ eval:
 
 eval-live:
 	$(PY) eval.py --live
+
+eval-live-p02:
+	AGENTKERNEL_LIVE_API=1 $(PY) scripts/eval_live.py --max-cost-usd $(LIVE_MAX_COST)
 
 fuzz:
 	$(PY) -m pytest -q tests/test_fuzz_corpus.py

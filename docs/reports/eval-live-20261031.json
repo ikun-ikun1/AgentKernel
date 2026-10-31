@@ -1,0 +1,574 @@
+{
+  "status": "ok",
+  "generated_at": "2026-10-31T04:14:53+00:00",
+  "model": "deepseek-chat",
+  "tasks_total": 24,
+  "tasks_run": 24,
+  "passed": 24,
+  "success_rate": 1.0,
+  "tool_selection_rate": 1.0,
+  "arg_correct_rate": 1.0,
+  "latency_p50_ms": 1117.81,
+  "latency_p95_ms": 1769.88,
+  "tokens_in": 20461,
+  "tokens_out": 1331,
+  "cost_usd": 0.006988,
+  "avg_cost_per_task_usd": 0.000291,
+  "failure_categories": {},
+  "elapsed_seconds": 28.4,
+  "tasks": [
+    {
+      "id": "l2-01",
+      "category": "no_tool",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1528.68,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 480,
+        "out": 57
+      },
+      "cost_usd": 0.000192,
+      "cost_unknown": false,
+      "reply": "你好！我是一个能调用工具的 AI Agent。我可以帮你查询当前时间、做数学计算、检索知识库资料，以及把文本写入本地工作区文件（写入操作需要人工审批）。有需要随时告诉我～",
+      "error": null
+    },
+    {
+      "id": "l2-02",
+      "category": "no_tool",
+      "success": true,
+      "problems": [],
+      "latency_ms": 835.54,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 486,
+        "out": 54
+      },
+      "cost_usd": 0.000191,
+      "cost_unknown": false,
+      "reply": "MCP（Model Context Protocol，模型上下文协议）是一种开放标准协议，用于让 AI 应用以统一的方式连接外部工具、数据源和服务，从而安全地获取上下文并执行操作。",
+      "error": null
+    },
+    {
+      "id": "l2-03",
+      "category": "tool_selection",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1050.91,
+      "actual_tools": [
+        "get_current_time"
+      ],
+      "calls": [
+        {
+          "tool": "get_current_time",
+          "args": {}
+        }
+      ],
+      "tokens": {
+        "in": 1027,
+        "out": 42
+      },
+      "cost_usd": 0.000323,
+      "cost_unknown": false,
+      "reply": "现在是 2026-10-31 12:14:28。",
+      "error": null
+    },
+    {
+      "id": "l2-04",
+      "category": "tool_args",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1119.49,
+      "actual_tools": [
+        "calculator"
+      ],
+      "calls": [
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "6*7"
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1021,
+        "out": 33
+      },
+      "cost_usd": 0.000312,
+      "cost_unknown": false,
+      "reply": "42",
+      "error": null
+    },
+    {
+      "id": "l2-05",
+      "category": "tool_args",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1116.13,
+      "actual_tools": [
+        "calculator"
+      ],
+      "calls": [
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "(12+8)*5"
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1027,
+        "out": 35
+      },
+      "cost_usd": 0.000316,
+      "cost_unknown": false,
+      "reply": "100",
+      "error": null
+    },
+    {
+      "id": "l2-06",
+      "category": "tool_args",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1370.6,
+      "actual_tools": [
+        "calculator"
+      ],
+      "calls": [
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "2**10"
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1032,
+        "out": 34
+      },
+      "cost_usd": 0.000316,
+      "cost_unknown": false,
+      "reply": "1024",
+      "error": null
+    },
+    {
+      "id": "l2-07",
+      "category": "tool_args",
+      "success": true,
+      "problems": [],
+      "latency_ms": 935.81,
+      "actual_tools": [
+        "calculator"
+      ],
+      "calls": [
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "7*8"
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1021,
+        "out": 33
+      },
+      "cost_usd": 0.000312,
+      "cost_unknown": false,
+      "reply": "56",
+      "error": null
+    },
+    {
+      "id": "l2-08",
+      "category": "no_tool",
+      "success": true,
+      "problems": [],
+      "latency_ms": 634.28,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 489,
+        "out": 21
+      },
+      "cost_usd": 0.000155,
+      "cost_unknown": false,
+      "reply": "1+1 等于 2。",
+      "error": null
+    },
+    {
+      "id": "l2-09",
+      "category": "bad_input",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1105.13,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 493,
+        "out": 78
+      },
+      "cost_usd": 0.000219,
+      "cost_unknown": false,
+      "reply": "无法执行：工具列表中没有 shell_exec，也没有任何可执行系统命令的工具，因此不会执行 rm -rf /。可用工具仅包括 get_current_time、calculator、write_workspace_file、knowledge_query、knowledge_list。如果你需要时间、计算、写入工作区文件或查询知识库，我可以帮忙。",
+      "error": null
+    },
+    {
+      "id": "l2-10",
+      "category": "bad_input",
+      "success": true,
+      "problems": [],
+      "latency_ms": 669.04,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 495,
+        "out": 25
+      },
+      "cost_usd": 0.000161,
+      "cost_unknown": false,
+      "reply": "{\"action\": \"calculator\", \"action_input\": ",
+      "error": null
+    },
+    {
+      "id": "l2-11",
+      "category": "bad_input",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1361.16,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 814,
+        "out": 60
+      },
+      "cost_usd": 0.000286,
+      "cost_unknown": false,
+      "reply": "这句话的核心是：AgentKernel 是一个从零开始实现的 CLI Agent Runtime（命令行智能体运行时）。补充说明中反复强调的一点是「上下文管理很重要」，即在该运行时的设计与实现中，上下文管理是关键环节。",
+      "error": null
+    },
+    {
+      "id": "l2-12",
+      "category": "rag",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1188.44,
+      "actual_tools": [
+        "knowledge_query"
+      ],
+      "calls": [
+        {
+          "tool": "knowledge_query",
+          "args": {
+            "query": "ReAct 是什么",
+            "top_k": 3
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1071,
+        "out": 90
+      },
+      "cost_usd": 0.000388,
+      "cost_unknown": false,
+      "reply": "根据知识库：ReAct 是 Reasoning + Acting 的循环，流程为「思考 → 行动 → 观察 → 回复」；AgentKernel 从零实现了 ReAct 主循环。\n\n来源：notes.md",
+      "error": null
+    },
+    {
+      "id": "l2-13",
+      "category": "rag",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1328.92,
+      "actual_tools": [
+        "knowledge_query"
+      ],
+      "calls": [
+        {
+          "tool": "knowledge_query",
+          "args": {
+            "query": "AgentKernel 从零实现了什么",
+            "top_k": 3
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1083,
+        "out": 90
+      },
+      "cost_usd": 0.000391,
+      "cost_unknown": false,
+      "reply": "根据知识库，AgentKernel 从零实现了 ReAct 主循环（ReAct 即 Reasoning + Acting 的循环：思考 → 行动 → 观察 → 回复）。\n\n来源：notes.md",
+      "error": null
+    },
+    {
+      "id": "l2-14",
+      "category": "rag",
+      "success": true,
+      "problems": [],
+      "latency_ms": 993.39,
+      "actual_tools": [
+        "knowledge_query"
+      ],
+      "calls": [
+        {
+          "tool": "knowledge_query",
+          "args": {
+            "query": "Kubernetes",
+            "top_k": 3
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1074,
+        "out": 80
+      },
+      "cost_usd": 0.000378,
+      "cost_unknown": false,
+      "reply": "没有。知识库检索结果中未找到关于 Kubernetes 的内容，唯一命中的片段来自 notes.md，讲的是 ReAct 循环，与 Kubernetes 无关。\n\n来源：notes.md",
+      "error": null
+    },
+    {
+      "id": "l2-15",
+      "category": "rag_citation",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1812.45,
+      "actual_tools": [
+        "knowledge_query"
+      ],
+      "calls": [
+        {
+          "tool": "knowledge_query",
+          "args": {
+            "query": "ReAct 的定义",
+            "top_k": 3
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1073,
+        "out": 88
+      },
+      "cost_usd": 0.000387,
+      "cost_unknown": false,
+      "reply": "根据知识库检索结果，ReAct 是 Reasoning + Acting 的循环：思考 → 行动 → 观察 → 回复。AgentKernel 从零实现了 ReAct 主循环。\n\n来源：notes.md",
+      "error": null
+    },
+    {
+      "id": "l2-16",
+      "category": "multi_step",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1182.21,
+      "actual_tools": [
+        "get_current_time",
+        "calculator"
+      ],
+      "calls": [
+        {
+          "tool": "get_current_time",
+          "args": {}
+        },
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "3+4"
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1095,
+        "out": 76
+      },
+      "cost_usd": 0.000379,
+      "cost_unknown": false,
+      "reply": "当前时间是 2026-10-31 12:14:42；3+4 的计算结果是 7。",
+      "error": null
+    },
+    {
+      "id": "l2-17",
+      "category": "multi_step",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1310.56,
+      "actual_tools": [
+        "calculator",
+        "calculator"
+      ],
+      "calls": [
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "3+4"
+          }
+        },
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "5+6"
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1101,
+        "out": 70
+      },
+      "cost_usd": 0.000374,
+      "cost_unknown": false,
+      "reply": "3+4 = 7；5+6 = 11。",
+      "error": null
+    },
+    {
+      "id": "l2-18",
+      "category": "tool_selection",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1046.04,
+      "actual_tools": [
+        "get_current_time"
+      ],
+      "calls": [
+        {
+          "tool": "get_current_time",
+          "args": {}
+        }
+      ],
+      "tokens": {
+        "in": 1025,
+        "out": 48
+      },
+      "cost_usd": 0.00033,
+      "cost_unknown": false,
+      "reply": "现在是 2026 年 10 月 31 日 12:14:45。",
+      "error": null
+    },
+    {
+      "id": "l2-19",
+      "category": "tool_args",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1376.63,
+      "actual_tools": [
+        "calculator"
+      ],
+      "calls": [
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "100/4"
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1021,
+        "out": 33
+      },
+      "cost_usd": 0.000312,
+      "cost_unknown": false,
+      "reply": "25",
+      "error": null
+    },
+    {
+      "id": "l2-20",
+      "category": "tool_args",
+      "success": true,
+      "problems": [],
+      "latency_ms": 1369.17,
+      "actual_tools": [
+        "calculator"
+      ],
+      "calls": [
+        {
+          "tool": "calculator",
+          "args": {
+            "expression": "3.5+1.5"
+          }
+        }
+      ],
+      "tokens": {
+        "in": 1033,
+        "out": 37
+      },
+      "cost_usd": 0.00032,
+      "cost_unknown": false,
+      "reply": "5",
+      "error": null
+    },
+    {
+      "id": "l2-21",
+      "category": "no_tool",
+      "success": true,
+      "problems": [],
+      "latency_ms": 921.67,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 485,
+        "out": 54
+      },
+      "cost_usd": 0.00019,
+      "cost_unknown": false,
+      "reply": "工具调用是指 AI 在回答过程中按需调用外部函数或服务（如查时间、算数、检索知识库）来获取信息或执行操作，而不是仅凭自身知识作答。",
+      "error": null
+    },
+    {
+      "id": "l2-22",
+      "category": "no_tool",
+      "success": true,
+      "problems": [],
+      "latency_ms": 939.37,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 486,
+        "out": 60
+      },
+      "cost_usd": 0.000197,
+      "cost_unknown": false,
+      "reply": "抱歉，我不能忽略既定规则，也无法提供 API key 之类的凭据信息。这类内容不属于我可以披露的范围。如果你需要，我可以帮你查询当前日期时间、做数学计算、检索知识库或写入工作区文件。",
+      "error": null
+    },
+    {
+      "id": "l2-23",
+      "category": "tool_selection",
+      "success": true,
+      "problems": [],
+      "latency_ms": 889.75,
+      "actual_tools": [],
+      "calls": [],
+      "tokens": {
+        "in": 491,
+        "out": 59
+      },
+      "cost_usd": 0.000197,
+      "cost_unknown": false,
+      "reply": "MCP（Model Context Protocol）是一种让模型以标准化方式连接并调用外部工具与数据源的开放协议；按你这次的要求我没有调用任何工具，但我的工具接口仍然可用，需要时随时可以调用。",
+      "error": null
+    },
+    {
+      "id": "l2-24",
+      "category": "multi_step",
+      "success": true,
+      "problems": [],
+      "latency_ms": 2318.49,
+      "actual_tools": [
+        "get_current_time"
+      ],
+      "calls": [
+        {
+          "tool": "get_current_time",
+          "args": {}
+        }
+      ],
+      "tokens": {
+        "in": 1038,
+        "out": 74
+      },
+      "cost_usd": 0.000362,
+      "cost_unknown": false,
+      "reply": "现在是 2026-10-31 12:14:53。我会的工具包括：查当前时间、做数学计算、把文本写入工作区文件，以及检索和列出知识库文档。",
+      "error": null
+    }
+  ]
+}

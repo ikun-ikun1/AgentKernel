@@ -36,6 +36,7 @@ make doctor         # 7 项体检（python/.env/依赖/MySQL/迁移/口令/磁�
 make backup         # 迁移/打 tag 前备份
 make restore-drill  # 恢复到临时库并校验行数（月度/季度）
 make report         # SLO 周报（JSONL → docs/reports/）
+make eval-live-p02  # P0-2 24 条真实任务（成本上限 $1，产出 JSON/MD）
 make bench          # 启动/单轮 ReAct/MCP/SQLite/MySQL 延迟基线（DSN 可选）
 make security       # gitleaks + semgrep（发布前）
 make audit          # pip-audit（需网络）
