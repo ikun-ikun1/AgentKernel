@@ -47,7 +47,7 @@
 |---|---|---|---|---|---|---|
 | G-07 | 结构化 JSONL 日志 | ✅ **已实现** | `src/agentkernel/utils/observability.py`（JsonlFormatter/emit）；`runtime/agent.py` 每轮 1 条 `turn`、每次工具 1 条 `tool`；`tests/test_observability.py` 9 例 | — | — | 12 核心 + 条件字段（含审批 decision/reviewer/key/timestamp/summary）由测试断言；日志默认 stderr，`AGENTKERNEL_LOG` 可落文件 |
 | G-08 | `trace_id` 贯穿 LLM→工具→DB | ✅ **已实现** | `agent.run` 生成 trace_id/turn_id，`tool` 与 `turn` 事件共享（`tests/test_observability.py` 断言）；`session_id` 只以 12 位 sha256 出现 | — | — | 跨进程链路仍属批二 |
-| G-09 | token / 成本记账 | ✅ **已实现** | `runtime/llm.py` 用 ContextVar 捕获 usage（`pop_usage()`，chat 签名不变）；`observability.PRICING_TABLE_VERSION=2026-10-29`；未知模型 `cost_usd=null` + 单次 `pricing_unknown` 告警（有测试） | — | — | mock/假 LLM 下 tokens/cost 为 null 是预期，只有 live 调用才有真实 usage |
+| G-09 | token / 成本记账 | ✅ **已实现** | `adapters/llm/openai_compatible.py` 用 ContextVar 捕获 usage（`pop_usage()`，chat 签名不变）；`observability.PRICING_TABLE_VERSION=2026-10-29`；未知模型 `cost_usd=null` + 单次 `pricing_unknown` 告警（有测试） | — | — | mock/假 LLM 下 tokens/cost 为 null 是预期，只有 live 调用才有真实 usage |
 | G-10 | 指标（计数器/直方图） | ⚠️ **部分**：`make report` 聚合成功率/p50/p95/tokens/成本并维护索引；`make trace` 输出 span 树；OTLP traces 已接（G-47），无 Prometheus 指标导出 | `scripts/report.py`、`scripts/trace.py`、`docs/reports/index.md`、`utils/otel.py` | 低：S4 可回归；无外部指标看板/告警联动 | P2 | 需要指标看板时再加 Prometheus exporter；当前周报 + trace 树 + OTLP traces 足够 |
 | G-11 | 工具耗时落库 | ✅ **已实现** | 迁移 `0002_tool_log_duration`（只加可空列，可回滚）；`sqlite_store` 老库自动补列；`mysql_store` 写库带 `duration_ms`；`/logs` 显示耗时；测试 `test_duration_roundtrip` | — | — | 迁移往返由 `tests/test_migrations.py` 在 CI（有 DSN）验证 |
 | G-12 | 审计失败可见 | ✅ **已实现** | `agent.audit_failures` 计数 + `audit_failed` 事件（`runtime/agent.py`）；测试 `test_audit_failure_is_visible` | — | — | 主流程仍不因审计失败中断（按设计） |

@@ -2,13 +2,14 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)；格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [Unreleased]
+## [0.5.0] - 2026-10-31
 
 ### Added
 
 - P0-1：本地沙箱写工具 `write_workspace_file`（只写工作区、64KB 上限、拒绝路径/symlink 逃逸）。
 - 注入式 `approval_fn` + CLI y/N 审批（默认拒绝；非交互/EOF/超时拒绝）；审批与幂等审计字段写入 tool 事件。
 - 单进程幂等：同 session + tool + 规范化参数（或显式 key）重复请求返回首次结果并标记 `deduplicated`。
+- P0-2：24 条真实模型任务集 + `scripts/eval_live.py`（JSON/Markdown 报告、成本上限、超时/重试）；首轮 23/24，澄清 1 条歧义任务后 24/24；p95 1.77s，成本 $0.006988。
 
 ### Security
 
@@ -16,7 +17,7 @@
 
 ### Tests
 
-- 223 tests；新增 20 条审批/写工具/幂等/审计用例。
+- 227 tests；新增 20 条审批/写工具/幂等/审计用例 + 4 条 runner 纯函数测试。
 
 ## [0.4.0] - 2026-10-30
 
@@ -114,6 +115,7 @@
 - 174 个测试；CI `173 passed / 1 deselected(live) / 0 skipped`；覆盖率 82.89%（门槛 80%）。
 - `make eval`：mock golden set 50/50；live set 20 条数据就绪。
 
+[0.5.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.5.0
 [0.4.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.4.0
 [0.3.1]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.3.1
 [0.3.0]: https://github.com/ikun-ikun1/AgentKernel/releases/tag/v0.3.0

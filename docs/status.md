@@ -9,9 +9,9 @@
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 架构 | **A0–A7 完成**：外围分层 + LLM 端口注入 + Agent 184 行 facade + 端口取舍 + 架构图；v0.4.0 旧 shim 已删除（Breaking），canonical 路径为唯一入口 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
-| 测试 | **223 个测试**；本地 `217 passed / 6 skipped`（无 DSN），CI `222 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84.87%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
-| 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
-| 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
+| 测试 | **227 个测试**；本地 `221 passed / 6 skipped`（无 DSN），CI `226 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84.87%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 评测 | `make eval` → **50/50**（mock）；P0-2 `make eval-live-p02` → **24/24**，成功率 **100%**，工具/参数 **100%**，p95 **1769.88ms**，成本 **$0.006988** | [eval-live-20261031.md](./reports/eval-live-20261031.md) |
+| 真实模型 | 8 次冒烟 + P0-2 24 条任务（tokens/cost 非空）；P0-2 成本 **$0.006988**（单次上限 $1），累计 < $0.02 | [eval-live-20261031.md](./reports/eval-live-20261031.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 <400MB | `make docker-smoke` |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 迁移 0001/0002 | `make check` + `test_migrations.py` |
@@ -28,6 +28,7 @@ make test-live    # 真实 API 冒烟：1 次调用（需 AGENTKERNEL_LIVE_API=1
 make security     # gitleaks + semgrep（离线）
 make coverage     # 覆盖率报告；有 DSN 时自动 --cov-fail-under=80（CI 门槛）
 make eval-live    # golden set 20 条真实调用（需 DEEPSEEK_API_KEY）
+make eval-live-p02 # P0-2 24 条真实任务 + JSON/MD 报告（成本上限 $1）
 make audit        # pip-audit 审计 lock 依赖（需网络）
 make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 ```
@@ -36,10 +37,10 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 |---|---|---|
 | 可重复 | `uv.lock` + `.python-version` + `make sync` + 镜像 digest | ✅ 全部：MySQL/Python 基础镜像已 pin docker.io manifest digest（G-45/G-46）；默认口令已清理（G-06） |
 | 可观测 | JSONL 12 核心 + 条件字段 + span + 成本 + 周报 + OTLP | ✅ 审批/幂等审计字段（decision/reviewer/key/timestamp/summary）；可选 OTLP/HTTP 导出；周报仍手动 |
-| 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 + tag/wheel | ✅ `v0.4.0` tag + wheel（干净 venv 安装/CLI smoke EXIT=0；v0.4.0 为 Breaking：删除 shim，回滚仍可切 `v0.2.0`/`v0.3.1`）；`make backup` / `make restore-drill` 最新演练 PASS（报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)） |
+| 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 + tag/wheel | ✅ `v0.5.0` tag + wheel（干净 venv 安装/CLI smoke EXIT=0；v0.4.0 为 Breaking：删除 shim，回滚仍可切 `v0.2.0`/`v0.3.1`/`v0.4.0`）；`make backup` / `make restore-drill` 最新演练 PASS（报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)） |
 | 可控制 | MCP profile + 文档根/env 白名单 + 会话预算 + 写工具审批/沙箱 | ✅ 会话预算、`write_workspace_file` 的 y/N 审批 + 工作区/大小限制 + 单进程幂等已落地 |
 | 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 84% + 80%、golden set 50、三类扫描、fuzz 语料 | ✅ 500 条坏 JSON + 100 条非法帧（0 崩溃/0 挂起），G-33 完成 |
-| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.4.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
+| 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.5.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
 
 ## 3. 批一交付（P0-1 ~ P0-5）
 
@@ -81,5 +82,5 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 uv sync --frozen --extra dev --extra mysql --extra pdf
 make check
 AGENTKERNEL_MYSQL_TEST_DSN='mysql+pymysql://agentkernel:***@127.0.0.1:3306/agentkernel_test' \
-  .venv/bin/python -m pytest -q      # 167 passed / 1 deselected（live）/ 0 skipped；覆盖率 82.89%（CI，含 MySQL 集成）
+  .venv/bin/python -m pytest -q      # 221 passed / 6 skipped（无 DSN）；覆盖率 84.87%（CI，含 MySQL 集成）
 ```

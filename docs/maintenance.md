@@ -1,6 +1,6 @@
-# 维护手册（v0.4.0 基线 + P0-1 扩展）
+# 维护手册（v0.5.0 冻结点）
 
-> 适用版本：**v0.4.0**（2026-10-30）；P0-1 审批写工具为待发布 v0.5.0 的增量。架构主线已收口；本文件说明支持边界、日常命令、依赖/ digest 更新、发版回滚与扩展点。
+> 适用版本：**v0.5.0**（2026-10-31）；包含 P0-1 审批写工具与 P0-2 真实评测。架构主线已收口；本文件说明支持边界、日常命令、依赖/ digest 更新、发版回滚与扩展点。
 > 当前数字（测试数/覆盖率/CI）统一见 [status.md](./status.md)。
 
 ## 1. 支持范围与不承诺项
@@ -36,6 +36,7 @@ make doctor         # 7 项体检（python/.env/依赖/MySQL/迁移/口令/磁�
 make backup         # 迁移/打 tag 前备份
 make restore-drill  # 恢复到临时库并校验行数（月度/季度）
 make report         # SLO 周报（JSONL → docs/reports/）
+make eval-live-p02  # P0-2 24 条真实任务（成本上限 $1，产出 JSON/MD）
 make bench          # 启动/单轮 ReAct/MCP/SQLite/MySQL 延迟基线（DSN 可选）
 make security       # gitleaks + semgrep（发布前）
 make audit          # pip-audit（需网络）

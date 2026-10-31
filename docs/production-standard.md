@@ -24,7 +24,7 @@
 | A2 | 使用者只有作者本人（单机单用户），无租户、无 RBAC | `src/agentkernel/__main__.py:117-119` 会话固定 `default`；`migrations/versions/0001_initial.py:22-46` 无 owner 列 | 若他人使用：需要身份、租户隔离、审计不可篡改，属 P0 而非豁免 |
 | A3 | 团队 1 人，无 7×24 on-call；发布频率按里程碑，不按天 | `docs/README.md:65-76` 工作节奏说明 | 若多人协作：需要代码所有者、分支保护、评审轮值 |
 | A4 | 允许使用 GitHub Actions（远端 `git@github.com:ikun-ikun1/AgentKernel.git`，仓库可见性未核验）与本机 pre-commit 钩子 | `git remote -v` 输出 | 若不允许外部 CI：4.1/4.5 的自动化门禁需降级为「本地 make check + 提交前钩子」，并登记豁免 |
-| A5 | 模型月度预算 ≤ $5；live eval 每周 ≤ 1 次、单次 ≤ 20 次调用 | 无成本统计代码可依据（`src/agentkernel/runtime/llm.py:60-61` 丢弃 usage），按个人项目经验设定 | 预算更小时：live eval 降为每月 1 次，SLO-S2 窗口改为 4 周 |
+| A5 | 模型月度预算 ≤ $5；live eval 每周 ≤ 1 次、单次 ≤ 20 次调用 | usage 已读取（`src/agentkernel/adapters/llm/openai_compatible.py`），按个人项目经验设定预算 | 预算更小时：live eval 降为每月 1 次，SLO-S2 窗口改为 4 周 |
 | A6 | 数据仅为本人文档与对话，不含第三方个人数据、支付/医疗等受监管数据 | `docs/technical-scope-and-boundary.md:143-171` 安全边界自述 | 若接入他人文档：需重做数据分级、保留期、删除路径（第 5 节） |
 | A7 | 运行时统一 Python 3.11.x（`pyproject.toml:10` 声明 >=3.11，但本机同时存在 3.14.4） | `.venv/bin/python -V` → 3.11.15；`python3 -V` → 3.14.4；仓库里同时有 `cpython-311` 与 `cpython-314` 缓存 | 若允许 3.12+：需声明版本矩阵并在 CI 跑双版本 |
 | A8 | **必须支持多进程并发写同一会话**（已确认，见 D4） | 用户答复；已由 ADR-002 的会话行锁实现（`memory/mysql_store.py`） | 跨进程用例进 CI（20×20）后，线程级用例不再作为并发证据 |
@@ -215,7 +215,7 @@
 
 | 要求 | 阈值 / 做法 | 现状证据 |
 |---|---|---|
-| 发布单元 | git tag `vX.Y.Z` + wheel 产物；回滚 = 切 tag + `uv sync --frozen` | ✅ `v0.4.0` tag + wheel/sdist；干净 venv 安装 wheel 并跑 CLI smoke；v0.4.0 为 Breaking（删除 shim），回滚可切 `v0.2.0`/`v0.3.1`；步骤见 runbook |
+| 发布单元 | git tag `vX.Y.Z` + wheel 产物；回滚 = 切 tag + `uv sync --frozen` | ✅ `v0.5.0` tag + wheel/sdist；干净 venv 安装 wheel 并跑 CLI smoke；v0.4.0 为 Breaking（删除 shim），回滚可切 `v0.2.0`/`v0.3.1`/`v0.4.0`；步骤见 runbook |
 | 迁移策略 | 只 expand/contract；单版本不得删列/改类型；删除延后一版 | ⚠️ 0001 有对称 `downgrade`（`0001_initial.py:78-88`），但无迁移测试 |
 | 迁移测试 | `test_migrations.py`：`upgrade head → downgrade base → upgrade head`，断言 `duration_ms` 列 | ✅ 已实现（CI 有 DSN 真跑） |
 | DDL 单一来源 | 删除启动时 `create_all`，只走 Alembic | ✅ 已删除 `create_all`；`ensure_schema()` 校验 `alembic_version`/表/列，缺失提示 `--migrate` |
