@@ -79,7 +79,7 @@
 ### 1.2 明确不做（不是欠账，是边界）
 
 - 不做 Web/SSE/前端、登录注册、多租户、RBAC（`docs/technical-scope-and-boundary.md:36-44`）。
-- 不做人工审批、审批卡片、企业审计平台（`docs/Addendum/self-review.md:22`）。
+- 不做审批平台、审批卡片、企业审计平台、SDK `can_use_tool`；仅 `write_workspace_file` 使用 CLI y/N 本地审批（P0-1）。
 - 不做 Agent 插件市场、多 Agent 路由、Skills 配置平台。
 - 不做生产部署编排（K8s、IaC、灰度发布）。
 - 不做流式输出、Resources/Prompts/Sampling 原语、SSE/Streamable HTTP 传输（`docs/Addendum/self-review.md:43-46`）。
@@ -199,7 +199,7 @@
 | 要求 | 阈值 / 做法 | 现状证据 |
 |---|---|---|
 | 结构化日志 | JSONL，一行一条；每轮 1 条 `turn`、每次工具 1 条 `tool` | ✅ `utils/observability.py` + `runtime/agent.py`；9 个测试覆盖字段表/脱敏/成本/审计失败 |
-| 字段表 | **16 字段 = 12 核心 + 4 条件**。核心（恒有）：`ts, level, event, trace_id, session_id_hash, turn_id, step, latency_ms, model, tokens{in,out}, success, error_type`；条件：`tool_name`（仅 tool）、`cost_usd`（仅 turn）、`span{id,parent_id,name}`（turn/tool/audit）、`pricing_table_version`（仅 turn 且有用量） | ✅ 已实现并被测试断言 |
+| 字段表 | **12 核心 + 条件字段**。核心（恒有）：`ts, level, event, trace_id, session_id_hash, turn_id, step, latency_ms, model, tokens{in,out}, success, error_type`；条件：`tool_name`（tool）、`cost_usd`/`pricing_table_version`（turn）、`span`（turn/tool/audit）；审批工具另带 `decision/reviewer/idempotency_key/argument_summary/timestamp`（兼容别名 `approval_decision`/`approval_timestamp`），幂等命中带 `deduplicated`（旧字段语义不变）；`tool_logs` 表未加审批列，审批审计以 JSONL tool 事件为准 | ✅ 已实现；审批字段有测试断言 |
 | Trace | 每轮一个 `trace_id`；span：`turn` → `llm.chat` / `tool.run` / `store.*`；本地 100% 采样；OTLP 导出默认关闭 | ✅ `trace_id`（32 hex）+ `span.id`（16 hex，W3C 兼容）+ `parent_id` 父子关系；`make trace TRACE_ID=...` 打印 span 树；可选 OTLP/HTTP JSON 导出（`OTEL_EXPORTER_OTLP_ENDPOINT`，本地假 collector 测试） |
 | 指标 | 计数器：turns、tool_calls、tool_errors、json_repair_layers、budget_exceeded；直方图：turn_latency、tool_latency、tokens | ✅ `make report` 聚合成功率/p50/p95/tokens/成本并维护 `docs/reports/index.md`；`tool_logs.duration_ms` 已落库（迁移 0002）；无 Prometheus 导出 |
 | 脱敏 | 日志默认不落消息正文；debug 级别落正文也必须先过 secret 正则；`tool_logs` 落库前 redact + 截断 4KB | ✅ 入库前 `redact+truncate`（SQLite/MySQL 两处）；日志字段同样过 redact；`/history` 仍按设计展示正文 |
@@ -237,7 +237,7 @@
 | 网络出口 | `DEEPSEEK_BASE_URL` 必须命中 `AGENTKERNEL_ALLOWED_LLM_HOSTS`（默认 `api.deepseek.com`），强制 https（本机回环除外），拒绝带凭据 URL | ✅ `env.validate_base_url()`；CLI 启动与 `llm._get_client()` 双重校验；8 个测试 |
 | 输出隔离 | 工具结果入历史时必须包裹为「不可信数据」标记；外部 MCP 描述限长 | ✅ `<untrusted_tool_result>` 包裹 + 逃逸剔除 + 8KB 截断；外部描述 500 字符上限；SYSTEM_PROMPT 含不可信数据规则 |
 
-**加严点**：基线要求「工具白名单 + 参数校验 + 沙箱/审批」，本项目**不引入人工审批**（单用户 CLI，审批会破坏交互体验），改为「路径白名单 + env 清洗 + 预算上限 + 显式 allowlist 四件套」作为等价控制，并在豁免表登记（第 9 节）。
+**加严点**：基线要求「工具白名单 + 参数校验 + 沙箱/审批」。本项目**不引入 SDK 审批/审批平台**，但唯一副作用工具 `write_workspace_file` 通过注入的 `approval_fn` + CLI y/N 做本地审批（未配置/非交互/EOF/超时/拒绝一律不执行），并配合路径白名单、env 清洗、预算与 allowlist；审批平台仍登记为豁免（第 9 节）。
 
 ### 4.5 可验证（Verifiable）
 
@@ -329,7 +329,7 @@
 | P0-1 | 无锁文件 / 无 `make check` / ruff 失败 | 可重复 + 可验证 | `uv.lock`、`.python-version`、`Makefile`、修 I001、纯格式化提交 | ✅ 已合并（`uv lock --check` 0；`make check` 0；CI 全绿） |
 | P0-2 | 缺 CI 与 0-skip 强制（当时） | 可重复 + 可验证 | GitHub Actions：MySQL service、`uv lock --check`、`make check`、`grep SKIPPED`、`eval-minimal` | ✅ 已合并（PR #1；当时 CI 100 passed / 0 skipped，当前数字见 [status.md](./status.md)） |
 | P0-3 | 无应用镜像、无体积门禁 | 可重复 | 多阶段 Dockerfile（非 root，core+mysql）、compose app profile、CI build + <400MB 门禁 | ✅ 已合并（PR #2；310MB、uid 10001、smoke EXIT=0） |
-| P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已合并**：每轮 1 条 turn 含 16 字段（12 核心 + 4 条件）；`make report/trace`；9 个观测测试 |
+| P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已合并**：每轮 1 条 turn 当时为 16 字段（12 核心 + 4 条件）；P0-1 后新增审批/幂等条件字段；`make report/trace` |
 | P0-5 | 三个高危控制缺口：MCP 任意命令+继承 key、文档任意路径、DSN 异常未脱敏 | 可控制 | env 白名单 + `AGENTKERNEL_MCP_ALLOW`；`AGENTKERNEL_DOC_ROOTS` + 大小/数量/深度限制；异常路径过 `_redact_dsn`；3306 绑 `127.0.0.1` | **已合并（PR #5）**：profile 精确 argv + env 白名单；realpath 文档根（含 symlink 逃逸）；异常脱敏；compose 绑回环；15 个安全测试 |
 
 ### 8.2 P1（批二，按风险排序）
@@ -348,7 +348,7 @@ mypy `--strict`；mutation testing；promptfoo 式 eval 框架替换手写 eval�
 |---|---|---|---|---|
 | 99.x% 可用性 / 灰度发布 / 金丝雀 | 无服务进程、无请求入口，指标不可测（2.3） | ikun-ikun1 | 2027-03-31 | S5 启动与恢复 + tag 回滚 + 备份恢复演练 |
 | 多租户 / RBAC / 鉴权 | 单用户单机；`__main__.py:118` 固定会话，无 `--session` | ikun-ikun1 | 2027-03-31 | 本地单用户 + `.env` 600 + 不暴露网络端口；一旦多人共用即失效 |
-| 人工审批（can_use_tool） | 单用户 CLI，审批破坏交互；文档已明确不做（`self-review.md:22`） | ikun-ikun1 | 2027-03-31 | 工具白名单 + 路径白名单 + 预算上限 + 外部 MCP allowlist（4.4） |
+| SDK 审批平台 / can_use_tool | 单用户 CLI；不做审批产品/卡片/企业审计，本地写工具用注入式 y/N 即可 | ikun-ikun1 | 2027-03-31 | `write_workspace_file` 的 `approval_fn` + CLI y/N；工具白名单 + 路径白名单 + 预算 + 外部 MCP allowlist（4.4） |
 | K8s / IaC / 生产部署编排 | 非目标（`technical-scope-and-boundary.md:207`） | ikun-ikun1 | 2027-03-31 | docker compose 管 MySQL + README 一键流程 + `make doctor` |
 | SOC2 / GDPR / 等保 | 无第三方用户数据（假设 A6） | ikun-ikun1 | 2027-03-31 | 数据分级 + 保留期 + 删除命令；接入他人数据前重新评估 |
 | 7×24 on-call | 单人项目，无值班（假设 A3） | ikun-ikun1 | 2027-03-31 | 48h 内响应、7 天内复盘；事故模板不变 |

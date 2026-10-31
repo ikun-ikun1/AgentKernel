@@ -2,6 +2,22 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)；格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [Unreleased]
+
+### Added
+
+- P0-1：本地沙箱写工具 `write_workspace_file`（只写工作区、64KB 上限、拒绝路径/symlink 逃逸）。
+- 注入式 `approval_fn` + CLI y/N 审批（默认拒绝；非交互/EOF/超时拒绝）；审批与幂等审计字段写入 tool 事件。
+- 单进程幂等：同 session + tool + 规范化参数（或显式 key）重复请求返回首次结果并标记 `deduplicated`。
+
+### Security
+
+- 审计参数只记录摘要：content/text 只记长度，其余字段 redact + 截断；不记录完整敏感内容。
+
+### Tests
+
+- 223 tests；新增 20 条审批/写工具/幂等/审计用例。
+
 ## [0.4.0] - 2026-10-30
 
 ### Breaking

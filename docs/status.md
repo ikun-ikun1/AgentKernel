@@ -9,13 +9,13 @@
 |---|---|---|
 | 定位 | Python CLI Agent Runtime 研究原型（面试作品），按可上生产的工程标准建设 | 边界见 [technical-scope-and-boundary.md](./technical-scope-and-boundary.md) |
 | 架构 | **A0–A7 完成**：外围分层 + LLM 端口注入 + Agent 184 行 facade + 端口取舍 + 架构图；v0.4.0 旧 shim 已删除（Breaking），canonical 路径为唯一入口 | [ADR-003](./Addendum/adr-003-production-architecture.md) |
-| 测试 | **203 个测试**；本地 `197 passed / 6 skipped`（无 DSN），CI `202 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
+| 测试 | **223 个测试**；本地 `217 passed / 6 skipped`（无 DSN），CI `222 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84.87%**（CI 门槛 80%） | `pytest -q`；CI workflow 用 `grep SKIPPED` 强制 0 skip |
 | 评测 | `make eval` → **50/50**（mock golden set，5 类 ×10）；`make eval-live` 20 条真实调用数据就绪 | 本机实测 |
 | 真实模型 | 8 次 live 调用（含 `make test-live` 冒烟，allowlist 生效后复测通过），tokens/cost 非空；累计 < $0.001 | [reports/2026-W44.md](./reports/2026-W44.md) |
 | CI | GitHub Actions 4 个 job：`test`（MySQL 8 service）、`eval-minimal`、`security`（gitleaks/semgrep/pip-audit）、`docker` | [CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml) |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 <400MB | `make docker-smoke` |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 迁移 0001/0002 | `make check` + `test_migrations.py` |
-| 观测 | JSONL 16 字段、trace/span 树、token/成本、`make report/trace/prune` | [production-standard.md §4.2](./production-standard.md) |
+| 观测 | JSONL 12 核心 + 条件字段（含审批/幂等审计）、trace/span 树、token/成本、`make report/trace/prune` | [production-standard.md §4.2](./production-standard.md) |
 
 ## 2. 测试与门禁
 
@@ -35,9 +35,9 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 门禁 | 阈值（项目级） | 当前 |
 |---|---|---|
 | 可重复 | `uv.lock` + `.python-version` + `make sync` + 镜像 digest | ✅ 全部：MySQL/Python 基础镜像已 pin docker.io manifest digest（G-45/G-46）；默认口令已清理（G-06） |
-| 可观测 | JSONL 16 字段 + span + 成本 + 周报 + OTLP | ✅ 可选 OTLP/HTTP 导出（`OTEL_EXPORTER_OTLP_ENDPOINT`，本地假 collector 测试）；周报仍手动 |
+| 可观测 | JSONL 12 核心 + 条件字段 + span + 成本 + 周报 + OTLP | ✅ 审批/幂等审计字段（decision/reviewer/key/timestamp/summary）；可选 OTLP/HTTP 导出；周报仍手动 |
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 + tag/wheel | ✅ `v0.4.0` tag + wheel（干净 venv 安装/CLI smoke EXIT=0；v0.4.0 为 Breaking：删除 shim，回滚仍可切 `v0.2.0`/`v0.3.1`）；`make backup` / `make restore-drill` 最新演练 PASS（报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)） |
-| 可控制 | MCP profile 精确 argv + 文档根白名单 + env 白名单 + 会话预算 | ✅ 会话预算（单会话 150k tokens / 单轮 5 次工具调用，`budget_exceeded` 事件）已落地，G-24/G-25/G-27 完成 |
+| 可控制 | MCP profile + 文档根/env 白名单 + 会话预算 + 写工具审批/沙箱 | ✅ 会话预算、`write_workspace_file` 的 y/N 审批 + 工作区/大小限制 + 单进程幂等已落地 |
 | 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 84% + 80%、golden set 50、三类扫描、fuzz 语料 | ✅ 500 条坏 JSON + 100 条非法帧（0 崩溃/0 挂起），G-33 完成 |
 | 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.4.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
 

@@ -116,3 +116,17 @@ def budget_event(
         parent_span_id=turn_span_id,
         span_name="budget",
     )
+
+
+def attach_tool_audit(payload: dict[str, Any], result: Any) -> dict[str, Any]:
+    """把审批/幂等审计字段附加到 tool 事件（仅在相关时出现，旧事件形状不变）。"""
+    if getattr(result, "approval_decision", None) is not None:
+        payload["decision"] = result.approval_decision
+        payload["approval_decision"] = result.approval_decision
+        payload["reviewer"] = result.reviewer
+        payload["idempotency_key"] = result.idempotency_key
+        payload["argument_summary"] = result.argument_summary
+        payload["approval_timestamp"] = result.approval_timestamp
+    if getattr(result, "deduplicated", False):
+        payload["deduplicated"] = True
+    return payload

@@ -2,7 +2,7 @@
 
 职责边界：
 - 只做「记录」：JSONL 一行一条事件，供 `make report` 聚合；不参与业务判断。
-- 字段表：14 个 = 12 核心（恒有）+ 2 条件（`tool_name` 仅 tool 事件、`cost_usd` 仅 turn 事件）。
+- 字段表：12 核心（恒有）+ 条件字段（tool_name/cost_usd/span/pricing_table_version；审批工具另带 approval_decision/reviewer/idempotency_key/argument_summary/approval_timestamp；幂等命中带 deduplicated）。
 - 成本：定价表带版本号；未知模型返回 `None` 并告警一次，禁止静默算 0。
 - 脱敏：`sk-`、`password=`、DSN 里的口令、Bearer token 一律替换为 `***`。
 - 未配置 handler 时退回 stderr；`AGENTKERNEL_LOG` 指向文件时写 JSONL 文件。
@@ -46,7 +46,19 @@ CORE_FIELDS = (
     "success",
     "error_type",
 )
-CONDITIONAL_FIELDS = ("tool_name", "cost_usd", "span", "pricing_table_version")
+CONDITIONAL_FIELDS = (
+    "tool_name",
+    "cost_usd",
+    "span",
+    "pricing_table_version",
+    "decision",
+    "approval_decision",
+    "reviewer",
+    "idempotency_key",
+    "argument_summary",
+    "approval_timestamp",
+    "deduplicated",
+)
 
 _REDACTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"sk-[A-Za-z0-9_\-]{6,}"), "sk-***"),

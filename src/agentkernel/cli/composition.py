@@ -18,6 +18,8 @@ from agentkernel.adapters.llm.openai_compatible import OpenAICompatibleClient
 from agentkernel.adapters.mcp.client import InProcessMCPClient, MCPClient, StdioMCPClient
 from agentkernel.adapters.mcp.knowledge_server import KnowledgeMCPServer
 from agentkernel.application.mcp_tools import register_mcp_tools
+from agentkernel.application.tool_executor import ApprovalFn
+from agentkernel.cli.approval import ConsoleApproval
 from agentkernel.mcp.profiles import (
     McpProfileError,
     build_child_env,
@@ -60,9 +62,11 @@ def build_agent(
     kb_backend: str = "lexical",
     profiles_file: str | None = None,
     raw_mcp_commands: list[str] | None = None,
+    approval_fn: ApprovalFn | None = None,
+    workspace_root: str | Path | None = None,
 ) -> tuple[Agent, Registry, KnowledgeBase, list[MCPClient]]:
     registry = Registry()
-    builtin.register_builtin(registry)
+    builtin.register_builtin(registry, workspace_root=workspace_root)
 
     # kb_db 支持 MySQL DSN 或本地路径（SQLite 测试适配器）。
     kb_dsn = (
@@ -115,4 +119,13 @@ def build_agent(
         except Exception as e:  # 接入失败不阻塞启动
             print(f"接入外部 MCP server 失败：{type(e).__name__}: {observability.redact(str(e))}")
 
-    return Agent(registry, llm_client=OpenAICompatibleClient()), registry, kb, external_clients
+    return (
+        Agent(
+            registry,
+            llm_client=OpenAICompatibleClient(),
+            approval_fn=approval_fn or ConsoleApproval(),
+        ),
+        registry,
+        kb,
+        external_clients,
+    )
