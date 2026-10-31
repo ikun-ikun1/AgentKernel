@@ -17,7 +17,10 @@ from agentkernel.application.tool_executor import (
     MAX_OBSERVATION_CHARS,
     UNTRUSTED_CLOSE,
     UNTRUSTED_OPEN,
+    ApprovalFn,
+    IdempotencyCache,
     format_observation,
+    observer_arguments,
     run_tool,
 )
 from agentkernel.domain.context_policy import ContextConfig
@@ -66,6 +69,7 @@ class Agent:
         session_id: str | None = None,
         session_token_budget: int | None = None,
         max_tool_calls_per_turn: int | None = None,
+        approval_fn: ApprovalFn | None = None,
     ) -> None:
         self.registry = registry
         self.llm_client = llm_client
@@ -89,6 +93,8 @@ class Agent:
             else int(os.environ.get("AGENTKERNEL_MAX_TOOL_CALLS_PER_TURN", "5"))
         )
         self.session_tokens = 0
+        self.approval_fn = approval_fn
+        self._tool_cache = IdempotencyCache()
 
     def run(self, user_input: str, history: list[dict[str, str]]) -> str:
         """兼容入口：ReAct 编排见 application/run_turn.py。"""
@@ -103,10 +109,18 @@ class Agent:
         turn_span_id: str,
     ) -> None:
         """执行单个工具调用，观察结果回灌历史，并触发审计观察者与 tool 事件。"""
-        result, latency_ms = run_tool(self.registry, call)
+        result = run_tool(
+            self.registry,
+            call,
+            approval_fn=self.approval_fn,
+            session_id=self.session_id,
+            cache=self._tool_cache,
+        )
+        latency_ms = result.duration_ms
+        observer_args = observer_arguments(call.action_input, result)
         if self.on_tool_call is not None:
             try:
-                self.on_tool_call(call.action, call.action_input, result)
+                self.on_tool_call(call.action, observer_args, result)
             except Exception:
                 # 审计失败不影响主流程，但必须可见（禁止静默 pass）
                 self.audit_failures += 1
@@ -127,24 +141,23 @@ class Agent:
                         span_name="audit.log",
                     )
                 )
-        self._emit(
-            events.base_event(
-                "tool",
-                trace_id,
-                turn_id,
-                session_id=self.session_id,
-                step=self._step,
-                latency_ms=latency_ms,
-                model=None,
-                tokens=None,
-                success=bool(getattr(result, "success", True)),
-                error_type=getattr(result, "error_type", None),
-                tool_name=call.action,
-                span_id=observability.new_span_id(),
-                parent_span_id=turn_span_id,
-                span_name=f"tool.{call.action}",
-            )
+        payload = events.base_event(
+            "tool",
+            trace_id,
+            turn_id,
+            session_id=self.session_id,
+            step=self._step,
+            latency_ms=latency_ms,
+            model=None,
+            tokens=None,
+            success=bool(getattr(result, "success", True)),
+            error_type=getattr(result, "error_type", None),
+            tool_name=call.action,
+            span_id=observability.new_span_id(),
+            parent_span_id=turn_span_id,
+            span_name=f"tool.{call.action}",
         )
+        self._emit(events.attach_tool_audit(payload, result))
         history.append({"role": "user", "content": format_observation(call.action, result)})
 
     @staticmethod

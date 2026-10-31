@@ -21,6 +21,7 @@ class Tool:
     description: str
     parameters: dict[str, Any]  # JSON Schema（含 required / properties）
     fn: Callable[[dict[str, Any]], str]
+    requires_approval: bool = False
 
 
 class ToolExecutionResult(str):
@@ -29,6 +30,12 @@ class ToolExecutionResult(str):
     success: bool
     error_type: str | None
     duration_ms: float
+    approval_decision: str | None
+    reviewer: str | None
+    idempotency_key: str | None
+    deduplicated: bool
+    argument_summary: str | None
+    approval_timestamp: str | None
 
     def __new__(
         cls,
@@ -37,12 +44,38 @@ class ToolExecutionResult(str):
         success: bool,
         error_type: str | None = None,
         duration_ms: float = 0.0,
+        approval_decision: str | None = None,
+        reviewer: str | None = None,
+        idempotency_key: str | None = None,
+        deduplicated: bool = False,
+        argument_summary: str | None = None,
+        approval_timestamp: str | None = None,
     ) -> ToolExecutionResult:
         instance = super().__new__(cls, output)
         instance.success = success
         instance.error_type = error_type
         instance.duration_ms = duration_ms
+        instance.approval_decision = approval_decision
+        instance.reviewer = reviewer
+        instance.idempotency_key = idempotency_key
+        instance.deduplicated = deduplicated
+        instance.argument_summary = argument_summary
+        instance.approval_timestamp = approval_timestamp
         return instance
+
+    def clone(self, *, deduplicated: bool = False) -> ToolExecutionResult:
+        return ToolExecutionResult(
+            str(self),
+            success=self.success,
+            error_type=self.error_type,
+            duration_ms=self.duration_ms,
+            approval_decision=self.approval_decision,
+            reviewer=self.reviewer,
+            idempotency_key=self.idempotency_key,
+            deduplicated=deduplicated,
+            argument_summary=self.argument_summary,
+            approval_timestamp=self.approval_timestamp,
+        )
 
 
 def validate_parameters(schema: dict[str, Any], value: Any, path: str = "参数") -> None:

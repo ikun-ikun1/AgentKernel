@@ -19,8 +19,8 @@
 | P2 | **上下文越聊越乱** | 早期约束丢失、历史撑爆上下文、压缩失败 | 保留首条用户要求；compact 摘要；摘要失败降级 truncate；`runtime/agent.py` 上下文策略；超预算/摘要失败/MAX_STEPS 测试 | 压缩质量无独立 eval；会话预算已落地（G-25） |
 | P3 | **多进程写同一会话** | 进程内锁跨进程失效；丢失更新；`updated_at` 回退；1213/1205 死锁 | ADR-002 会话行锁 `SELECT ... FOR UPDATE`；有界 LRU；指数退避；20 进程 × 20 写用例进 CI | 同会话写串行（可接受）；未来高并发可评估幂等键方案 |
 | P4 | **RAG 新鲜度与降级** | 重复入库、改文档后索引不更新、向量依赖挂了 | SHA-256 增量索引；稳定 `doc_id:ordinal`；MySQL ngram 基线；可选 Chroma + RRF；不可用回退 lexical；重复/变更/无向量测试 | mock/live golden set 已有（G-32）；Recall@5 未单列；Chroma 可选路径测试深度有限 |
-| P5 | **MCP / 工具边界** | 任意命令启动子进程、继承 API key/DSN、文档路径穿越、symlink 逃逸、prompt injection | 命名 profile + 精确 argv；env 白名单；`AGENTKERNEL_DOC_ROOTS` + realpath；大小/数量/深度限制；无 shell/eval；AST 计算器；安全测试 | 工具结果已做不可信隔离（G-27）；出站 allowlist 已完成（G-24）；无 OS 级沙箱 |
-| P6 | **观测与成本** | 只知道「跑完了」，不知道 token/成本/哪一步慢；日志含密钥 | JSONL 16 字段；trace/turn/span；token/cost + 版本化定价；未知模型 `null`；写库前 redact + 4KB 截断；`make report/trace/prune` | 可选 OTLP/HTTP 导出已落地（G-47）；会话预算已落地（G-25）；无 Prometheus/外部指标看板 |
+| P5 | **MCP / 工具边界** | 任意命令启动子进程、继承 API key/DSN、文档路径穿越、symlink 逃逸、prompt injection | 命名 profile + 精确 argv；env 白名单；文档根 realpath；无 shell/eval；AST 计算器；副作用写工具需本地 y/N 审批 + 工作区沙箱；安全测试 | 工具结果已做不可信隔离（G-27）；出站 allowlist（G-24）；无 OS 级沙箱 |
+| P6 | **观测与成本** | 只知道「跑完了」，不知道 token/成本/哪一步慢；日志含密钥 | JSONL 12 核心 + 条件字段；trace/turn/span；token/cost + 版本化定价；未知模型 `null`；写库前 redact + 4KB 截断；`make report/trace/prune` | 可选 OTLP/HTTP 导出（G-47）；会话预算（G-25）；审批/幂等审计字段；无 Prometheus 看板 |
 | P7 | **Schema / 迁移安全** | `create_all` 与 Alembic 双轨；迁移回滚后表又被建回；误删数据无备份 | Alembic 0001/0002 往返测试；`make backup` + `make restore-drill` 首次演练 PASS；D4 选无 schema 变更方案 | 双轨 DDL 已收口（G-16）；备份是逻辑备份，RPO 需按部署确认 |
 | P8 | **交付可重复** | 本地能跑、CI 不绿；镜像 root；体积失控；依赖漂移 | `uv.lock` + `.python-version`；CI MySQL service + 0-skip 强制；多阶段非 root 镜像 + 体积门禁；`make check` 单入口 | 基础镜像 digest 未 pin（G-45/G-46）；runbook/doctor 已完成（G-35/G-36） |
 
@@ -82,7 +82,7 @@
 
 **生产里为什么会出事**：只看到「跑完了」，看不到哪一步慢、花了多少 token、错误率多少；日志里带密钥。
 
-**做法**：每轮 1 条 `turn` + 每次工具 1 条 `tool`；JSONL 16 字段；trace/turn/span；token/cost + 版本化定价；未知模型 `null` 而不是 0；写库前 redact + 4KB 截断；`make report/trace/prune`。
+**做法**：每轮 1 条 `turn` + 每次工具 1 条 `tool`；JSONL 12 核心 + 条件字段（审批工具带 decision/reviewer/key/timestamp/summary）；trace/turn/span；token/cost + 版本化定价；未知模型 `null` 而不是 0；写库前 redact + 4KB 截断；`make report/trace/prune`。
 
 **证据**：`tests/test_observability.py`；`docs/reports/2026-W44.md`；live 调用 tokens/cost 非空。
 

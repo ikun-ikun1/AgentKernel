@@ -6,6 +6,7 @@ import ast
 import operator
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from agentkernel.tools.registry import Registry, Tool
@@ -61,7 +62,36 @@ def _calculator(args: dict[str, Any]) -> str:
     return _safe_calc(expr)
 
 
-def register_builtin(registry: Registry) -> None:
+MAX_WORKSPACE_WRITE_BYTES = 64 * 1024
+
+
+def _write_workspace_file(root: Path, args: dict[str, Any]) -> str:
+    """只写 root 内的相对路径；拒绝 .. / 绝对路径 / symlink 逃逸 / 超限。"""
+    raw = str(args.get("path", "")).strip()
+    if not raw or Path(raw).is_absolute() or raw.startswith(("\\", "/")):
+        raise ValueError("path 必须是工作区内的相对路径")
+    if ".." in Path(raw).parts:
+        raise ValueError("path 不能包含 ..")
+    content = str(args.get("content", ""))
+    data = content.encode("utf-8")
+    if len(data) > MAX_WORKSPACE_WRITE_BYTES:
+        raise ValueError(f"content 超过 {MAX_WORKSPACE_WRITE_BYTES} 字节上限")
+
+    root = root.expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    target = (root / raw).resolve()
+    if not target.is_relative_to(root):
+        raise ValueError("path 逃逸出工作区（symlink/..）")
+    if target.is_dir():
+        raise ValueError("path 指向目录")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() and target.read_bytes() == data:
+        return f"未变化（幂等）：{target.relative_to(root)}（{len(data)} 字节）"
+    target.write_bytes(data)
+    return f"已写入 {target.relative_to(root)}（{len(data)} 字节）"
+
+
+def register_builtin(registry: Registry, workspace_root: str | Path | None = None) -> None:
     registry.register(
         Tool(
             name="get_current_time",
@@ -85,5 +115,34 @@ def register_builtin(registry: Registry) -> None:
                 "required": ["expression"],
             },
             fn=_calculator,
+        )
+    )
+    root = (
+        Path(workspace_root).expanduser()
+        if workspace_root is not None
+        else Path.home() / ".agentkernel" / "workspace"
+    )
+    registry.register(
+        Tool(
+            name="write_workspace_file",
+            description=(
+                "把文本写入本地工作区文件；只允许相对路径，最大 64KB。"
+                "该工具有副作用，执行前需要人工审批。"
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "工作区内的相对路径"},
+                    "content": {"type": "string", "description": "要写入的文本（<=64KB）"},
+                    "idempotency_key": {
+                        "type": "string",
+                        "description": "可选幂等键；同 session 同参数重复调用只执行一次",
+                    },
+                },
+                "required": ["path", "content"],
+                "additionalProperties": False,
+            },
+            fn=lambda args: _write_workspace_file(root, args),
+            requires_approval=True,
         )
     )
