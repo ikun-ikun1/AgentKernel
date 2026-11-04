@@ -5,17 +5,17 @@
 [![CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml/badge.svg)](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml)
 [项目状态](docs/status.md) · [生产问题](docs/production-problems.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [架构 ADR](docs/Addendum/adr-003-production-architecture.md) · [Runbook](docs/runbook.md) · [变更记录](CHANGELOG.md) · [架构图](docs/architecture.png)
 
-## 现状（2026-10-30）
+## 现状（2026-10-31）
 
 | 维度 | 数字 / 状态 |
 |---|---|
-| 测试 | **227 个**：本地 `221 passed / 6 skipped`（无 MySQL DSN），CI `226 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **85%**（CI 门槛 80%，核心模块 ≥90%） |
+| 测试 | **227 个**：本地 `221 passed / 6 skipped`（无 MySQL DSN），CI `226 passed / 1 deselected`（live）/ `0 skipped`；覆盖率 **84.87%**（CI 门槛 80%，核心模块 ≥90%） |
 | 评测 | `make eval` → **50/50**（mock）；`make eval-live-p02` → 首轮 **23/24**，澄清 1 条歧义任务后 **24/24**（100% 仅限该任务集，p95 1.77s，$0.006988） |
 | 真实模型 | 8 次冒烟 + P0-2 24 条任务；P0-2 成本 $0.006988，累计 < $0.02 |
 | CI | GitHub Actions：`test`（MySQL 8 service + 0-skip 强制）、`eval-minimal`、`security`、`docker` |
 | 镜像 | 多阶段、非 root（uid 10001）、310MB、体积门禁 < 400MB |
 | 数据层 | MySQL 8 为事实源；SQLite 仅测试适配器；Alembic 0001/0002 可往返 |
-| 观测 | JSONL 16 字段、trace/span 树、`make report / trace / prune` |
+| 观测 | JSONL 12 核心 + 条件字段（含审批/幂等审计）、trace/span 树、`make report / trace / prune` |
 
 完整状态、未完成项与复现命令见 **[docs/status.md](docs/status.md)**。
 
@@ -30,7 +30,7 @@
 | P3 | 多进程写同一会话 | 丢失更新、`updated_at` 回退、1213 死锁 | 会话行锁 `FOR UPDATE` + 有界 LRU + 指数退避（ADR-002） |
 | P4 | RAG 新鲜度/降级 | 重复入库、改文档不更新、向量不可用 | SHA-256 增量索引 + MySQL ngram 基线 + 可选向量回退 |
 | P5 | MCP/工具边界 | 任意命令、继承 API key、路径穿越 | 命名 profile + 精确 argv + env 白名单 + realpath 文档根 |
-| P6 | 观测与成本 | 不知道 token/成本/哪一步慢、日志带密钥 | JSONL 16 字段 + trace/span + 版本化定价 + 写库前脱敏 |
+| P6 | 观测与成本 | 不知道 token/成本/哪一步慢、日志带密钥 | JSONL 12 核心 + 条件字段 + trace/span + 版本化定价 + 写库前脱敏 |
 | P7 | Schema/迁移安全 | `create_all` 与 Alembic 双轨、回滚后表被建回 | Alembic 往返测试 + 备份/恢复演练 + expand/contract |
 | P8 | 交付可重复 | 本地能跑 CI 不绿、镜像 root、体积失控 | `uv.lock` + CI 0-skip + 非 root 镜像 + 体积门禁 |
 

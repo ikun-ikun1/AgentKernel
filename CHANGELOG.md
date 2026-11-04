@@ -6,7 +6,7 @@
 
 ### Added
 
-- P0-1：本地沙箱写工具 `write_workspace_file`（只写工作区、64KB 上限、拒绝路径/symlink 逃逸）。
+- P0-1：本地受控写工具 `write_workspace_file`（应用层工作区路径约束：只写工作区、64KB 上限、拒绝路径/symlink 逃逸；非 OS 级沙箱）。
 - 注入式 `approval_fn` + CLI y/N 审批（默认拒绝；非交互/EOF/超时拒绝）；审批与幂等审计字段写入 tool 事件。
 - 单进程幂等：同 session + tool + 规范化参数（或显式 key）重复请求返回首次结果并标记 `deduplicated`。
 - P0-2：24 条真实模型任务集 + `scripts/eval_live.py`（JSON/Markdown 报告、成本上限、超时/重试）；首轮 23/24，澄清 1 条歧义任务后 24/24；p95 1.77s，成本 $0.006988。

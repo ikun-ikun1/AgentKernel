@@ -38,7 +38,7 @@ make docker-smoke # 构建镜像并跑启动 smoke（只证明能启动）
 | 可重复 | `uv.lock` + `.python-version` + `make sync` + 镜像 digest | ✅ 全部：MySQL/Python 基础镜像已 pin docker.io manifest digest（G-45/G-46）；默认口令已清理（G-06） |
 | 可观测 | JSONL 12 核心 + 条件字段 + span + 成本 + 周报 + OTLP | ✅ 审批/幂等审计字段（decision/reviewer/key/timestamp/summary）；可选 OTLP/HTTP 导出；周报仍手动 |
 | 可回滚 | 迁移 expand-only + downgrade 往返 + 备份/恢复演练 + tag/wheel | ✅ `v0.5.0` tag + wheel（干净 venv 安装/CLI smoke EXIT=0；v0.4.0 为 Breaking：删除 shim，回滚仍可切 `v0.2.0`/`v0.3.1`/`v0.4.0`）；`make backup` / `make restore-drill` 最新演练 PASS（报告见 [reports/restore-drill-20261029.md](./reports/restore-drill-20261029.md)） |
-| 可控制 | MCP profile + 文档根/env 白名单 + 会话预算 + 写工具审批/沙箱 | ✅ 会话预算、`write_workspace_file` 的 y/N 审批 + 工作区/大小限制 + 单进程幂等已落地 |
+| 可控制 | MCP profile + 文档根/env 白名单 + 会话预算 + 写工具审批/应用层路径约束 | ✅ 会话预算；内置 `write_workspace_file` 的 y/N 审批 + realpath/大小限制 + 单进程幂等（跨进程未做）；MCP 工具审批 P1；非 OS 级沙箱 |
 | 可验证 | 0 skip、迁移往返、真实 MySQL、覆盖率 84% + 80%、golden set 50、三类扫描、fuzz 语料 | ✅ 500 条坏 JSON + 100 条非法帧（0 崩溃/0 挂起），G-33 完成 |
 | 可运维 | runbook / doctor / 定期恢复演练 | ✅ runbook 6 场景 + `make doctor` 7 项 + [CHANGELOG](../CHANGELOG.md) + `v0.5.0` tag + [首次事故复盘](./reports/incident-20261030-schema-drift.md) |
 

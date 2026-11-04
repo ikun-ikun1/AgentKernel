@@ -10,7 +10,7 @@
 - Python 3.11 CLI；单机 MySQL 8（或 SQLite 测试适配器）；DeepSeek/OpenAI 兼容端点。
 - canonical import 路径与 CLI 行为（参数、输出、退出码、JSONL 事件字段）。
 - 迁移（Alembic）、备份/恢复演练、观测（JSONL/trace/report/可选 OTLP）、MCP profile 安全边界。
-- 本地副作用写工具 `write_workspace_file`：工作区沙箱 + CLI y/N 审批（默认拒绝）+ 单进程幂等；审批审计以 JSONL `tool` 事件为准（`tool_logs` 表未加审批列，无 schema 迁移）。
+- 本地副作用写工具 `write_workspace_file`：应用层工作区路径约束（realpath、拒绝 `../`、symlink 检查；非 OS 级沙箱）+ CLI y/N 审批（默认拒绝）+ 单进程幂等；审批审计以 JSONL `tool` 事件为准（`tool_logs` 表未加审批列，无 schema 迁移）。
 
 **不承诺：**
 
@@ -18,6 +18,7 @@
 - 高并发/分布式部署；跨地区容灾；
 - 第三方 MCP server 的行为与安全（只保证启动边界）；
 - 跨进程持久化幂等（P0-1 只做单进程；无 schema 迁移）；
+- 外部 MCP 工具的统一 `requires_approval`/审批（P1；当前审批只覆盖内置 `write_workspace_file`）；
 - 旧 import shim（v0.4.0 已删除，见 [migration-shims.md](./migration-shims.md)）。
 
 ## 2. 冻结的公共面
@@ -69,7 +70,7 @@ make docker-build / docker-smoke / docker-size
 | `LLMClient` | `ports/llm.py` | 新增供应商适配器（OpenAI-compatible 之外）；不把 SDK 类型带进 `runtime/agent.py` |
 | `RuntimeStore` | `ports/runtime_store.py` | 新存储适配器；D4 行锁语义必须保持，多进程用例必须绿 |
 | `MCPTransport` | `ports/mcp_transport.py` | 新 transport；profile 精确 argv/env 白名单边界不变 |
-| 审批回调 | `Agent.approval_fn`（`application/tool_executor.ApprovalFn`） | 只对 `requires_approval` 工具生效；不读全局 env，不在 Registry 里依赖 CLI |
+| 审批回调 | `Agent.approval_fn`（`application/tool_executor.ApprovalFn`） | 只对 `requires_approval` 工具生效；当前仅内置 `write_workspace_file` 接入，外部 MCP 工具审批为 P1；不读全局 env，不在 Registry 里依赖 CLI |
 
 **不要做**：新增 architecture layer、DI 容器、async 重写、微服务拆分；不要为了目录好看移动已冻结的 canonical 路径。
 

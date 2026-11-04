@@ -16,7 +16,7 @@
 - **Runtime**：自研 ReAct 主循环；工具契约 + 名字白名单 + JSON Schema 子集；五层 JSON 修复（提取/修复/白名单/256KB/纯文本降级）；上下文 truncate/compact。
 - **MCP 与工具边界**：命名 profile + 精确 argv；子进程 env 白名单；文档根 realpath + symlink 防逃逸；工具结果用不可信标记隔离；LLM 出站 allowlist。
 - **RAG**：SHA-256 增量索引；MySQL ngram 词法基线；可选 Chroma + RRF，失败回退 lexical；引用带 source/page。
-- **审批写工具**：write_workspace_file 只写工作区（64KB、拒绝 ../、绝对路径、symlink）；requires_approval + 注入式 approval_fn，CLI y/N 默认拒绝；审批/幂等审计进 tool 事件；单进程幂等去重。
+- **审批写工具**：write_workspace_file 做应用层工作区路径约束（realpath、64KB、拒绝 ../、绝对路径、symlink；非 OS 沙箱）；requires_approval + 注入式 approval_fn，CLI y/N 默认拒绝；审批/幂等审计进 tool 事件；单进程幂等去重。
 - **真实评测**：24 条真实任务（工具选择/参数/坏输入/RAG/多步），runner 带成本上限、超时、重试；mock 50 条继续守 CI 回归。
 
 ## 3. 证据

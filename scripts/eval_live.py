@@ -259,7 +259,7 @@ def render_markdown(summary: dict[str, Any], command: str) -> str:
             "## 与 mock eval 对比",
             "",
             "- mock `make eval` 50/50（CI，脚本化 LLM）：证明回归稳定，不证明模型鲁棒。",
-            "- live 24/24（真实 API）：证明真实调用路径与当前任务集；样本仅 24 条，不能外推为泛化能力。",
+            "- live 最终 24/24（首轮 23/24；真实 API）：证明真实调用路径与当前任务集；样本仅 24 条，不能外推为泛化能力。",
             "",
             "## 口径",
             "",

@@ -26,7 +26,7 @@
 |------|--------------------|-------------|
 | 产品入口 | Web、SSE、Agent 选择、会话生命周期 | CLI，仅用于触发 Runtime |
 | Agent Runtime | Claude Agent SDK 提供主循环、tool_use、session | 自己实现最小 ReAct 主循环 |
-| 工具与权限 | 业务 CLI/MCP、manifest 白名单、人工审批 | 固定 Tool Registry、协议分类、Schema 子集校验；唯一副作用写工具走本地 y/N 审批 |
+| 工具与权限 | 业务 CLI/MCP、manifest 白名单、人工审批 | 固定 Tool Registry、协议分类、Schema 子集校验；内置唯一副作用写工具走本地 y/N 审批；外部 MCP 工具统一审批 P1 |
 | 业务能力 | 工时、考勤、制度问答、项目等业务 Agent | 时间、计算器和检索/MCP 实验样例 |
 | 持久化与观测 | 用户会话、跨会话记忆、审批和审计产品 | MySQL 持久化 Runtime 状态；SQLite 仅用于测试适配 |
 | MCP | 业务工具集成 | stdio/JSON-RPC 协议实验和互操作测试 |

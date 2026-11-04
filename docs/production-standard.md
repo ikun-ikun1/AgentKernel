@@ -207,7 +207,7 @@
 | 保留期 | 日志 14 天；`tool_logs`/`messages` 90 天；eval 报告永久（入 git） | ⚠️ `scripts/prune.py` + `make prune` 可执行（支持 dry-run、DB 不可用降级）；未做定时调度（依赖 cron/手工） |
 | 看板 | `make report` 生成 `docs/reports/YYYY-Www.md`（SLO 达成、成本、失败用例） | ✅ 周报 + `docs/reports/index.md` 趋势索引；`2026-W44.md` 已用真实 API 调用生成（tokens/cost 非空） |
 
-**成本口径（必须版本化）**：定价表带版本号 `PRICING_TABLE_VERSION`（单位 USD / 1M tokens，本版基线 2026-10-29，随每条 turn 事件写入 `pricing_table_version`）；模型不在表中 → `cost_usd=null` + 一条 `pricing_unknown` 告警事件（每个未知模型只报一次；不塞进 turn 的 14 字段表，避免字段膨胀），**禁止静默算 0**（0 与「不知道」必须可区分，否则 S8 与预算告警全部失真）。
+**成本口径（必须版本化）**：定价表带版本号 `PRICING_TABLE_VERSION`（单位 USD / 1M tokens，本版基线 2026-10-29，随每条 turn 事件写入 `pricing_table_version`）；模型不在表中 → `cost_usd=null` + 一条 `pricing_unknown` 告警事件（每个未知模型只报一次；不塞进 turn 的 12 核心字段表，避免字段膨胀），**禁止静默算 0**（0 与「不知道」必须可区分，否则 S8 与预算告警全部失真）。
 
 **加严点**：基线要求「trace + 结构化日志 + 指标 + 告警」，本项目在单机场景下**不引入** Langfuse/Grafana 作为前置条件，但要求同等信息的本地 JSONL + 周报；一旦接入在线服务，OTLP 导出即转为必需。
 
@@ -228,6 +228,7 @@
 | 控制项 | 要求 | 现状证据 |
 |---|---|---|
 | 工具白名单 | 只执行注册过的工具；新增工具需 ADR + 风险评审 | ✅ `tools/contracts.py:67-73`、`runtime/agent.py:202-207`、`registry.py:104-110` |
+| 审批 | 副作用工具执行前需人工确认；默认拒绝 | ⚠️ 仅内置 `write_workspace_file` 接入 `requires_approval` + CLI y/N；外部 MCP 工具未统一接入（P1） |
 | 无 shell / 无 eval | 禁止 `eval`/`exec`/`os.system`/`shell=True`；计算器走 AST 白名单 | ✅ `builtin.py:17-53`；grep 无 `eval(`/`exec(`/`shell=True` |
 | 参数校验 | JSON Schema 子集（type/required/enum/items/additionalProperties）；新增 `maxLength`/`pattern` 支持 | ⚠️ `registry.py:47-97` 无长度/格式约束；内置与 MCP 工具均未设 `additionalProperties:false` |
 | 文件读取边界 | `/ingest`、`--docs`、MCP server 位置参数都限定在 `AGENTKERNEL_DOC_ROOTS`（默认 cwd）内；**判定用 realpath + is_relative_to**，目录遍历 `followlinks=False` 并剔除符号链接目录，每个文件再复核一次；文件/数量/深度上限 20MB / 200 / 4 | ✅ `utils/paths.py`；负向测试覆盖 `../`、根内 symlink→根外文件、symlink 目录、超大小、超数量 |
@@ -237,7 +238,7 @@
 | 网络出口 | `DEEPSEEK_BASE_URL` 必须命中 `AGENTKERNEL_ALLOWED_LLM_HOSTS`（默认 `api.deepseek.com`），强制 https（本机回环除外），拒绝带凭据 URL | ✅ `env.validate_base_url()`；CLI 启动与 `llm._get_client()` 双重校验；8 个测试 |
 | 输出隔离 | 工具结果入历史时必须包裹为「不可信数据」标记；外部 MCP 描述限长 | ✅ `<untrusted_tool_result>` 包裹 + 逃逸剔除 + 8KB 截断；外部描述 500 字符上限；SYSTEM_PROMPT 含不可信数据规则 |
 
-**加严点**：基线要求「工具白名单 + 参数校验 + 沙箱/审批」。本项目**不引入 SDK 审批/审批平台**，但唯一副作用工具 `write_workspace_file` 通过注入的 `approval_fn` + CLI y/N 做本地审批（未配置/非交互/EOF/超时/拒绝一律不执行），并配合路径白名单、env 清洗、预算与 allowlist；审批平台仍登记为豁免（第 9 节）。
+**加严点**：基线要求「工具白名单 + 参数校验 + 沙箱/审批」。本项目**不引入 SDK 审批/审批平台**，但内置唯一副作用工具 `write_workspace_file` 通过注入的 `approval_fn` + CLI y/N 做本地审批（未配置/非交互/EOF/超时/拒绝一律不执行），并配合应用层路径/大小约束（realpath、拒绝 `../`、symlink 检查；非 OS 级沙箱）、env 清洗、预算与 allowlist；外部 MCP 工具未统一接入 `requires_approval`（P1）；审批平台仍登记为豁免（第 9 节）。
 
 ### 4.5 可验证（Verifiable）
 
@@ -329,7 +330,7 @@
 | P0-1 | 无锁文件 / 无 `make check` / ruff 失败 | 可重复 + 可验证 | `uv.lock`、`.python-version`、`Makefile`、修 I001、纯格式化提交 | ✅ 已合并（`uv lock --check` 0；`make check` 0；CI 全绿） |
 | P0-2 | 缺 CI 与 0-skip 强制（当时） | 可重复 + 可验证 | GitHub Actions：MySQL service、`uv lock --check`、`make check`、`grep SKIPPED`、`eval-minimal` | ✅ 已合并（PR #1；当时 CI 100 passed / 0 skipped，当前数字见 [status.md](./status.md)） |
 | P0-3 | 无应用镜像、无体积门禁 | 可重复 | 多阶段 Dockerfile（非 root，core+mysql）、compose app profile、CI build + <400MB 门禁 | ✅ 已合并（PR #2；310MB、uid 10001、smoke EXIT=0） |
-| P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已合并**：每轮 1 条 turn 当时为 16 字段（12 核心 + 4 条件）；P0-1 后新增审批/幂等条件字段；`make report/trace` |
+| P0-4 | 无结构化日志 / trace / token 成本 / 脱敏 | 可观测 | 引入 `logging` JSON formatter；`turn_id/trace_id`；读 `resp.usage` 记账（含版本化定价表，未知模型 `null`）；`tool_logs` 写前 redact+截断 | **已合并**：每轮 1 条 turn 当时为 12 核心 + 4 个条件字段；P0-1 后新增审批/幂等条件字段；`make report/trace` |
 | P0-5 | 三个高危控制缺口：MCP 任意命令+继承 key、文档任意路径、DSN 异常未脱敏 | 可控制 | env 白名单 + `AGENTKERNEL_MCP_ALLOW`；`AGENTKERNEL_DOC_ROOTS` + 大小/数量/深度限制；异常路径过 `_redact_dsn`；3306 绑 `127.0.0.1` | **已合并（PR #5）**：profile 精确 argv + env 白名单；realpath 文档根（含 symlink 逃逸）；异常脱敏；compose 绑回环；15 个安全测试 |
 
 ### 8.2 P1（批二，按风险排序）
