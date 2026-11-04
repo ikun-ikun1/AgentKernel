@@ -34,20 +34,20 @@
 
 ---
 
-> **历史快照（2026-09，保留原文）**：以下简历与问答为当时表述，数字、路径和“自研”措辞不代表当前口径。
+> **历史快照（2026-09）**：以下简历与问答保留当时的数字与结构；项目名称和实现措辞已按当前口径统一。
 
 > 以下表述已通过本机 MySQL 测试（测试数量以 [../status.md](../status.md) 为准；含 3 个 MySQL 集成 + 1 个迁移往返 + 多进程一致性）和 mock 评估（5/5）验证。
 
 ## 项目描述（简历版）
 
-**AgentKernel · 自研 Agent 内核与知识库 MCP 工具**，Python，个人项目，独立完成
+**AgentKernel · 独立实现 Agent 内核与知识库 MCP 工具**，Python，个人项目，独立完成
 
 - **项目背景**：实习用 Claude Agent SDK 交付业务，但 Runtime 被框架封装；为学习底层，参考 agent-study 复现最小 Agent 内核，并参考 OpenClaw 的工具调用修复思路，围绕模型输出不稳定、知识库更新不可靠做改进。
 - **核心工作**：
-  - 自研 ReAct 主循环、工具注册、观察回灌、持久化记忆；MySQL 8 主存储，SQLAlchemy + Alembic 管理连接与迁移。
+  - 自行实现 ReAct 主循环、工具注册、观察回灌、持久化记忆；MySQL 8 主存储，SQLAlchemy + Alembic 管理连接与迁移。
   - 模型输出五层兜底（参考 OpenClaw）：提取 JSON、规范格式、工具名白名单、256KB 上限、降级纯文本；truncate/compact 防上下文超限。
   - RAG：MySQL ngram 关键词检索 + 可选 Chroma 语义检索，RRF 融合；向量不可用退回关键词，SHA-256 指纹增量更新。
-  - MCP：自研 Client（初始化、工具列表、调用）；Server 支持官方 SDK 或纯 stdio。
+  - MCP：自行实现 Client（初始化、工具列表、调用）；Server 支持官方 SDK 或纯 stdio。
 - **验证**：按「成功路径、失败路径、边界条件」设计测试，用假 LLM 固定模型输出；测试用例（数量以 [../status.md](../status.md) 为准；含 MySQL 集成、迁移往返与多进程一致性；无 DSN 时跳过 4 个 DSN 用例）、5 个 mock eval 通过；CLI 跑通多轮对话、工具调用、知识库带来源、坏 JSON 不崩。
 - **学习延伸**：学习 DeepSeek Harness 的 Profile/Bundle 声明式组装与 JSONL 会话事件日志/投影，思考可借鉴点。
 - **成果**：个人研究原型，未投入生产，与实习互补。
@@ -117,6 +117,6 @@ Workbench 是应用和治理层：Web、业务 Agent、审批、权限、会话�
 
 ### 9. DeepSeek Harness 对比延伸是怎么回事？
 
-完成自研 Runtime 后，学习本地 `dsh-handbook` / `deepseek-harness-handbook` 与官方包源码：dsh 用 Profile/Bundle/Patch 声明式组装、Cordis 扩展点、JSONL 会话事件日志与投影。收获是理解生产级框架的组装与容错设计，并思考哪些设计可借鉴到项目里。
+完成独立实现的 Runtime 后，学习本地 `dsh-handbook` / `deepseek-harness-handbook` 与官方包源码：dsh 用 Profile/Bundle/Patch 声明式组装、Cordis 扩展点、JSONL 会话事件日志与投影。收获是理解生产级框架的组装与容错设计，并思考哪些设计可借鉴到项目里。
 
 **代码位置**：`docs/Addendum/framework-comparison-deepseek-harness.md`。

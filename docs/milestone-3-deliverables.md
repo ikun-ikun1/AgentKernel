@@ -60,9 +60,9 @@
 
 ## 简历描述（定稿版）
 
-> **AgentKernel · 自研 Agent 内核与知识库 MCP 工具**（个人项目，独立完成）
+> **AgentKernel · 独立实现 Agent 内核与知识库 MCP 工具**（个人项目，独立完成）
 > - 项目背景：实习用 Claude Agent SDK 交付业务，但 Runtime 被框架封装；为学习底层，参考 agent-study 复现最小 Agent 内核，并参考 OpenClaw 的工具调用修复思路，围绕模型输出不稳定、知识库更新不可靠做改进。
-> - 核心工作：自研 ReAct 主循环、工具注册、观察回灌、持久化记忆；MySQL 8 主存储，SQLAlchemy + Alembic 管理连接与迁移；模型输出五层兜底（提取 JSON、规范格式、工具名白名单、256KB 上限、降级纯文本）与 truncate/compact 防上下文超限；RAG 用 MySQL ngram + 可选 Chroma，RRF 融合，向量不可用退回关键词，SHA-256 指纹增量更新；自研 MCP Client，Server 支持官方 SDK 或纯 stdio。
+> - 核心工作：自行实现 ReAct 主循环、工具注册、观察回灌、持久化记忆；MySQL 8 主存储，SQLAlchemy + Alembic 管理连接与迁移；模型输出五层兜底（提取 JSON、规范格式、工具名白名单、256KB 上限、降级纯文本）与 truncate/compact 防上下文超限；RAG 用 MySQL ngram + 可选 Chroma，RRF 融合，向量不可用退回关键词，SHA-256 指纹增量更新；自行实现 MCP Client，Server 支持官方 SDK 或纯 stdio。
 > - 验证：按「成功路径、失败路径、边界条件」设计测试，用假 LLM 固定模型输出；65 个默认用例、2 个 MySQL 集成测试真连 MySQL、5 个 mock eval 通过；CLI 跑通多轮对话、工具调用、知识库带来源、坏 JSON 不崩。
 > - 学习延伸：学习 DeepSeek Harness 的 Profile/Bundle 声明式组装与 JSONL 会话事件日志/投影，思考可借鉴点。
 > - 成果：个人研究原型，未投入生产，与实习互补。
