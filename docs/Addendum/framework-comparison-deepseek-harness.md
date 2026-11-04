@@ -12,7 +12,7 @@
 | 主循环 | `dsh-agent` / `dsh-agent-loop`，可被插件扩展 | 手写 ReAct，固定不可插拔 |
 | 会话 | JSONL 全量事件日志 + projection 投影（可回放/恢复/统计） | MySQL/SQLite 表：sessions/messages/tool_logs |
 | 工具 | 插件提供，工具面动态组合，sandbox/权限策略按调用解析 | 固定 Registry，allowlist + JSON Schema 校验 |
-| MCP | 作为工具/子代理生态接入 | 自实现 wire protocol，用于验证底层 |
+| MCP | 作为工具/子代理生态接入 | 自行实现 wire protocol，用于验证底层 |
 
 ## 2. dsh 的核心机制（应用开发视角）
 
@@ -32,10 +32,10 @@
 | 错误前提 | 适配器把「模型会犯错、网关会丢字段」当默认前提 | 与 AgentKernel 的 JSON 修复/allowlist/降级设计同源 |
 | 安全 | sandbox 策略按调用解析 | AgentKernel 只做到 allowlist + 只读工具 |
 
-**面试一句话**：完成自研 Runtime 后，研读 DeepSeek Harness 的插件化架构，理解生产级框架如何用 Profile/Bundle 声明式组装能力、用事件日志会话支持恢复与审计，反观 AgentKernel 固定 Runtime 的教学定位——两者目标不同，但底层对「模型不可靠」的防御思路一致。
+**面试一句话**：完成独立实现的 Runtime 后，研读 DeepSeek Harness 的插件化架构，理解生产级框架如何用 Profile/Bundle 声明式组装能力、用事件日志会话支持恢复与审计，反观 AgentKernel 固定 Runtime 的教学定位——两者目标不同，但底层对「模型不可靠」的防御思路一致。
 
 ## 4. 与简历 bullet 的对应
 
 简历中「框架对比延伸」一条可表述为：
 
-> 完成自研 Runtime 后，研读 DeepSeek Harness（dsh）插件化架构：Profile/Bundle 声明式组装、Cordis 扩展点、JSONL 会话投影与 DeepSeek 适配器推理链回传，对比 AgentKernel 固定 Runtime 的教学定位，理解生产级 Agent 框架的组装与容错设计。
+> 完成独立实现的 Runtime 后，研读 DeepSeek Harness（dsh）插件化架构：Profile/Bundle 声明式组装、Cordis 扩展点、JSONL 会话投影与 DeepSeek 适配器推理链回传，对比 AgentKernel 固定 Runtime 的教学定位，理解生产级 Agent 框架的组装与容错设计。

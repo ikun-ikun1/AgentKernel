@@ -92,7 +92,7 @@ MySQL 负责会话、消息、工具日志、文档元数据和文档 Chunk；Ch
 | 模块 | 职责 |
 |------|------|
 | `runtime/agent.py` | ReAct 主循环 + 上下文管理（truncate/compact，编排核心） |
-| `runtime/llm.py` | DeepSeek 调用封装，统一 `chat(messages) -> str` |
+| `adapters/llm/openai_compatible.py` | DeepSeek 调用封装，统一 `chat(messages) -> str` |
 | `tools/contracts.py` | 工具调用协议契约（结构定义 + 工具名允许清单） |
 | `tools/registry.py` | 工具注册、纯 Python JSON Schema 校验、错误处理 |
 | `tools/json_repair.py` | 非法 JSON 三层修复（提取 → 修复 → 降级 + payload 上限） |
@@ -209,7 +209,7 @@ MySQL 负责会话、消息、工具日志、文档元数据和文档 Chunk；Ch
 
 ## 7. 时间控制规则
 
-个人项目，优先保证演示闭环。遇到以下情况立即收窄范围：
+个人项目，优先保证端到端演示。遇到以下情况立即收窄范围：
 
 1. 单个功能连续投入超过 2 小时仍未跑通。
 2. 需要研究大量框架内部实现。
@@ -229,6 +229,6 @@ MySQL 负责会话、消息、工具日志、文档元数据和文档 Chunk；Ch
 1. 能清楚解释为什么参考 agent-study 复现、不套框架。
 2. 能清楚解释 ReAct 循环和工具调用失败怎么处理。
 3. 能清楚解释上下文太长为什么忘事、怎么截断/压缩。
-4. 能用测试或 eval 证明「多轮 → 工具 → MCP → 坏 JSON 不崩」闭环。
+4. 能用测试或 eval 证明「多轮 → 工具 → MCP → 坏 JSON 不崩」端到端覆盖。
 5. 能说明检索实验与 Workbench 业务知识库的边界：前者用于验证机制，后者是业务应用。
 6. 能从原理、工程、协议、数据一致性和面试五个角度讲清楚项目。

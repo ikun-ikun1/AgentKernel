@@ -1,6 +1,6 @@
 # AgentKernel
 
-> 一个从零实现 ReAct Runtime、Tool Calling、MCP 协议与持久化检索的 **Python CLI 研究原型**；按「可上生产」的工程标准建设（门禁、可观测、可回滚、安全边界），但不发布为在线服务。
+> 一个不依赖 Agent 框架、参考公开实现自行实现 ReAct Runtime、Tool Calling、MCP 协议与持久化检索的 **Python CLI 研究原型**；按生产标准建设（门禁、可观测、可回滚、安全边界），但不发布为在线服务。
 
 [![CI](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml/badge.svg)](https://github.com/ikun-ikun1/AgentKernel/actions/workflows/ci.yml)
 [项目状态](docs/status.md) · [生产问题](docs/production-problems.md) · [生产标准](docs/production-standard.md) · [差距分析](docs/production-standard-gap.md) · [架构 ADR](docs/Addendum/adr-003-production-architecture.md) · [Runbook](docs/runbook.md) · [变更记录](CHANGELOG.md) · [架构图](docs/architecture.png)
@@ -111,7 +111,7 @@ CLI 内置命令：`/new`、`/sessions`、`/history`、`/ingest <路径>`、`/do
 | 模块 | 职责 |
 |---|---|
 | `runtime/agent.py` | ReAct 主循环 + 上下文策略 + 观测事件 |
-| `runtime/llm.py` | DeepSeek（OpenAI 兼容）调用封装，捕获 usage |
+| `adapters/llm/openai_compatible.py` | DeepSeek（OpenAI 兼容）调用封装，捕获 usage |
 | `tools/` | registry、contracts、json_repair、builtin |
 | `memory/` | Store 接口、MySQL 主存储、SQLite 测试适配器 |
 | `rag/` | 解析、增量入库、ngram/向量检索、来源元数据 |

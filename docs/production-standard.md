@@ -47,7 +47,7 @@
 
 | 项 | 内容 | 证据 |
 |---|---|---|
-| 项目类型 | **Python CLI 研究原型**：自研 Agent Runtime（ReAct）+ Tool Registry + 自实现 MCP client/server + 可选 RAG。不是 Web 服务、不是库、不是数据管道 | `README.md:48-58`、`docs/technical-scope-and-boundary.md:66-104` |
+| 项目类型 | **Python CLI 研究原型**：独立实现 Agent Runtime（ReAct）+ Tool Registry + 自行实现 MCP client/server + 可选 RAG。不是 Web 服务、不是库、不是数据管道 | `README.md:48-58`、`docs/technical-scope-and-boundary.md:66-104` |
 | 使用者 | 作者本人（开发/演示/面试）；次要使用者是「按 README 复现的评审者」 | `README.md:166-196` 快速开始；`docs/milestone-3-deliverables.md:68-74`「陌生人照着 README 能跑起来」 |
 | 租户模型 | **无租户**。会话（session）是唯一隔离单位，且 CLI 不提供指定他人会话的入口 | `src/agentkernel/__main__.py:118,151`；`src/agentkernel/memory/base.py:14-49` |
 | 关键用户旅程 | 见 1.1（5 条） | — |

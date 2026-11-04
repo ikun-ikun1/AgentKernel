@@ -1,15 +1,15 @@
 # 简历与面试材料
 
-> **历史文档（2026 年快照）**：命令与数字为当时状态；当前状态见 [../status.md](../status.md)。
-> 投递请使用下面的「当前版（v0.5.0）」；历史快照保留用于展示演进。
+> **文档结构**：当前版（v0.5.0）之后为 2026-09 历史快照，命令与数字为当时状态。当前状态见 [../status.md](../status.md)。
+> 投递请使用「当前版（v0.5.0）」；历史快照保留用于展示演进。
 
 ## 当前版（v0.5.0，2026-10-31，投递用）
 
 > 下面这版数字与命令以 [status.md](../status.md) 为准；本文件后面的内容是 2026-09 历史快照，仅用于看演进。
 
-**AgentKernel · 自研 Agent Runtime + 知识库 MCP（Python，个人项目）**
+**AgentKernel · 独立实现 Agent Runtime + 知识库 MCP（Python，个人项目）**
 
-- 从零实现 ReAct Runtime、工具调用、MCP client/server、MySQL 会话/审计、RAG 检索与合并；不依赖 Agent 框架。
+- 不依赖 Agent 框架，参考公开实现自行实现 ReAct Runtime、工具调用、MCP client/server、MySQL 会话/审计、RAG 检索与合并。
 - 按「真实失败模式 → 设计取舍 → 测试/评测证据 → 剩余风险」推进：坏 JSON/未知工具、上下文膨胀、多进程丢更新、RAG 新鲜度、MCP/路径/密钥边界、迁移回滚、可重复交付。
 - 架构按 ports & adapters 落地：LLM/Memory/MCP 端口注入，Agent 184 行 facade，RAG/MCP/CLI 拆分；canonical import 路径稳定，v0.4.0 删除兼容 shim（Breaking，迁移表可查）。
 - 质量证据：**227 tests**、覆盖率 **84.87%**、CI MySQL 8 + 0 skip、mock eval 50/50、600 条 fuzz 语料 0 崩溃、make doctor 7 项、备份/恢复演练 PASS、镜像 digest 固定。
@@ -34,7 +34,7 @@
 
 ---
 
-
+> **历史快照（2026-09，保留原文）**：以下简历与问答为当时表述，数字、路径和“自研”措辞不代表当前口径。
 
 > 以下表述已通过本机 MySQL 测试（测试数量以 [../status.md](../status.md) 为准；含 3 个 MySQL 集成 + 1 个迁移往返 + 多进程一致性）和 mock 评估（5/5）验证。
 
